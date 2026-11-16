@@ -8,6 +8,11 @@ syntax = "proto3";
 // from the one file with an openapiv2_swagger option, so that option lives
 // here and nowhere else. See docs/api/README.md for the conventions the
 // description summarises.
+//
+// Per-operation text comes from each RPC's comment: protoc-gen-openapiv2 uses
+// the first paragraph as the summary and the rest as the description, and an
+// openapiv2_operation summary or description would replace them. RPC options
+// therefore carry only what comments cannot: tags and security.
 package skein.v1;
 
 import "protoc-gen-openapiv2/options/annotations.proto";

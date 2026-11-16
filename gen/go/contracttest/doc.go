@@ -11,7 +11,8 @@
 //     streaming (no route, documented in docs/api/websocket.md) or
 //     browser-facing (exactly one route, no additional bindings).
 //   - Routes are unique, and gen/openapi/skein.swagger.json has exactly one
-//     operation per route, with a summary and a tag, and nothing else.
+//     operation per route, with a summary (the first paragraph of the RPC's
+//     comment) and a tag, and nothing else.
 //   - Every route appears, as "`VERB /path`", on its service's page in
 //     docs/api, with a response example and, when it has a body, a request
 //     example.

@@ -21,56 +21,49 @@ service AgentService {
     description: "Chats with the agent, its runs and confirmations (ADR-0009)."
   };
 
+  // Start a chat
   rpc CreateChat(CreateChatRequest) returns (CreateChatResponse) {
     option (google.api.http) = {
       post: "/v1/workspaces/{workspace_id}/chats"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Start a chat"
-      tags: "Agent"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
   }
+  // List chats
   rpc ListChats(ListChatsRequest) returns (ListChatsResponse) {
     option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/chats"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List chats"
-      tags: "Agent"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
   }
   // Sends a user message and streams the run: steps, tool calls, text,
   // confirmation requests and the final answer.
   rpc SendMessage(SendMessageRequest) returns (stream SendMessageResponse);
+  // Answer a confirmation request
+  //
   // Answers a confirmation request; the paused run continues or stops.
+  // Answering the same confirmation twice returns FAILED_PRECONDITION.
   rpc Confirm(ConfirmRequest) returns (ConfirmResponse) {
     option (google.api.http) = {
       post: "/v1/runs/{run_id}:confirm"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Answer a confirmation request"
-      description: "Answering the same confirmation twice returns FAILED_PRECONDITION."
-      tags: "Agent"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
   }
+  // Cancel a run
+  //
   // Stops a run at its next step. Cancelling a finished run does nothing.
   rpc CancelRun(CancelRunRequest) returns (CancelRunResponse) {
     option (google.api.http) = {
       post: "/v1/runs/{run_id}:cancel"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Cancel a run"
-      tags: "Agent"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
   }
+  // Get a run's trace
+  //
   // The stored trace of a run: every event it streamed, in order.
   rpc GetRun(GetRunRequest) returns (GetRunResponse) {
     option (google.api.http) = {get: "/v1/runs/{run_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Get a run's trace"
-      tags: "Agent"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
   }
 }
 

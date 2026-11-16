@@ -49,26 +49,50 @@ const (
 // IssueDelegatedToken are internal: only other services call them, so they
 // have no HTTP mapping and the gateway never routes to them.
 type IdentityServiceClient interface {
+	// Sign up
+	//
 	// Creates an account with email and password and signs it in.
 	SignUp(ctx context.Context, in *SignUpRequest, opts ...grpc.CallOption) (*SignUpResponse, error)
+	// Sign in with a password
+	//
 	// Signs in with email and password.
 	SignIn(ctx context.Context, in *SignInRequest, opts ...grpc.CallOption) (*SignInResponse, error)
+	// Sign in with OAuth
+	//
 	// Exchanges an OAuth authorization code (Google, GitHub) for a session.
 	SignInWithOAuth(ctx context.Context, in *SignInWithOAuthRequest, opts ...grpc.CallOption) (*SignInWithOAuthResponse, error)
-	// Rotates the refresh token and issues a new access token.
+	// Refresh a session
+	//
+	// Rotates the refresh token and issues a new access token. The old refresh
+	// token stops working; presenting an already-rotated one is treated as
+	// theft and revokes the session.
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*RefreshResponse, error)
-	// Revokes the session that owns the refresh token.
+	// Sign out
+	//
+	// Revokes the session that owns the refresh token. The refresh token is
+	// the credential, so an expired access token does not prevent signing out.
 	SignOut(ctx context.Context, in *SignOutRequest, opts ...grpc.CallOption) (*SignOutResponse, error)
+	// Get a user
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+	// Create a workspace
+	//
 	// Creates a workspace owned by the caller.
 	CreateWorkspace(ctx context.Context, in *CreateWorkspaceRequest, opts ...grpc.CallOption) (*CreateWorkspaceResponse, error)
+	// List workspace members
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
+	// Set a member's workspace role
+	//
 	// Adds a member with a role, or changes an existing member's role.
 	SetWorkspaceRole(ctx context.Context, in *SetWorkspaceRoleRequest, opts ...grpc.CallOption) (*SetWorkspaceRoleResponse, error)
+	// Remove a workspace member
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	// Set a user's role on a note
+	//
 	// Sets or clears a per-note role override for one user.
 	SetNoteRole(ctx context.Context, in *SetNoteRoleRequest, opts ...grpc.CallOption) (*SetNoteRoleResponse, error)
+	// Create a share link
 	CreateShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error)
+	// Revoke a share link
 	RevokeShareLink(ctx context.Context, in *RevokeShareLinkRequest, opts ...grpc.CallOption) (*RevokeShareLinkResponse, error)
 	// Internal. Checks many (action, resource) pairs for one subject in one
 	// call. Every service calls this, with a short cache, before acting.
@@ -79,9 +103,15 @@ type IdentityServiceClient interface {
 	// Internal. Issues a short-lived token for an agent run acting as the user
 	// (ADR-0009). Only the agent service may call it.
 	IssueDelegatedToken(ctx context.Context, in *IssueDelegatedTokenRequest, opts ...grpc.CallOption) (*IssueDelegatedTokenResponse, error)
+	// Register a CRDT replica
+	//
 	// Records that a CRDT replica ID belongs to the calling user (ADR-0004).
 	// Browser-facing: each device mints its replica ID in IndexedDB and
-	// registers it before its first sync.
+	// registers it before its first sync. Documents accepts operations from a
+	// replica only on connections authenticated as the user who registered it,
+	// so blame cannot be forged. Registering an ID the caller already owns
+	// succeeds; one owned by someone else fails with ALREADY_EXISTS and the
+	// client must mint a new ID.
 	RegisterReplica(ctx context.Context, in *RegisterReplicaRequest, opts ...grpc.CallOption) (*RegisterReplicaResponse, error)
 }
 
@@ -272,26 +302,50 @@ func (c *identityServiceClient) RegisterReplica(ctx context.Context, in *Registe
 // IssueDelegatedToken are internal: only other services call them, so they
 // have no HTTP mapping and the gateway never routes to them.
 type IdentityServiceServer interface {
+	// Sign up
+	//
 	// Creates an account with email and password and signs it in.
 	SignUp(context.Context, *SignUpRequest) (*SignUpResponse, error)
+	// Sign in with a password
+	//
 	// Signs in with email and password.
 	SignIn(context.Context, *SignInRequest) (*SignInResponse, error)
+	// Sign in with OAuth
+	//
 	// Exchanges an OAuth authorization code (Google, GitHub) for a session.
 	SignInWithOAuth(context.Context, *SignInWithOAuthRequest) (*SignInWithOAuthResponse, error)
-	// Rotates the refresh token and issues a new access token.
+	// Refresh a session
+	//
+	// Rotates the refresh token and issues a new access token. The old refresh
+	// token stops working; presenting an already-rotated one is treated as
+	// theft and revokes the session.
 	Refresh(context.Context, *RefreshRequest) (*RefreshResponse, error)
-	// Revokes the session that owns the refresh token.
+	// Sign out
+	//
+	// Revokes the session that owns the refresh token. The refresh token is
+	// the credential, so an expired access token does not prevent signing out.
 	SignOut(context.Context, *SignOutRequest) (*SignOutResponse, error)
+	// Get a user
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+	// Create a workspace
+	//
 	// Creates a workspace owned by the caller.
 	CreateWorkspace(context.Context, *CreateWorkspaceRequest) (*CreateWorkspaceResponse, error)
+	// List workspace members
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
+	// Set a member's workspace role
+	//
 	// Adds a member with a role, or changes an existing member's role.
 	SetWorkspaceRole(context.Context, *SetWorkspaceRoleRequest) (*SetWorkspaceRoleResponse, error)
+	// Remove a workspace member
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	// Set a user's role on a note
+	//
 	// Sets or clears a per-note role override for one user.
 	SetNoteRole(context.Context, *SetNoteRoleRequest) (*SetNoteRoleResponse, error)
+	// Create a share link
 	CreateShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error)
+	// Revoke a share link
 	RevokeShareLink(context.Context, *RevokeShareLinkRequest) (*RevokeShareLinkResponse, error)
 	// Internal. Checks many (action, resource) pairs for one subject in one
 	// call. Every service calls this, with a short cache, before acting.
@@ -302,9 +356,15 @@ type IdentityServiceServer interface {
 	// Internal. Issues a short-lived token for an agent run acting as the user
 	// (ADR-0009). Only the agent service may call it.
 	IssueDelegatedToken(context.Context, *IssueDelegatedTokenRequest) (*IssueDelegatedTokenResponse, error)
+	// Register a CRDT replica
+	//
 	// Records that a CRDT replica ID belongs to the calling user (ADR-0004).
 	// Browser-facing: each device mints its replica ID in IndexedDB and
-	// registers it before its first sync.
+	// registers it before its first sync. Documents accepts operations from a
+	// replica only on connections authenticated as the user who registered it,
+	// so blame cannot be forged. Registering an ID the caller already owns
+	// succeeds; one owned by someone else fails with ALREADY_EXISTS and the
+	// client must mint a new ID.
 	RegisterReplica(context.Context, *RegisterReplicaRequest) (*RegisterReplicaResponse, error)
 	mustEmbedUnimplementedIdentityServiceServer()
 }

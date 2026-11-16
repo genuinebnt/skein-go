@@ -52,14 +52,21 @@ class SearchServiceServicer:
     """
 
     def Search(self, request, context):
-        """Searches block text in one workspace.
+        """Search a workspace
+
+        Searches block text in one workspace. Text mode is typo-tolerant word
+        and phrase search. Regex mode runs an RE2 regular expression over block
+        text, using the trigram index to pick candidate blocks; candidates and
+        matched in the response show how selective the index was.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SuggestTitles(self, request, context):
-        """Typo-tolerant title completion for the command palette and [[links]].
+        """Suggest note titles
+
+        Typo-tolerant title completion for the command palette and [[links]].
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -192,44 +199,55 @@ class GraphServiceServicer:
     """
 
     def GetLinkGraph(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Get the link graph
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def AnalyzeGraph(self, request, context):
-        """Algorithms that need no parameter, over the whole readable graph.
+        """Analyze the link graph
+
+        Algorithms that need no parameter, over the whole readable graph.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def BlastRadius(self, request, context):
-        """The notes within reach of a note, by hop, in the requested direction.
-        By default the direction is BLAST_DIRECTION_CITED_BY: the notes that
-        link to this one, directly or transitively, which are the notes affected
-        if this one changes.
+        """Get a note's blast radius
+
+        The notes within reach of a note, by hop, in the requested direction. By
+        default the direction is BLAST_DIRECTION_CITED_BY: the notes that link to
+        this one, directly or transitively, which are the notes affected if this
+        one changes.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ShortestPath(self, request, context):
-        """The cheapest path between two notes under a metric.
+        """Find the shortest path between two notes
+
+        The cheapest path between two notes under a metric.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ReadingPath(self, request, context):
-        """What to read before a note, in order.
+        """Get the reading path to a note
+
+        What to read before a note, in order.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ReadingPlan(self, request, context):
-        """The best set of notes on a topic for a time budget, respecting
+        """Plan reading on a topic within a time budget
+
+        The best set of notes on a topic for a time budget, respecting
         prerequisites (a knapsack solved by dynamic programming).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

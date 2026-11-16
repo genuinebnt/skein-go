@@ -32,8 +32,15 @@ const (
 //
 // REST routes are listed in docs/api/search.md.
 type SearchServiceClient interface {
-	// Searches block text in one workspace.
+	// Search a workspace
+	//
+	// Searches block text in one workspace. Text mode is typo-tolerant word
+	// and phrase search. Regex mode runs an RE2 regular expression over block
+	// text, using the trigram index to pick candidate blocks; candidates and
+	// matched in the response show how selective the index was.
 	Search(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchResponse, error)
+	// Suggest note titles
+	//
 	// Typo-tolerant title completion for the command palette and [[links]].
 	SuggestTitles(ctx context.Context, in *SuggestTitlesRequest, opts ...grpc.CallOption) (*SuggestTitlesResponse, error)
 }
@@ -72,8 +79,15 @@ func (c *searchServiceClient) SuggestTitles(ctx context.Context, in *SuggestTitl
 //
 // REST routes are listed in docs/api/search.md.
 type SearchServiceServer interface {
-	// Searches block text in one workspace.
+	// Search a workspace
+	//
+	// Searches block text in one workspace. Text mode is typo-tolerant word
+	// and phrase search. Regex mode runs an RE2 regular expression over block
+	// text, using the trigram index to pick candidate blocks; candidates and
+	// matched in the response show how selective the index was.
 	Search(context.Context, *SearchRequest) (*SearchResponse, error)
+	// Suggest note titles
+	//
 	// Typo-tolerant title completion for the command palette and [[links]].
 	SuggestTitles(context.Context, *SuggestTitlesRequest) (*SuggestTitlesResponse, error)
 	mustEmbedUnimplementedSearchServiceServer()
@@ -184,18 +198,29 @@ const (
 //
 // REST routes are listed in docs/api/graph.md.
 type GraphServiceClient interface {
+	// Get the link graph
 	GetLinkGraph(ctx context.Context, in *GetLinkGraphRequest, opts ...grpc.CallOption) (*GetLinkGraphResponse, error)
+	// Analyze the link graph
+	//
 	// Algorithms that need no parameter, over the whole readable graph.
 	AnalyzeGraph(ctx context.Context, in *AnalyzeGraphRequest, opts ...grpc.CallOption) (*AnalyzeGraphResponse, error)
-	// The notes within reach of a note, by hop, in the requested direction.
-	// By default the direction is BLAST_DIRECTION_CITED_BY: the notes that
-	// link to this one, directly or transitively, which are the notes affected
-	// if this one changes.
+	// Get a note's blast radius
+	//
+	// The notes within reach of a note, by hop, in the requested direction. By
+	// default the direction is BLAST_DIRECTION_CITED_BY: the notes that link to
+	// this one, directly or transitively, which are the notes affected if this
+	// one changes.
 	BlastRadius(ctx context.Context, in *BlastRadiusRequest, opts ...grpc.CallOption) (*BlastRadiusResponse, error)
+	// Find the shortest path between two notes
+	//
 	// The cheapest path between two notes under a metric.
 	ShortestPath(ctx context.Context, in *ShortestPathRequest, opts ...grpc.CallOption) (*ShortestPathResponse, error)
+	// Get the reading path to a note
+	//
 	// What to read before a note, in order.
 	ReadingPath(ctx context.Context, in *ReadingPathRequest, opts ...grpc.CallOption) (*ReadingPathResponse, error)
+	// Plan reading on a topic within a time budget
+	//
 	// The best set of notes on a topic for a time budget, respecting
 	// prerequisites (a knapsack solved by dynamic programming).
 	ReadingPlan(ctx context.Context, in *ReadingPlanRequest, opts ...grpc.CallOption) (*ReadingPlanResponse, error)
@@ -275,18 +300,29 @@ func (c *graphServiceClient) ReadingPlan(ctx context.Context, in *ReadingPlanReq
 //
 // REST routes are listed in docs/api/graph.md.
 type GraphServiceServer interface {
+	// Get the link graph
 	GetLinkGraph(context.Context, *GetLinkGraphRequest) (*GetLinkGraphResponse, error)
+	// Analyze the link graph
+	//
 	// Algorithms that need no parameter, over the whole readable graph.
 	AnalyzeGraph(context.Context, *AnalyzeGraphRequest) (*AnalyzeGraphResponse, error)
-	// The notes within reach of a note, by hop, in the requested direction.
-	// By default the direction is BLAST_DIRECTION_CITED_BY: the notes that
-	// link to this one, directly or transitively, which are the notes affected
-	// if this one changes.
+	// Get a note's blast radius
+	//
+	// The notes within reach of a note, by hop, in the requested direction. By
+	// default the direction is BLAST_DIRECTION_CITED_BY: the notes that link to
+	// this one, directly or transitively, which are the notes affected if this
+	// one changes.
 	BlastRadius(context.Context, *BlastRadiusRequest) (*BlastRadiusResponse, error)
+	// Find the shortest path between two notes
+	//
 	// The cheapest path between two notes under a metric.
 	ShortestPath(context.Context, *ShortestPathRequest) (*ShortestPathResponse, error)
+	// Get the reading path to a note
+	//
 	// What to read before a note, in order.
 	ReadingPath(context.Context, *ReadingPathRequest) (*ReadingPathResponse, error)
+	// Plan reading on a topic within a time budget
+	//
 	// The best set of notes on a topic for a time budget, respecting
 	// prerequisites (a knapsack solved by dynamic programming).
 	ReadingPlan(context.Context, *ReadingPlanRequest) (*ReadingPlanResponse, error)

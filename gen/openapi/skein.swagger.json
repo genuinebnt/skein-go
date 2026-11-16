@@ -52,6 +52,7 @@
     "/v1/notes/{from}/shortest-path/{to}": {
       "get": {
         "summary": "Find the shortest path between two notes",
+        "description": "The cheapest path between two notes under a metric.",
         "operationId": "GraphService_ShortestPath",
         "responses": {
           "200": {
@@ -176,6 +177,7 @@
       },
       "delete": {
         "summary": "Move a note to the trash",
+        "description": "Moves a note to the trash. Restorable until purged.",
         "operationId": "DocumentService_DeleteNote",
         "responses": {
           "200": {
@@ -225,6 +227,7 @@
     "/v1/notes/{noteId}/blame": {
       "get": {
         "summary": "Blame a note",
+        "description": "Who wrote each span of the current text.",
         "operationId": "DocumentService_Blame",
         "responses": {
           "200": {
@@ -274,6 +277,7 @@
     "/v1/notes/{noteId}/blast-radius": {
       "get": {
         "summary": "Get a note's blast radius",
+        "description": "The notes within reach of a note, by hop, in the requested direction. By\ndefault the direction is BLAST_DIRECTION_CITED_BY: the notes that link to\nthis one, directly or transitively, which are the notes affected if this\none changes.",
         "operationId": "GraphService_BlastRadius",
         "responses": {
           "200": {
@@ -344,7 +348,7 @@
     "/v1/notes/{noteId}/ops": {
       "post": {
         "summary": "Apply a batch of CRDT operations",
-        "description": "For clients that do not hold a sync WebSocket open, such as imports. Operations are idempotent: re-sending a batch already applied changes nothing, so a retry is always safe. The whole batch is refused with PERMISSION_DENIED if the caller may not edit the note.",
+        "description": "Applies a batch of CRDT operations from a client that is not streaming\n(the agent, imports, tests). Operations are idempotent: re-sending a\nbatch already applied changes nothing, so a retry is always safe. The\nwhole batch is refused with PERMISSION_DENIED if the caller may not edit\nthe note.",
         "operationId": "DocumentService_ApplyOps",
         "responses": {
           "200": {
@@ -402,6 +406,7 @@
     "/v1/notes/{noteId}/reading-path": {
       "get": {
         "summary": "Get the reading path to a note",
+        "description": "What to read before a note, in order.",
         "operationId": "GraphService_ReadingPath",
         "responses": {
           "200": {
@@ -451,6 +456,7 @@
     "/v1/notes/{noteId}/related": {
       "get": {
         "summary": "Discover related notes",
+        "description": "Related notes with three separate signals, never one blended score.",
         "operationId": "MLService_Discover",
         "responses": {
           "200": {
@@ -508,6 +514,7 @@
     "/v1/notes/{noteId}/roles/{userId}": {
       "put": {
         "summary": "Set a user's role on a note",
+        "description": "Sets or clears a per-note role override for one user.",
         "operationId": "IdentityService_SetNoteRole",
         "responses": {
           "200": {
@@ -692,6 +699,7 @@
     "/v1/notes/{noteId}:diff": {
       "post": {
         "summary": "Diff two versions of a note",
+        "description": "Text differences between two versions of a note.",
         "operationId": "DocumentService_Diff",
         "responses": {
           "200": {
@@ -749,6 +757,7 @@
     "/v1/notes/{noteId}:redo": {
       "post": {
         "summary": "Redo the caller's last undone change",
+        "description": "Re-applies the change group most recently undone by Undo.",
         "operationId": "DocumentService_Redo",
         "responses": {
           "200": {
@@ -863,6 +872,7 @@
     "/v1/notes/{noteId}:restore": {
       "post": {
         "summary": "Restore a note from the trash",
+        "description": "Takes a note out of the trash.",
         "operationId": "DocumentService_RestoreNote",
         "responses": {
           "200": {
@@ -920,6 +930,7 @@
     "/v1/notes/{noteId}:textAt": {
       "post": {
         "summary": "Get a note's text at a version",
+        "description": "The note's Markdown as it was at a version.",
         "operationId": "DocumentService_GetTextAt",
         "responses": {
           "200": {
@@ -977,7 +988,7 @@
     "/v1/notes/{noteId}:undo": {
       "post": {
         "summary": "Undo the caller's last change",
-        "description": "Returns the inverse operations and applies them. Not idempotent: each call undoes one more change group, so send an Idempotency-Key when retrying.",
+        "description": "Generates operations that undo the caller's last change group in a note,\nleaving other people's edits alone, applies them and returns them. Not\nidempotent: each call undoes one more change group, so send an\nIdempotency-Key when retrying.",
         "operationId": "DocumentService_Undo",
         "responses": {
           "200": {
@@ -1074,6 +1085,7 @@
       },
       "put": {
         "summary": "Update notification preferences",
+        "description": "Replaces the preferences for the kinds listed; kinds not listed keep their\ncurrent setting.",
         "operationId": "NotificationService_UpdatePreferences",
         "responses": {
           "200": {
@@ -1190,6 +1202,7 @@
     "/v1/notifications:markRead": {
       "post": {
         "summary": "Mark notifications as read",
+        "description": "Marks notifications as read. IDs that are already read, or unknown, are\nignored, so the call is idempotent.",
         "operationId": "NotificationService_MarkRead",
         "responses": {
           "200": {
@@ -1241,7 +1254,7 @@
     "/v1/replicas": {
       "post": {
         "summary": "Register a CRDT replica",
-        "description": "Binds a replica ID to the caller. The documents service accepts operations from a replica only on connections authenticated as the user who registered it, so blame cannot be forged. Registering an ID already owned by the caller succeeds; one owned by someone else fails with ALREADY_EXISTS and the client must mint a new ID.",
+        "description": "Records that a CRDT replica ID belongs to the calling user (ADR-0004).\nBrowser-facing: each device mints its replica ID in IndexedDB and\nregisters it before its first sync. Documents accepts operations from a\nreplica only on connections authenticated as the user who registered it,\nso blame cannot be forged. Registering an ID the caller already owns\nsucceeds; one owned by someone else fails with ALREADY_EXISTS and the\nclient must mint a new ID.",
         "operationId": "IdentityService_RegisterReplica",
         "responses": {
           "200": {
@@ -1293,6 +1306,7 @@
     "/v1/runs/{runId}": {
       "get": {
         "summary": "Get a run's trace",
+        "description": "The stored trace of a run: every event it streamed, in order.",
         "operationId": "AgentService_GetRun",
         "responses": {
           "200": {
@@ -1342,6 +1356,7 @@
     "/v1/runs/{runId}:cancel": {
       "post": {
         "summary": "Cancel a run",
+        "description": "Stops a run at its next step. Cancelling a finished run does nothing.",
         "operationId": "AgentService_CancelRun",
         "responses": {
           "200": {
@@ -1399,7 +1414,7 @@
     "/v1/runs/{runId}:confirm": {
       "post": {
         "summary": "Answer a confirmation request",
-        "description": "Answering the same confirmation twice returns FAILED_PRECONDITION.",
+        "description": "Answers a confirmation request; the paused run continues or stops.\nAnswering the same confirmation twice returns FAILED_PRECONDITION.",
         "operationId": "AgentService_Confirm",
         "responses": {
           "200": {
@@ -1457,6 +1472,7 @@
     "/v1/sessions": {
       "post": {
         "summary": "Sign in with a password",
+        "description": "Signs in with email and password.",
         "operationId": "IdentityService_SignIn",
         "responses": {
           "200": {
@@ -1509,6 +1525,7 @@
     "/v1/sessions:oauth": {
       "post": {
         "summary": "Sign in with OAuth",
+        "description": "Exchanges an OAuth authorization code (Google, GitHub) for a session.",
         "operationId": "IdentityService_SignInWithOAuth",
         "responses": {
           "200": {
@@ -1561,7 +1578,7 @@
     "/v1/sessions:refresh": {
       "post": {
         "summary": "Refresh a session",
-        "description": "Rotates the refresh token: the old one stops working and the response carries a new pair. Presenting an already-rotated refresh token revokes the whole session family.",
+        "description": "Rotates the refresh token and issues a new access token. The old refresh\ntoken stops working; presenting an already-rotated one is treated as\ntheft and revokes the session.",
         "operationId": "IdentityService_Refresh",
         "responses": {
           "200": {
@@ -1614,7 +1631,7 @@
     "/v1/sessions:signOut": {
       "post": {
         "summary": "Sign out",
-        "description": "The refresh token is the credential, so an expired access token does not prevent signing out.",
+        "description": "Revokes the session that owns the refresh token. The refresh token is\nthe credential, so an expired access token does not prevent signing out.",
         "operationId": "IdentityService_SignOut",
         "responses": {
           "200": {
@@ -1716,6 +1733,7 @@
     "/v1/users": {
       "post": {
         "summary": "Sign up",
+        "description": "Creates an account with email and password and signs it in.",
         "operationId": "IdentityService_SignUp",
         "responses": {
           "200": {
@@ -1817,6 +1835,7 @@
     "/v1/workspaces": {
       "post": {
         "summary": "Create a workspace",
+        "description": "Creates a workspace owned by the caller.",
         "operationId": "IdentityService_CreateWorkspace",
         "responses": {
           "200": {
@@ -2036,7 +2055,7 @@
     "/v1/workspaces/{workspaceId}/clusters:benchmark": {
       "post": {
         "summary": "Benchmark clustering algorithms",
-        "description": "Expensive: runs every requested algorithm `runs` times on the workspace's embeddings, so it counts against the agent rate-limit budget.",
+        "description": "Runs clustering algorithms side by side on the workspace's embeddings.\nExpensive (every algorithm runs `runs` times), so it counts against the\nagent rate-limit budget.",
         "operationId": "MLService_BenchmarkClustering",
         "responses": {
           "200": {
@@ -2143,6 +2162,7 @@
     "/v1/workspaces/{workspaceId}/graph/analysis": {
       "get": {
         "summary": "Analyze the link graph",
+        "description": "Algorithms that need no parameter, over the whole readable graph.",
         "operationId": "GraphService_AnalyzeGraph",
         "responses": {
           "200": {
@@ -2309,6 +2329,7 @@
       },
       "put": {
         "summary": "Set a member's workspace role",
+        "description": "Adds a member with a role, or changes an existing member's role.",
         "operationId": "IdentityService_SetWorkspaceRole",
         "responses": {
           "200": {
@@ -2498,6 +2519,7 @@
     "/v1/workspaces/{workspaceId}/reading-plan": {
       "get": {
         "summary": "Plan reading on a topic within a time budget",
+        "description": "The best set of notes on a topic for a time budget, respecting\nprerequisites (a knapsack solved by dynamic programming).",
         "operationId": "GraphService_ReadingPlan",
         "responses": {
           "200": {
@@ -2562,7 +2584,7 @@
     "/v1/workspaces/{workspaceId}/search": {
       "get": {
         "summary": "Search a workspace",
-        "description": "Text mode is typo-tolerant word and phrase search. Regex mode runs an RE2 regular expression over block text, using the trigram index to pick candidate blocks; candidates and matched in the response show how selective the index was.",
+        "description": "Searches block text in one workspace. Text mode is typo-tolerant word\nand phrase search. Regex mode runs an RE2 regular expression over block\ntext, using the trigram index to pick candidate blocks; candidates and\nmatched in the response show how selective the index was.",
         "operationId": "SearchService_Search",
         "responses": {
           "200": {
@@ -2677,6 +2699,7 @@
     "/v1/workspaces/{workspaceId}/semantic-search": {
       "get": {
         "summary": "Semantic search",
+        "description": "Nearest blocks by embedding, using the requested vector index.",
         "operationId": "MLService_SemanticSearch",
         "responses": {
           "200": {
@@ -2773,6 +2796,7 @@
     "/v1/workspaces/{workspaceId}/title-suggestions": {
       "get": {
         "summary": "Suggest note titles",
+        "description": "Typo-tolerant title completion for the command palette and [[links]].",
         "operationId": "SearchService_SuggestTitles",
         "responses": {
           "200": {

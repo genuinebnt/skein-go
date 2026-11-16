@@ -37,15 +37,21 @@ const (
 // streams, so the gateway serves it as the WebSocket /v1/notifications/live
 // (docs/api/websocket.md) and it has no HTTP mapping here.
 type NotificationServiceClient interface {
+	// List the inbox
 	ListInbox(ctx context.Context, in *ListInboxRequest, opts ...grpc.CallOption) (*ListInboxResponse, error)
+	// Mark notifications as read
+	//
 	// Marks notifications as read. IDs that are already read, or unknown, are
 	// ignored, so the call is idempotent.
 	MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error)
 	// Live notifications for the caller, relayed to the browser by the gateway.
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error)
+	// Get notification preferences
 	GetPreferences(ctx context.Context, in *GetPreferencesRequest, opts ...grpc.CallOption) (*GetPreferencesResponse, error)
-	// Replaces the preferences for the kinds listed; kinds not listed keep
-	// their current setting.
+	// Update notification preferences
+	//
+	// Replaces the preferences for the kinds listed; kinds not listed keep their
+	// current setting.
 	UpdatePreferences(ctx context.Context, in *UpdatePreferencesRequest, opts ...grpc.CallOption) (*UpdatePreferencesResponse, error)
 }
 
@@ -125,15 +131,21 @@ func (c *notificationServiceClient) UpdatePreferences(ctx context.Context, in *U
 // streams, so the gateway serves it as the WebSocket /v1/notifications/live
 // (docs/api/websocket.md) and it has no HTTP mapping here.
 type NotificationServiceServer interface {
+	// List the inbox
 	ListInbox(context.Context, *ListInboxRequest) (*ListInboxResponse, error)
+	// Mark notifications as read
+	//
 	// Marks notifications as read. IDs that are already read, or unknown, are
 	// ignored, so the call is idempotent.
 	MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error)
 	// Live notifications for the caller, relayed to the browser by the gateway.
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error
+	// Get notification preferences
 	GetPreferences(context.Context, *GetPreferencesRequest) (*GetPreferencesResponse, error)
-	// Replaces the preferences for the kinds listed; kinds not listed keep
-	// their current setting.
+	// Update notification preferences
+	//
+	// Replaces the preferences for the kinds listed; kinds not listed keep their
+	// current setting.
 	UpdatePreferences(context.Context, *UpdatePreferencesRequest) (*UpdatePreferencesResponse, error)
 	mustEmbedUnimplementedNotificationServiceServer()
 }

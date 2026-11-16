@@ -124,46 +124,59 @@ class DocumentServiceServicer:
     """
 
     def CreateNote(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Create a note
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetNote(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Get a note
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListNotes(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List notes in a workspace
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def DeleteNote(self, request, context):
-        """Moves a note to the trash. Restorable until purged.
+        """Move a note to the trash
+
+        Moves a note to the trash. Restorable until purged.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RestoreNote(self, request, context):
-        """Takes a note out of the trash.
+        """Restore a note from the trash
+
+        Takes a note out of the trash.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RenameNote(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Rename a note
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ApplyOps(self, request, context):
-        """Applies a batch of CRDT operations from a client that is not streaming
-        (the agent, imports, tests).
+        """Apply a batch of CRDT operations
+
+        Applies a batch of CRDT operations from a client that is not streaming
+        (the agent, imports, tests). Operations are idempotent: re-sending a
+        batch already applied changes nothing, so a retry is always safe. The
+        whole batch is refused with PERMISSION_DENIED if the caller may not edit
+        the note.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -180,42 +193,55 @@ class DocumentServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListVersions(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List a note's versions
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetTextAt(self, request, context):
-        """The note's Markdown as it was at a version.
+        """Get a note's text at a version
+
+        The note's Markdown as it was at a version.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Diff(self, request, context):
-        """Text differences between two versions of a note.
+        """Diff two versions of a note
+
+        Text differences between two versions of a note.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Blame(self, request, context):
-        """Who wrote each span of the current text.
+        """Blame a note
+
+        Who wrote each span of the current text.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Undo(self, request, context):
-        """Generates operations that undo the caller's last change group in a note,
-        leaving other people's edits alone.
+        """Undo the caller's last change
+
+        Generates operations that undo the caller's last change group in a note,
+        leaving other people's edits alone, applies them and returns them. Not
+        idempotent: each call undoes one more change group, so send an
+        Idempotency-Key when retrying.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Redo(self, request, context):
-        """Re-applies the change group most recently undone by Undo.
+        """Redo the caller's last undone change
+
+        Re-applies the change group most recently undone by Undo.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

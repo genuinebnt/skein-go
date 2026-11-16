@@ -133,87 +133,111 @@ class IdentityServiceServicer:
     """
 
     def SignUp(self, request, context):
-        """Creates an account with email and password and signs it in.
+        """Sign up
+
+        Creates an account with email and password and signs it in.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SignIn(self, request, context):
-        """Signs in with email and password.
+        """Sign in with a password
+
+        Signs in with email and password.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SignInWithOAuth(self, request, context):
-        """Exchanges an OAuth authorization code (Google, GitHub) for a session.
+        """Sign in with OAuth
+
+        Exchanges an OAuth authorization code (Google, GitHub) for a session.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Refresh(self, request, context):
-        """Rotates the refresh token and issues a new access token.
+        """Refresh a session
+
+        Rotates the refresh token and issues a new access token. The old refresh
+        token stops working; presenting an already-rotated one is treated as
+        theft and revokes the session.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SignOut(self, request, context):
-        """Revokes the session that owns the refresh token.
+        """Sign out
+
+        Revokes the session that owns the refresh token. The refresh token is
+        the credential, so an expired access token does not prevent signing out.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetUser(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Get a user
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateWorkspace(self, request, context):
-        """Creates a workspace owned by the caller.
+        """Create a workspace
+
+        Creates a workspace owned by the caller.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListMembers(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List workspace members
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SetWorkspaceRole(self, request, context):
-        """Adds a member with a role, or changes an existing member's role.
+        """Set a member's workspace role
+
+        Adds a member with a role, or changes an existing member's role.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RemoveMember(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Remove a workspace member
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SetNoteRole(self, request, context):
-        """Sets or clears a per-note role override for one user.
+        """Set a user's role on a note
+
+        Sets or clears a per-note role override for one user.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CreateShareLink(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Create a share link
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RevokeShareLink(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Revoke a share link
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -243,9 +267,15 @@ class IdentityServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def RegisterReplica(self, request, context):
-        """Records that a CRDT replica ID belongs to the calling user (ADR-0004).
+        """Register a CRDT replica
+
+        Records that a CRDT replica ID belongs to the calling user (ADR-0004).
         Browser-facing: each device mints its replica ID in IndexedDB and
-        registers it before its first sync.
+        registers it before its first sync. Documents accepts operations from a
+        replica only on connections authenticated as the user who registered it,
+        so blame cannot be forged. Registering an ID the caller already owns
+        succeeds; one owned by someone else fails with ALREADY_EXISTS and the
+        client must mint a new ID.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -38,15 +38,24 @@ const (
 // /v1/chats/{chat_id}/messages (docs/api/websocket.md) and it has no HTTP
 // mapping here.
 type AgentServiceClient interface {
+	// Start a chat
 	CreateChat(ctx context.Context, in *CreateChatRequest, opts ...grpc.CallOption) (*CreateChatResponse, error)
+	// List chats
 	ListChats(ctx context.Context, in *ListChatsRequest, opts ...grpc.CallOption) (*ListChatsResponse, error)
 	// Sends a user message and streams the run: steps, tool calls, text,
 	// confirmation requests and the final answer.
 	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SendMessageResponse], error)
+	// Answer a confirmation request
+	//
 	// Answers a confirmation request; the paused run continues or stops.
+	// Answering the same confirmation twice returns FAILED_PRECONDITION.
 	Confirm(ctx context.Context, in *ConfirmRequest, opts ...grpc.CallOption) (*ConfirmResponse, error)
+	// Cancel a run
+	//
 	// Stops a run at its next step. Cancelling a finished run does nothing.
 	CancelRun(ctx context.Context, in *CancelRunRequest, opts ...grpc.CallOption) (*CancelRunResponse, error)
+	// Get a run's trace
+	//
 	// The stored trace of a run: every event it streamed, in order.
 	GetRun(ctx context.Context, in *GetRunRequest, opts ...grpc.CallOption) (*GetRunResponse, error)
 }
@@ -137,15 +146,24 @@ func (c *agentServiceClient) GetRun(ctx context.Context, in *GetRunRequest, opts
 // /v1/chats/{chat_id}/messages (docs/api/websocket.md) and it has no HTTP
 // mapping here.
 type AgentServiceServer interface {
+	// Start a chat
 	CreateChat(context.Context, *CreateChatRequest) (*CreateChatResponse, error)
+	// List chats
 	ListChats(context.Context, *ListChatsRequest) (*ListChatsResponse, error)
 	// Sends a user message and streams the run: steps, tool calls, text,
 	// confirmation requests and the final answer.
 	SendMessage(*SendMessageRequest, grpc.ServerStreamingServer[SendMessageResponse]) error
+	// Answer a confirmation request
+	//
 	// Answers a confirmation request; the paused run continues or stops.
+	// Answering the same confirmation twice returns FAILED_PRECONDITION.
 	Confirm(context.Context, *ConfirmRequest) (*ConfirmResponse, error)
+	// Cancel a run
+	//
 	// Stops a run at its next step. Cancelling a finished run does nothing.
 	CancelRun(context.Context, *CancelRunRequest) (*CancelRunResponse, error)
+	// Get a run's trace
+	//
 	// The stored trace of a run: every event it streamed, in order.
 	GetRun(context.Context, *GetRunRequest) (*GetRunResponse, error)
 	mustEmbedUnimplementedAgentServiceServer()

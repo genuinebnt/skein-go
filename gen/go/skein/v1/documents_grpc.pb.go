@@ -49,32 +49,58 @@ const (
 // methods because a repeated message cannot be encoded in a query string;
 // they are safe and may be retried freely.
 type DocumentServiceClient interface {
+	// Create a note
 	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*CreateNoteResponse, error)
+	// Get a note
 	GetNote(ctx context.Context, in *GetNoteRequest, opts ...grpc.CallOption) (*GetNoteResponse, error)
+	// List notes in a workspace
 	ListNotes(ctx context.Context, in *ListNotesRequest, opts ...grpc.CallOption) (*ListNotesResponse, error)
+	// Move a note to the trash
+	//
 	// Moves a note to the trash. Restorable until purged.
 	DeleteNote(ctx context.Context, in *DeleteNoteRequest, opts ...grpc.CallOption) (*DeleteNoteResponse, error)
+	// Restore a note from the trash
+	//
 	// Takes a note out of the trash.
 	RestoreNote(ctx context.Context, in *RestoreNoteRequest, opts ...grpc.CallOption) (*RestoreNoteResponse, error)
+	// Rename a note
 	RenameNote(ctx context.Context, in *RenameNoteRequest, opts ...grpc.CallOption) (*RenameNoteResponse, error)
+	// Apply a batch of CRDT operations
+	//
 	// Applies a batch of CRDT operations from a client that is not streaming
-	// (the agent, imports, tests).
+	// (the agent, imports, tests). Operations are idempotent: re-sending a
+	// batch already applied changes nothing, so a retry is always safe. The
+	// whole batch is refused with PERMISSION_DENIED if the caller may not edit
+	// the note.
 	ApplyOps(ctx context.Context, in *ApplyOpsRequest, opts ...grpc.CallOption) (*ApplyOpsResponse, error)
 	// Live sync for one note. The client sends its version vector first, then
 	// operations; the server sends missing operations, then live ones from
 	// other replicas, and presence. Served to browsers as the WebSocket
 	// /v1/notes/{note_id}/sync.
 	Sync(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SyncRequest, SyncResponse], error)
+	// List a note's versions
 	ListVersions(ctx context.Context, in *ListVersionsRequest, opts ...grpc.CallOption) (*ListVersionsResponse, error)
+	// Get a note's text at a version
+	//
 	// The note's Markdown as it was at a version.
 	GetTextAt(ctx context.Context, in *GetTextAtRequest, opts ...grpc.CallOption) (*GetTextAtResponse, error)
+	// Diff two versions of a note
+	//
 	// Text differences between two versions of a note.
 	Diff(ctx context.Context, in *DiffRequest, opts ...grpc.CallOption) (*DiffResponse, error)
+	// Blame a note
+	//
 	// Who wrote each span of the current text.
 	Blame(ctx context.Context, in *BlameRequest, opts ...grpc.CallOption) (*BlameResponse, error)
+	// Undo the caller's last change
+	//
 	// Generates operations that undo the caller's last change group in a note,
-	// leaving other people's edits alone.
+	// leaving other people's edits alone, applies them and returns them. Not
+	// idempotent: each call undoes one more change group, so send an
+	// Idempotency-Key when retrying.
 	Undo(ctx context.Context, in *UndoRequest, opts ...grpc.CallOption) (*UndoResponse, error)
+	// Redo the caller's last undone change
+	//
 	// Re-applies the change group most recently undone by Undo.
 	Redo(ctx context.Context, in *RedoRequest, opts ...grpc.CallOption) (*RedoResponse, error)
 }
@@ -242,32 +268,58 @@ func (c *documentServiceClient) Redo(ctx context.Context, in *RedoRequest, opts 
 // methods because a repeated message cannot be encoded in a query string;
 // they are safe and may be retried freely.
 type DocumentServiceServer interface {
+	// Create a note
 	CreateNote(context.Context, *CreateNoteRequest) (*CreateNoteResponse, error)
+	// Get a note
 	GetNote(context.Context, *GetNoteRequest) (*GetNoteResponse, error)
+	// List notes in a workspace
 	ListNotes(context.Context, *ListNotesRequest) (*ListNotesResponse, error)
+	// Move a note to the trash
+	//
 	// Moves a note to the trash. Restorable until purged.
 	DeleteNote(context.Context, *DeleteNoteRequest) (*DeleteNoteResponse, error)
+	// Restore a note from the trash
+	//
 	// Takes a note out of the trash.
 	RestoreNote(context.Context, *RestoreNoteRequest) (*RestoreNoteResponse, error)
+	// Rename a note
 	RenameNote(context.Context, *RenameNoteRequest) (*RenameNoteResponse, error)
+	// Apply a batch of CRDT operations
+	//
 	// Applies a batch of CRDT operations from a client that is not streaming
-	// (the agent, imports, tests).
+	// (the agent, imports, tests). Operations are idempotent: re-sending a
+	// batch already applied changes nothing, so a retry is always safe. The
+	// whole batch is refused with PERMISSION_DENIED if the caller may not edit
+	// the note.
 	ApplyOps(context.Context, *ApplyOpsRequest) (*ApplyOpsResponse, error)
 	// Live sync for one note. The client sends its version vector first, then
 	// operations; the server sends missing operations, then live ones from
 	// other replicas, and presence. Served to browsers as the WebSocket
 	// /v1/notes/{note_id}/sync.
 	Sync(grpc.BidiStreamingServer[SyncRequest, SyncResponse]) error
+	// List a note's versions
 	ListVersions(context.Context, *ListVersionsRequest) (*ListVersionsResponse, error)
+	// Get a note's text at a version
+	//
 	// The note's Markdown as it was at a version.
 	GetTextAt(context.Context, *GetTextAtRequest) (*GetTextAtResponse, error)
+	// Diff two versions of a note
+	//
 	// Text differences between two versions of a note.
 	Diff(context.Context, *DiffRequest) (*DiffResponse, error)
+	// Blame a note
+	//
 	// Who wrote each span of the current text.
 	Blame(context.Context, *BlameRequest) (*BlameResponse, error)
+	// Undo the caller's last change
+	//
 	// Generates operations that undo the caller's last change group in a note,
-	// leaving other people's edits alone.
+	// leaving other people's edits alone, applies them and returns them. Not
+	// idempotent: each call undoes one more change group, so send an
+	// Idempotency-Key when retrying.
 	Undo(context.Context, *UndoRequest) (*UndoResponse, error)
+	// Redo the caller's last undone change
+	//
 	// Re-applies the change group most recently undone by Undo.
 	Redo(context.Context, *RedoRequest) (*RedoResponse, error)
 	mustEmbedUnimplementedDocumentServiceServer()

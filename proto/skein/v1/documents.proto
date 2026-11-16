@@ -24,75 +24,62 @@ service DocumentService {
     description: "Notes, their history, diff, blame, undo and redo."
   };
 
+  // Create a note
   rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse) {
     option (google.api.http) = {
       post: "/v1/workspaces/{workspace_id}/notes"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Create a note"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Get a note
   rpc GetNote(GetNoteRequest) returns (GetNoteResponse) {
     option (google.api.http) = {get: "/v1/notes/{note_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Get a note"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // List notes in a workspace
   rpc ListNotes(ListNotesRequest) returns (ListNotesResponse) {
     option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/notes"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List notes in a workspace"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Move a note to the trash
+  //
   // Moves a note to the trash. Restorable until purged.
   rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse) {
     option (google.api.http) = {delete: "/v1/notes/{note_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Move a note to the trash"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Restore a note from the trash
+  //
   // Takes a note out of the trash.
   rpc RestoreNote(RestoreNoteRequest) returns (RestoreNoteResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:restore"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Restore a note from the trash"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Rename a note
   rpc RenameNote(RenameNoteRequest) returns (RenameNoteResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:rename"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Rename a note"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Apply a batch of CRDT operations
+  //
   // Applies a batch of CRDT operations from a client that is not streaming
-  // (the agent, imports, tests).
+  // (the agent, imports, tests). Operations are idempotent: re-sending a
+  // batch already applied changes nothing, so a retry is always safe. The
+  // whole batch is refused with PERMISSION_DENIED if the caller may not edit
+  // the note.
   rpc ApplyOps(ApplyOpsRequest) returns (ApplyOpsResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}/ops"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Apply a batch of CRDT operations"
-      description:
-        "For clients that do not hold a sync WebSocket open, such as imports. "
-        "Operations are idempotent: re-sending a batch already applied "
-        "changes nothing, so a retry is always safe. The whole batch is "
-        "refused with PERMISSION_DENIED if the caller may not edit the note."
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
 
   // Live sync for one note. The client sends its version vector first, then
@@ -101,69 +88,60 @@ service DocumentService {
   // /v1/notes/{note_id}/sync.
   rpc Sync(stream SyncRequest) returns (stream SyncResponse);
 
+  // List a note's versions
   rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse) {
     option (google.api.http) = {get: "/v1/notes/{note_id}/versions"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List a note's versions"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Get a note's text at a version
+  //
   // The note's Markdown as it was at a version.
   rpc GetTextAt(GetTextAtRequest) returns (GetTextAtResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:textAt"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Get a note's text at a version"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Diff two versions of a note
+  //
   // Text differences between two versions of a note.
   rpc Diff(DiffRequest) returns (DiffResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:diff"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Diff two versions of a note"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Blame a note
+  //
   // Who wrote each span of the current text.
   rpc Blame(BlameRequest) returns (BlameResponse) {
     option (google.api.http) = {get: "/v1/notes/{note_id}/blame"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Blame a note"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Undo the caller's last change
+  //
   // Generates operations that undo the caller's last change group in a note,
-  // leaving other people's edits alone.
+  // leaving other people's edits alone, applies them and returns them. Not
+  // idempotent: each call undoes one more change group, so send an
+  // Idempotency-Key when retrying.
   rpc Undo(UndoRequest) returns (UndoResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:undo"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Undo the caller's last change"
-      description:
-        "Returns the inverse operations and applies them. Not idempotent: "
-        "each call undoes one more change group, so send an Idempotency-Key "
-        "when retrying."
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
+  // Redo the caller's last undone change
+  //
   // Re-applies the change group most recently undone by Undo.
   rpc Redo(RedoRequest) returns (RedoResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}:redo"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Redo the caller's last undone change"
-      tags: "Documents"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
   }
 }
 

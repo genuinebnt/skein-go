@@ -231,7 +231,7 @@ func TestOpenAPIHasExactlyOneOperationPerRoute(t *testing.T) {
 			t.Errorf("%s: operationId = %q, want %q", r.key(), op.OperationID, r.operationID())
 		}
 		if op.Summary == "" {
-			t.Errorf("%s: no summary; add an openapiv2_operation summary to %s", r.key(), r.method.FullName())
+			t.Errorf("%s: no summary; start the comment on %s with a summary paragraph", r.key(), r.method.FullName())
 		}
 		if len(op.Tags) == 0 {
 			t.Errorf("%s: no tags", r.key())

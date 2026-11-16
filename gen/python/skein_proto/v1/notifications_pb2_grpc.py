@@ -73,13 +73,16 @@ class NotificationServiceServicer:
     """
 
     def ListInbox(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List the inbox
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def MarkRead(self, request, context):
-        """Marks notifications as read. IDs that are already read, or unknown, are
+        """Mark notifications as read
+
+        Marks notifications as read. IDs that are already read, or unknown, are
         ignored, so the call is idempotent.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -94,14 +97,17 @@ class NotificationServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetPreferences(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Get notification preferences
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def UpdatePreferences(self, request, context):
-        """Replaces the preferences for the kinds listed; kinds not listed keep
-        their current setting.
+        """Update notification preferences
+
+        Replaces the preferences for the kinds listed; kinds not listed keep their
+        current setting.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -33,12 +33,21 @@ const (
 //
 // REST routes are listed in docs/api/ml.md.
 type MLServiceClient interface {
+	// Semantic search
+	//
 	// Nearest blocks by embedding, using the requested vector index.
 	SemanticSearch(ctx context.Context, in *SemanticSearchRequest, opts ...grpc.CallOption) (*SemanticSearchResponse, error)
+	// Discover related notes
+	//
 	// Related notes with three separate signals, never one blended score.
 	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
+	// List topic clusters
 	ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*ListClustersResponse, error)
+	// Benchmark clustering algorithms
+	//
 	// Runs clustering algorithms side by side on the workspace's embeddings.
+	// Expensive (every algorithm runs `runs` times), so it counts against the
+	// agent rate-limit budget.
 	BenchmarkClustering(ctx context.Context, in *BenchmarkClusteringRequest, opts ...grpc.CallOption) (*BenchmarkClusteringResponse, error)
 }
 
@@ -96,12 +105,21 @@ func (c *mLServiceClient) BenchmarkClustering(ctx context.Context, in *Benchmark
 //
 // REST routes are listed in docs/api/ml.md.
 type MLServiceServer interface {
+	// Semantic search
+	//
 	// Nearest blocks by embedding, using the requested vector index.
 	SemanticSearch(context.Context, *SemanticSearchRequest) (*SemanticSearchResponse, error)
+	// Discover related notes
+	//
 	// Related notes with three separate signals, never one blended score.
 	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
+	// List topic clusters
 	ListClusters(context.Context, *ListClustersRequest) (*ListClustersResponse, error)
+	// Benchmark clustering algorithms
+	//
 	// Runs clustering algorithms side by side on the workspace's embeddings.
+	// Expensive (every algorithm runs `runs` times), so it counts against the
+	// agent rate-limit budget.
 	BenchmarkClustering(context.Context, *BenchmarkClusteringRequest) (*BenchmarkClusteringResponse, error)
 	mustEmbedUnimplementedMLServiceServer()
 }

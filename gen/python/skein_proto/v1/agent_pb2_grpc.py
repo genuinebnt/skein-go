@@ -78,13 +78,15 @@ class AgentServiceServicer:
     """
 
     def CreateChat(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Start a chat
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListChats(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List chats
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -98,21 +100,28 @@ class AgentServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def Confirm(self, request, context):
-        """Answers a confirmation request; the paused run continues or stops.
+        """Answer a confirmation request
+
+        Answers a confirmation request; the paused run continues or stops.
+        Answering the same confirmation twice returns FAILED_PRECONDITION.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CancelRun(self, request, context):
-        """Stops a run at its next step. Cancelling a finished run does nothing.
+        """Cancel a run
+
+        Stops a run at its next step. Cancelling a finished run does nothing.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetRun(self, request, context):
-        """The stored trace of a run: every event it streamed, in order.
+        """Get a run's trace
+
+        The stored trace of a run: every event it streamed, in order.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

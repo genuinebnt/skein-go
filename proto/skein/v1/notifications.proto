@@ -21,13 +21,13 @@ service NotificationService {
     description: "The caller's inbox and notification preferences."
   };
 
+  // List the inbox
   rpc ListInbox(ListInboxRequest) returns (ListInboxResponse) {
     option (google.api.http) = {get: "/v1/notifications"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List the inbox"
-      tags: "Notifications"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Notifications"};
   }
+  // Mark notifications as read
+  //
   // Marks notifications as read. IDs that are already read, or unknown, are
   // ignored, so the call is idempotent.
   rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
@@ -35,31 +35,25 @@ service NotificationService {
       post: "/v1/notifications:markRead"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Mark notifications as read"
-      tags: "Notifications"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Notifications"};
   }
   // Live notifications for the caller, relayed to the browser by the gateway.
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  // Get notification preferences
   rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse) {
     option (google.api.http) = {get: "/v1/notification-preferences"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Get notification preferences"
-      tags: "Notifications"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Notifications"};
   }
-  // Replaces the preferences for the kinds listed; kinds not listed keep
-  // their current setting.
+  // Update notification preferences
+  //
+  // Replaces the preferences for the kinds listed; kinds not listed keep their
+  // current setting.
   rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse) {
     option (google.api.http) = {
       put: "/v1/notification-preferences"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Update notification preferences"
-      tags: "Notifications"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Notifications"};
   }
 }
 

@@ -17,40 +17,36 @@ service MLService {
     description: "Semantic search, related-note discovery and clustering."
   };
 
+  // Semantic search
+  //
   // Nearest blocks by embedding, using the requested vector index.
   rpc SemanticSearch(SemanticSearchRequest) returns (SemanticSearchResponse) {
     option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/semantic-search"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Semantic search"
-      tags: "ML"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
   }
+  // Discover related notes
+  //
   // Related notes with three separate signals, never one blended score.
   rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
     option (google.api.http) = {get: "/v1/notes/{note_id}/related"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Discover related notes"
-      tags: "ML"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
   }
+  // List topic clusters
   rpc ListClusters(ListClustersRequest) returns (ListClustersResponse) {
     option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/clusters"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List topic clusters"
-      tags: "ML"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
   }
+  // Benchmark clustering algorithms
+  //
   // Runs clustering algorithms side by side on the workspace's embeddings.
+  // Expensive (every algorithm runs `runs` times), so it counts against the
+  // agent rate-limit budget.
   rpc BenchmarkClustering(BenchmarkClusteringRequest) returns (BenchmarkClusteringResponse) {
     option (google.api.http) = {
       post: "/v1/workspaces/{workspace_id}/clusters:benchmark"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Benchmark clustering algorithms"
-      description: "Expensive: runs every requested algorithm `runs` times on the workspace's embeddings, so it counts against the agent rate-limit budget."
-      tags: "ML"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
   }
 }
 

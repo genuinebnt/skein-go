@@ -21,6 +21,8 @@ service IdentityService {
     description: "Accounts, sessions, workspaces, members, note roles and share links."
   };
 
+  // Sign up
+  //
   // Creates an account with email and password and signs it in.
   rpc SignUp(SignUpRequest) returns (SignUpResponse) {
     option (google.api.http) = {
@@ -28,11 +30,12 @@ service IdentityService {
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Sign up"
       tags: "Identity"
       security: {}
     };
   }
+  // Sign in with a password
+  //
   // Signs in with email and password.
   rpc SignIn(SignInRequest) returns (SignInResponse) {
     option (google.api.http) = {
@@ -40,11 +43,12 @@ service IdentityService {
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Sign in with a password"
       tags: "Identity"
       security: {}
     };
   }
+  // Sign in with OAuth
+  //
   // Exchanges an OAuth authorization code (Google, GitHub) for a session.
   rpc SignInWithOAuth(SignInWithOAuthRequest) returns (SignInWithOAuthResponse) {
     option (google.api.http) = {
@@ -52,111 +56,97 @@ service IdentityService {
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Sign in with OAuth"
       tags: "Identity"
       security: {}
     };
   }
-  // Rotates the refresh token and issues a new access token.
+  // Refresh a session
+  //
+  // Rotates the refresh token and issues a new access token. The old refresh
+  // token stops working; presenting an already-rotated one is treated as
+  // theft and revokes the session.
   rpc Refresh(RefreshRequest) returns (RefreshResponse) {
     option (google.api.http) = {
       post: "/v1/sessions:refresh"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Refresh a session"
-      description:
-        "Rotates the refresh token: the old one stops working and the "
-        "response carries a new pair. Presenting an already-rotated refresh "
-        "token revokes the whole session family."
       tags: "Identity"
       security: {}
     };
   }
-  // Revokes the session that owns the refresh token.
+  // Sign out
+  //
+  // Revokes the session that owns the refresh token. The refresh token is
+  // the credential, so an expired access token does not prevent signing out.
   rpc SignOut(SignOutRequest) returns (SignOutResponse) {
     option (google.api.http) = {
       post: "/v1/sessions:signOut"
       body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Sign out"
-      description: "The refresh token is the credential, so an expired access token does not prevent signing out."
       tags: "Identity"
       security: {}
     };
   }
+  // Get a user
   rpc GetUser(GetUserRequest) returns (GetUserResponse) {
     option (google.api.http) = {get: "/v1/users/{user_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Get a user"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
 
+  // Create a workspace
+  //
   // Creates a workspace owned by the caller.
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse) {
     option (google.api.http) = {
       post: "/v1/workspaces"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Create a workspace"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // List workspace members
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
     option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/members"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "List workspace members"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // Set a member's workspace role
+  //
   // Adds a member with a role, or changes an existing member's role.
   rpc SetWorkspaceRole(SetWorkspaceRoleRequest) returns (SetWorkspaceRoleResponse) {
     option (google.api.http) = {
       put: "/v1/workspaces/{workspace_id}/members/{user_id}"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Set a member's workspace role"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // Remove a workspace member
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
     option (google.api.http) = {delete: "/v1/workspaces/{workspace_id}/members/{user_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Remove a workspace member"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // Set a user's role on a note
+  //
   // Sets or clears a per-note role override for one user.
   rpc SetNoteRole(SetNoteRoleRequest) returns (SetNoteRoleResponse) {
     option (google.api.http) = {
       put: "/v1/notes/{note_id}/roles/{user_id}"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Set a user's role on a note"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // Create a share link
   rpc CreateShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse) {
     option (google.api.http) = {
       post: "/v1/notes/{note_id}/share-links"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Create a share link"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
+  // Revoke a share link
   rpc RevokeShareLink(RevokeShareLinkRequest) returns (RevokeShareLinkResponse) {
     option (google.api.http) = {delete: "/v1/share-links/{link_id}"};
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Revoke a share link"
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
 
   // Internal. Checks many (action, resource) pairs for one subject in one
@@ -168,24 +158,21 @@ service IdentityService {
   // Internal. Issues a short-lived token for an agent run acting as the user
   // (ADR-0009). Only the agent service may call it.
   rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse);
+  // Register a CRDT replica
+  //
   // Records that a CRDT replica ID belongs to the calling user (ADR-0004).
   // Browser-facing: each device mints its replica ID in IndexedDB and
-  // registers it before its first sync.
+  // registers it before its first sync. Documents accepts operations from a
+  // replica only on connections authenticated as the user who registered it,
+  // so blame cannot be forged. Registering an ID the caller already owns
+  // succeeds; one owned by someone else fails with ALREADY_EXISTS and the
+  // client must mint a new ID.
   rpc RegisterReplica(RegisterReplicaRequest) returns (RegisterReplicaResponse) {
     option (google.api.http) = {
       post: "/v1/replicas"
       body: "*"
     };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      summary: "Register a CRDT replica"
-      description:
-        "Binds a replica ID to the caller. The documents service accepts "
-        "operations from a replica only on connections authenticated as the "
-        "user who registered it, so blame cannot be forged. Registering an "
-        "ID already owned by the caller succeeds; one owned by someone else "
-        "fails with ALREADY_EXISTS and the client must mint a new ID."
-      tags: "Identity"
-    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Identity"};
   }
 }
 

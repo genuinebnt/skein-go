@@ -62,27 +62,36 @@ class MLServiceServicer:
     """
 
     def SemanticSearch(self, request, context):
-        """Nearest blocks by embedding, using the requested vector index.
+        """Semantic search
+
+        Nearest blocks by embedding, using the requested vector index.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Discover(self, request, context):
-        """Related notes with three separate signals, never one blended score.
+        """Discover related notes
+
+        Related notes with three separate signals, never one blended score.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListClusters(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List topic clusters
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def BenchmarkClustering(self, request, context):
-        """Runs clustering algorithms side by side on the workspace's embeddings.
+        """Benchmark clustering algorithms
+
+        Runs clustering algorithms side by side on the workspace's embeddings.
+        Expensive (every algorithm runs `runs` times), so it counts against the
+        agent rate-limit budget.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
