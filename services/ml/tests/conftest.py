@@ -14,12 +14,24 @@ import numpy as np
 import pytest
 
 
+def _fresh_seed() -> int:
+    return int(os.environ.get("SKEIN_SEED", random.SystemRandom().randrange(2**31)))
+
+
 @pytest.fixture
 def seed(request: pytest.FixtureRequest) -> int:
     """A logged seed: SKEIN_SEED if set, otherwise a fresh random one."""
-    value = int(os.environ.get("SKEIN_SEED", random.SystemRandom().randrange(2**31)))
+    value = _fresh_seed()
     print(f"{request.node.nodeid}: SKEIN_SEED={value}")
     request.node.user_properties.append(("SKEIN_SEED", value))
+    return value
+
+
+@pytest.fixture(scope="module")
+def module_seed(request: pytest.FixtureRequest) -> int:
+    """A logged seed shared by a module's expensive fixtures (printed at setup)."""
+    value = _fresh_seed()
+    print(f"{request.module.__name__}: module SKEIN_SEED={value}")
     return value
 
 
