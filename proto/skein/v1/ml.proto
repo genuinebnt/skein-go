@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+// Embeddings, semantic search, discovery and clustering (ADR-0010, ADR-0015).
+package skein.v1;
+
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service MLService {
+  rpc SemanticSearch(SemanticSearchRequest) returns (SemanticSearchResponse);
+  // Related notes with three separate signals, never one blended score.
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse);
+  // Runs clustering algorithms side by side on the workspace's embeddings.
+  rpc BenchmarkClustering(BenchmarkClusteringRequest) returns (BenchmarkClusteringResponse);
+}
+
+enum IndexKind {
+  INDEX_KIND_UNSPECIFIED = 0;
+  INDEX_KIND_BRUTE_FORCE = 1;
+  INDEX_KIND_IVF = 2;
+  INDEX_KIND_HNSW = 3;
+}
+
+enum ClusteringAlgorithm {
+  CLUSTERING_ALGORITHM_UNSPECIFIED = 0;
+  // Lloyd iterations with random initialisation.
+  CLUSTERING_ALGORITHM_KMEANS_RANDOM = 1;
+  // Lloyd iterations with k-means++ initialisation.
+  CLUSTERING_ALGORITHM_KMEANS_PLUS_PLUS = 2;
+  // k-means++ initialisation, Elkan's triangle-inequality pruning.
+  CLUSTERING_ALGORITHM_KMEANS_ELKAN = 3;
+  CLUSTERING_ALGORITHM_KMEANS_MINI_BATCH = 4;
+  // Gaussian mixture fitted by expectation maximisation.
+  CLUSTERING_ALGORITHM_GMM_EM = 5;
+}
+
+message SemanticSearchRequest {
+  string workspace_id = 1;
+  string query = 2;
+  uint32 k = 3;
+  IndexKind index = 4;
+  repeated string tags = 5;
+  // Also run an exact scan and report recall against it.
+  bool measure_recall = 6;
+}
+message SemanticSearchResponse {
+  repeated SemanticHit hits = 1;
+  double recall_at_k = 2;
+  double latency_ms = 3;
+}
+message SemanticHit {
+  BlockRef location = 1;
+  double cosine = 2;
+}
+message DiscoverRequest {
+  string note_id = 1;
+  uint32 k = 2;
+}
+message DiscoverResponse {
+  repeated RelatedNote related = 1;
+}
+message RelatedNote {
+  string note_id = 1;
+  double cosine = 2;
+  uint32 shared_tags = 3;
+  double tag_jaccard = 4;
+  // Link distance ignoring direction; -1 means not connected.
+  int32 hops = 5;
+  // True when meaning is close but the notes are not linked.
+  bool suggest_link = 6;
+}
+message ListClustersRequest {
+  string workspace_id = 1;
+}
+message ListClustersResponse {
+  repeated Cluster clusters = 1;
+}
+message Cluster {
+  uint32 id = 1;
+  string label = 2;
+  repeated string top_terms = 3;
+  repeated string note_ids = 4;
+}
+message BenchmarkClusteringRequest {
+  string workspace_id = 1;
+  repeated ClusteringAlgorithm algorithms = 2;
+  uint32 k = 3;
+  uint32 runs = 4;
+  uint64 seed = 5;
+}
+message BenchmarkClusteringResponse {
+  repeated ClusteringResult results = 1;
+}
+message ClusteringResult {
+  ClusteringAlgorithm algorithm = 1;
+  // Implementation that produced it: "scratch" (this repository) or
+  // "sklearn" (the reference).
+  string implementation = 2;
+  double mean_seconds = 3;
+  double mean_iterations = 4;
+  // Sum of squared distances to centroids (K-means) or negative mean
+  // log-likelihood (Gaussian mixtures). Lower is better.
+  double objective = 5;
+  double silhouette = 6;
+  // Distance computations, to show what Elkan's pruning saves.
+  uint64 distance_computations = 7;
+}

@@ -1,0 +1,12 @@
+{
+  "name": "indexes count code points, not bytes or UTF-16 units",
+  "why": "'🙂' is one code point (4 UTF-8 bytes, 2 UTF-16 units). Index 2 is after 'a🙂', so B's '漢' lands between the emoji and 'b'.",
+  "replicas": {"A": 1, "B": 2},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "a🙂b"}},
+    {"sync": "all"},
+    {"replica": "B", "insert": {"index": 2, "text": "漢"}},
+    {"sync": "all"}
+  ],
+  "expect": {"all": "a🙂漢b"}
+}

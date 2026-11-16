@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+// Notes, live sync, history, diff and undo (ADR-0005, ADR-0006).
+package skein.v1;
+
+import "google/protobuf/timestamp.proto";
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service DocumentService {
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse);
+  // Moves a note to the trash. Restorable until purged.
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
+  rpc RestoreNote(RestoreNoteRequest) returns (RestoreNoteResponse);
+  rpc RenameNote(RenameNoteRequest) returns (RenameNoteResponse);
+  // Applies a batch of CRDT operations from a client that is not streaming
+  // (the agent, imports, tests).
+  rpc ApplyOps(ApplyOpsRequest) returns (ApplyOpsResponse);
+
+  // Live sync for one note. The client sends its version vector first, then
+  // operations; the server sends missing operations, then live ones from
+  // other replicas, and presence.
+  rpc Sync(stream SyncRequest) returns (stream SyncResponse);
+
+  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse);
+  rpc GetTextAt(GetTextAtRequest) returns (GetTextAtResponse);
+  rpc Diff(DiffRequest) returns (DiffResponse);
+  rpc Blame(BlameRequest) returns (BlameResponse);
+  // Generates operations that undo the caller's last change group in a note,
+  // leaving other people's edits alone.
+  rpc Undo(UndoRequest) returns (UndoResponse);
+  rpc Redo(RedoRequest) returns (RedoResponse);
+}
+
+message Note {
+  string id = 1;
+  string workspace_id = 2;
+  string title = 3;
+  string created_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  bool trashed = 7;
+}
+
+// Version vector entries, sorted by replica_id.
+message VersionVector {
+  repeated VersionEntry entries = 1;
+}
+message VersionEntry {
+  uint64 replica_id = 1;
+  uint64 counter = 2;
+}
+
+message CreateNoteRequest {
+  string workspace_id = 1;
+  string title = 2;
+  // Optional initial content as Markdown.
+  string markdown = 3;
+}
+message CreateNoteResponse {
+  Note note = 1;
+}
+message GetNoteRequest {
+  string note_id = 1;
+  // When true, the response includes the current text as Markdown.
+  bool include_markdown = 2;
+}
+message GetNoteResponse {
+  Note note = 1;
+  string markdown = 2;
+  VersionVector version = 3;
+}
+message ListNotesRequest {
+  string workspace_id = 1;
+  PageRequest page = 2;
+  bool include_trashed = 3;
+}
+message ListNotesResponse {
+  repeated Note notes = 1;
+  PageResponse page = 2;
+}
+message DeleteNoteRequest {
+  string note_id = 1;
+}
+message DeleteNoteResponse {}
+message RestoreNoteRequest {
+  string note_id = 1;
+}
+message RestoreNoteResponse {}
+message RenameNoteRequest {
+  string note_id = 1;
+  string title = 2;
+}
+message RenameNoteResponse {}
+message ApplyOpsRequest {
+  string note_id = 1;
+  uint64 replica_id = 2;
+  // A batch in the wire format of docs/spec/crdt-sequence.md.
+  bytes ops = 3;
+}
+message ApplyOpsResponse {
+  VersionVector version = 1;
+}
+
+message SyncRequest {
+  oneof message {
+    SyncHello hello = 1;
+    bytes ops = 2;
+    Presence presence = 3;
+  }
+}
+message SyncHello {
+  string note_id = 1;
+  uint64 replica_id = 2;
+  VersionVector version = 3;
+}
+message SyncResponse {
+  oneof message {
+    bytes ops = 1;
+    Presence presence = 2;
+    // Operations the server refused (for example after access was revoked
+    // while the client was offline). The client drops them and keeps their
+    // text as a draft.
+    SyncRejected rejected = 3;
+  }
+}
+message SyncRejected {
+  bytes ops = 1;
+  string reason = 2;
+}
+message Presence {
+  string user_id = 1;
+  uint64 replica_id = 2;
+  // Cursor and selection anchored to element IDs ("replica:counter").
+  string anchor = 3;
+  string head = 4;
+}
+
+message ListVersionsRequest {
+  string note_id = 1;
+  PageRequest page = 2;
+}
+message ListVersionsResponse {
+  repeated NoteVersion versions = 1;
+  PageResponse page = 2;
+}
+// A version is a point in history: everything up to a version vector,
+// grouped by author and time for display.
+message NoteVersion {
+  VersionVector version = 1;
+  repeated string author_ids = 2;
+  google.protobuf.Timestamp at = 3;
+}
+message GetTextAtRequest {
+  string note_id = 1;
+  VersionVector version = 2;
+}
+message GetTextAtResponse {
+  string markdown = 1;
+}
+message DiffRequest {
+  string note_id = 1;
+  VersionVector from = 2;
+  VersionVector to = 3;
+}
+message DiffResponse {
+  repeated DiffHunk hunks = 1;
+}
+message DiffHunk {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_EQUAL = 1;
+    KIND_INSERT = 2;
+    KIND_DELETE = 3;
+  }
+  Kind kind = 1;
+  string text = 2;
+}
+message BlameRequest {
+  string note_id = 1;
+}
+message BlameResponse {
+  repeated BlameSpan spans = 1;
+}
+message BlameSpan {
+  uint32 start = 1; // code points
+  uint32 end = 2;
+  string user_id = 3;
+  string agent_run_id = 4;
+  google.protobuf.Timestamp at = 5;
+}
+message UndoRequest {
+  string note_id = 1;
+  uint64 replica_id = 2;
+}
+message UndoResponse {
+  bytes ops = 1;
+}
+message RedoRequest {
+  string note_id = 1;
+  uint64 replica_id = 2;
+}
+message RedoResponse {
+  bytes ops = 1;
+}

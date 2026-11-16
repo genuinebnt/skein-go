@@ -1,0 +1,11 @@
+{
+  "name": "concurrent forward typing at the same position does not interleave",
+  "why": "A1 and B1 are both right children of the root. Siblings sort by id, replica 1 before replica 2, and each later character is a right child of the previous one, so A's run is followed by B's.",
+  "replicas": {"A": 1, "B": 2},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "abc"}},
+    {"replica": "B", "insert": {"index": 0, "text": "xyz"}},
+    {"sync": "all"}
+  ],
+  "expect": {"all": "abcxyz"}
+}

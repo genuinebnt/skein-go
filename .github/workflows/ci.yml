@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: libs/crdt/go.mod
+      - run: make fmt-check vet
+      - run: make test
+      - run: make wasm-check
+      - name: Fuzz smoke test
+        run: make fuzz FUZZTIME=15s
+
+  proto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: libs/crdt/go.mod
+      - run: go install github.com/bufbuild/buf/cmd/buf@v1.47.2
+      - run: make proto-check
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f deploy/compose/docker-compose.yml config --quiet
+      - run: sh -n deploy/compose/pubsub-init.sh

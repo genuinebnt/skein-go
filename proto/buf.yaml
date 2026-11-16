@@ -1,0 +1,10 @@
+# Lint and breaking-change rules for Skein's contracts. Run `make proto-check`.
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

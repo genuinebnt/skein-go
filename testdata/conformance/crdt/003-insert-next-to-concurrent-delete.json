@@ -1,0 +1,13 @@
+{
+  "name": "an insert survives a concurrent delete of its neighbours",
+  "why": "B inserts 'X' after 'e' while A deletes 'ell'. The deleted characters stay as tombstones, so 'X' keeps its place between the tombstoned 'e' and 'l'. Visible: h, X, o.",
+  "replicas": {"A": 1, "B": 2},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "hello"}},
+    {"sync": "all"},
+    {"replica": "A", "delete": {"index": 1, "count": 3}},
+    {"replica": "B", "insert": {"index": 2, "text": "X"}},
+    {"sync": "all"}
+  ],
+  "expect": {"all": "hXo"}
+}

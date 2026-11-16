@@ -1,0 +1,16 @@
+{
+  "name": "three replicas converge when updates are relayed through each other",
+  "why": "All three first characters are right children of the root, sorted by replica id. C receives A's insert only through B, which shows that OpsSince forwards operations from other replicas.",
+  "replicas": {"A": 1, "B": 2, "C": 3},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "1"}},
+    {"replica": "B", "insert": {"index": 0, "text": "2"}},
+    {"replica": "C", "insert": {"index": 0, "text": "3"}},
+    {"sync": {"from": "A", "to": "B"}},
+    {"sync": {"from": "B", "to": "C"}},
+    {"expect": {"A": "1", "B": "12", "C": "123"}},
+    {"sync": {"from": "C", "to": "A"}},
+    {"sync": {"from": "A", "to": "B"}}
+  ],
+  "expect": {"all": "123"}
+}
