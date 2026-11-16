@@ -1,0 +1,25 @@
+{
+  "name": "trigrams are distinct, folded and over code points",
+  "why": "aBcAbC has the folded windows ABC, BCA, CAB, ABC, BCA: three distinct trigrams in ascending code point order. The emoji is one code point, so x🙂y is one trigram, not several byte windows.",
+  "kind": "trigrams",
+  "input": {
+    "texts": [
+      "aBcAbC",
+      "x🙂y",
+      "ab"
+    ]
+  },
+  "expect": {
+    "trigrams": [
+      [
+        "ABC",
+        "BCA",
+        "CAB"
+      ],
+      [
+        "X🙂Y"
+      ],
+      []
+    ]
+  }
+}

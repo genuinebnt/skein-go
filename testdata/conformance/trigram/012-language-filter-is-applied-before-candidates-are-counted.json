@@ -1,0 +1,47 @@
+{
+  "name": "language filter is applied before candidates are counted",
+  "why": "Only document 1 is a code block in Go (the filter compares A-Z lowercased, so GO selects go). Document 3 contains Close() too but is prose and is never read or counted. In 'func (s *Store) Close() error {' the match starts at code point 16.",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 1,
+        "text": "func (s *Store) Close() error {",
+        "code": true,
+        "language": "go"
+      },
+      {
+        "id": 2,
+        "text": "impl Drop for Store",
+        "code": true,
+        "language": "rust"
+      },
+      {
+        "id": 3,
+        "text": "Close() the door"
+      }
+    ],
+    "op": "regex",
+    "query": "Close\\(\\)",
+    "options": {
+      "case_sensitive": true,
+      "languages": [
+        "GO"
+      ]
+    }
+  },
+  "expect": {
+    "candidates": 1,
+    "hits": [
+      {
+        "doc": 1,
+        "matches": [
+          [
+            16,
+            23
+          ]
+        ]
+      }
+    ]
+  }
+}

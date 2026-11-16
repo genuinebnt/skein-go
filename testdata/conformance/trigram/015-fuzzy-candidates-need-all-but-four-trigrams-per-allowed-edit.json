@@ -1,0 +1,31 @@
+{
+  "name": "fuzzy candidates need all but four trigrams per allowed edit",
+  "why": "compaction has 8 distinct trigrams (COM OMP MPA PAC ACT CTI TIO ION); one Damerau edit can destroy at most 4, so a candidate must share 4. copmaction (a transposition) shares ACT CTI TIO ION; zebra shares none.",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 1,
+        "text": "compaction"
+      },
+      {
+        "id": 2,
+        "text": "copmaction"
+      },
+      {
+        "id": 3,
+        "text": "zebra"
+      }
+    ],
+    "op": "fuzzy",
+    "query": "compaction",
+    "max_edits": 1,
+    "options": {}
+  },
+  "expect": {
+    "candidate_ids": [
+      1,
+      2
+    ]
+  }
+}

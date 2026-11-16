@@ -1,0 +1,12 @@
+{
+  "name": "an empty character class can never match",
+  "why": "A class excluding every code point matches nothing, so the query is None and no document is even read.",
+  "kind": "query",
+  "input": {
+    "pattern": "[^\\x00-\\x{10FFFF}]",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "-"
+  }
+}

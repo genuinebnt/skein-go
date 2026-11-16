@@ -1,0 +1,12 @@
+{
+  "name": "case-insensitive and case-sensitive patterns ask for the same folded trigrams",
+  "why": "The index holds folded trigrams only. (?i)Raft and Raft both need AFT and RAF (sorted by code point: A < R); the regexp decides case when confirming.",
+  "kind": "query",
+  "input": {
+    "pattern": "Raft",
+    "case_sensitive": false
+  },
+  "expect": {
+    "query": "\"AFT\" \"RAF\""
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "four digits are too many strings to keep exactly",
+  "why": "INC- is exact; \\d{4} has 10,000 strings, past maxExact, so only prefixes of the digits survive: INC and NC- are required, plus one of C-0..C-9. Word boundaries are empty-width and add nothing.",
+  "kind": "query",
+  "input": {
+    "pattern": "\\bINC-\\d{4}\\b",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "\"INC\" \"NC-\" (\"C-0\"|\"C-1\"|\"C-2\"|\"C-3\"|\"C-4\"|\"C-5\"|\"C-6\"|\"C-7\"|\"C-8\"|\"C-9\")"
+  }
+}

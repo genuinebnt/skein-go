@@ -1,0 +1,12 @@
+{
+  "name": "alternation becomes an OR of each branch's trigrams",
+  "why": "abc|xyz has exact set {ABC, XYZ}; forcing it at the end ANDs in OR(ABC, XYZ).",
+  "kind": "query",
+  "input": {
+    "pattern": "abc|xyz",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "(\"ABC\"|\"XYZ\")"
+  }
+}

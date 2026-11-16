@@ -96,3 +96,26 @@ are recorded in [ml-benchmarks.md](ml-benchmarks.md) by
 here. Headline: scratch e-means reproduces `faiss.contrib.e_means` exactly;
 Elkan does 3 to 10 times fewer distance computations than Lloyd from the same
 start; scratch HNSW matches hnswlib's recall@10 at equal parameters.
+
+### libs/trigram and services/search (2026-11-16)
+
+Go 1.24.7, 2 vCPUs (Intel Xeon 2.1 GHz, cloud development container),
+`go test -bench`. Synthetic workload: 10,000 blocks of 30 words from a
+12-word vocabulary, every fifth a Go function.
+
+| Benchmark | Time | Memory |
+|---|---|---|
+| `BenchmarkAdd10k` (build the index) | 199 ms | 78 MB, 401k allocs |
+| `BenchmarkLiteral10k` ("compaction snapshot", candidates confirmed) | 8.2 ms | 3.2 MB |
+| `BenchmarkRegexp10k` (`func \(\w+ \*Store\d+\) Close\(ctx ...` with `languages=go`) | 4.2 ms | 1.1 MB |
+| `BenchmarkSnapshot10k` (encode and decode the index) | 22 ms | 24 MB |
+
+Decoding a snapshot is about nine times cheaper than rebuilding, which is
+why the service persists the trigram index rather than only the text.
+
+On the small seed (300 notes, 3,923 blocks; `services/search/internal/seed`):
+restoring the projection from a snapshot takes 124 ms, loading it from the
+store and rebuilding takes 205 ms (in-memory store, so Postgres I/O is
+excluded and the real gap is larger; the rest of the snapshot path is
+rebuilding the word and title indexes). The regex truth queries read 163
+candidate blocks in total for 153 matches.

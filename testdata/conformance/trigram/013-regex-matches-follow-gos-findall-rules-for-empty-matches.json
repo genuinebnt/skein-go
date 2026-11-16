@@ -1,0 +1,36 @@
+{
+  "name": "regex matches follow Go's FindAll rules for empty matches",
+  "why": "a* on baa matches empty at 0, then aa at 1..3; the empty match at 3 abuts the previous match and is skipped. a* requires no trigram, so the one document is a candidate. The Rust port must reproduce this (regex's find_iter has the same rule).",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 5,
+        "text": "baa"
+      }
+    ],
+    "op": "regex",
+    "query": "a*",
+    "options": {
+      "case_sensitive": true
+    }
+  },
+  "expect": {
+    "candidates": 1,
+    "hits": [
+      {
+        "doc": 5,
+        "matches": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            3
+          ]
+        ]
+      }
+    ]
+  }
+}

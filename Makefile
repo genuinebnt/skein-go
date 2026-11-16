@@ -5,7 +5,7 @@ GO_MODULES := $(shell find libs services gen platform tools -name go.mod -not -p
 FUZZTIME   ?= 30s
 COMPOSE    := docker compose -f deploy/compose/docker-compose.yml
 # Libraries that must stay buildable for the browser (ADR-0007).
-WASM_LIBS  := libs/crdt
+WASM_LIBS  := libs/crdt libs/dp libs/graph libs/trigram
 
 # Seed data (tools/seed, docs/seed-data.md). bin/ is git-ignored.
 PROFILE    ?= medium

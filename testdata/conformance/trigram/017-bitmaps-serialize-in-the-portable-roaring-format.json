@@ -1,0 +1,15 @@
+{
+  "name": "bitmaps serialize in the portable roaring format",
+  "why": "Cookie 12346, two containers (keys 0 and 1, cardinalities 2 and 1), offsets 24 and 28, then the arrays [1, 2] and [70000 - 65536 = 4464]; all little-endian. The Rust roaring crate reads these bytes.",
+  "kind": "bitmap",
+  "input": {
+    "values": [
+      70000,
+      2,
+      1
+    ]
+  },
+  "expect": {
+    "hex": "3a300000020000000000010001000000180000001c000000010002007011"
+  }
+}
