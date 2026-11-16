@@ -19,6 +19,10 @@
 //   - Every JSON example in docs/api tagged ```json skein.v1.Message parses
 //     as that message, uses lowerCamelCase field names and writes 64-bit
 //     integers as strings, which is what the gateway emits.
+//   - The generated grpc-gateway handlers, driven in memory through a
+//     runtime.ServeMux, send every route to its own RPC (custom verbs
+//     included), bind path variables and lowerCamelCase query parameters, and
+//     route nothing to the internal RPCs.
 //
 // Porting notes: the Rust port keeps the same .proto files and docs, so this
 // test stays in Go; nothing in it is ported.
