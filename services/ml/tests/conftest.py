@@ -41,8 +41,9 @@ def rng(seed: int) -> np.random.Generator:
     return np.random.default_rng(seed)
 
 
-def gaussian_blobs(rng: np.random.Generator, n: int, d: int, k: int, spread: float = 10.0,
-                   scale: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+def gaussian_blobs(
+    rng: np.random.Generator, n: int, d: int, k: int, spread: float = 10.0, scale: float = 1.0
+) -> tuple[np.ndarray, np.ndarray]:
     """``n`` points around ``k`` random centres in ``d`` dimensions, with true labels."""
     centres = rng.uniform(-spread, spread, size=(k, d))
     labels = rng.integers(k, size=n)

@@ -37,12 +37,21 @@ def _nearest_power_of_two(value: float) -> int:
     if value <= 1:
         return 1
     low = 2 ** math.floor(math.log2(value))
-    return low if math.log2(value) - math.log2(low) < math.log2(2 * low) - math.log2(value) \
+    return (
+        low
+        if math.log2(value) - math.log2(low) < math.log2(2 * low) - math.log2(value)
         else 2 * low
+    )
 
 
-GRID = list(itertools.product([1_000, 30_000, 1_000_000, 50_000_000], [2, 10, 256, 5000],
-                              [1, 1.5, 3, 25], [2, 16, 17, 768]))
+GRID = list(
+    itertools.product(
+        [1_000, 30_000, 1_000_000, 50_000_000],
+        [2, 10, 256, 5000],
+        [1, 1.5, 3, 25],
+        [2, 16, 17, 768],
+    )
+)
 
 
 @pytest.mark.parametrize(("n", "k", "epochs", "d"), GRID)
@@ -53,8 +62,7 @@ def test_recipe_matches_the_scaling_law_formulas(n, k, epochs, d):
     raw = coefficient * k**0.134749 * n**0.876473 * epochs**0.813344
     cap = n // 2 if law == "quality" else _nearest_power_of_two(n / 2)
     batch = max(1, min(_nearest_power_of_two(raw), cap, n))
-    alpha0 = min(max(0.8244 * k**-0.4617 * batch**0.9003 * n**-0.4498 * epochs**-0.1057,
-                     1e-4), 1.0)
+    alpha0 = min(max(0.8244 * k**-0.4617 * batch**0.9003 * n**-0.4498 * epochs**-0.1057, 1e-4), 1.0)
     assert recipe.batch_law == law
     assert recipe.batch_size == batch
     assert recipe.alpha0 == pytest.approx(alpha0, rel=1e-12)
@@ -152,7 +160,8 @@ def test_revival_splits_min_of_dead_and_donors_and_only_drops_dead_mass(seed):
         children = np.flatnonzero(dead)[:expected]
         dropped = before_mass[children].sum(dtype=np.float64)
         assert model.mass.sum(dtype=np.float64) == pytest.approx(
-            before_mass.sum(dtype=np.float64) - dropped, rel=1e-6)
+            before_mass.sum(dtype=np.float64) - dropped, rel=1e-6
+        )
         for child in children:
             # A child sits within the split offset of some donor's old position.
             gap = np.abs(before_centroids[donors] - model.centroids[child]).max(axis=1)
@@ -183,8 +192,9 @@ def test_no_revival_in_two_dimensions(seed):
 
 
 @pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
-@pytest.mark.parametrize(("n", "d", "k", "epochs"), [(3000, 8, 10, 3), (4000, 32, 24, 1.5),
-                                                     (2500, 2, 12, 2)])
+@pytest.mark.parametrize(
+    ("n", "d", "k", "epochs"), [(3000, 8, 10, 3), (4000, 32, 24, 1.5), (2500, 2, 12, 2)]
+)
 def test_final_loss_matches_faiss_contrib_e_means(seed, n, d, k, epochs):
     from faiss.contrib.e_means import NumpyEmeans
 
@@ -194,4 +204,34 @@ def test_final_loss_matches_faiss_contrib_e_means(seed, n, d, k, epochs):
     reference_centroids, _ = reference.train(x)
     ours = EMeans(k, epochs=epochs, seed=seed % 2**31).fit(x)
     assert sum_squared_error(x, ours.centroids) == pytest.approx(
-        sum_squared_error(x, reference_centroids), rel=1e-3)
+        sum_squared_error(x, reference_centroids), rel=1e-3
+    )
+
+
+def test_a_unit_step_replaces_touched_masses_and_keeps_untouched_ones(seed):
+    x, _ = gaussian_blobs(np.random.default_rng(seed), 400, 3, 3, spread=5.0)
+    x = x.astype(np.float32)
+    init = np.vstack([x[:3], np.full((1, 3), 1e6, dtype=np.float32)])  # cluster 3 wins nothing
+    masses = []
+    model = EMeans(4, epochs=1, batch_size=len(x), alpha0=1.0, seed=seed)
+    model.fit(x, init=init, observer=lambda m: masses.append(m.mass.copy()))
+    counts = np.bincount(
+        np.argmin(((x[:, None] - init[None]) ** 2).sum(axis=2), axis=1), minlength=4
+    )
+    np.testing.assert_array_equal(masses[0][:3], counts[:3])
+    assert masses[0][3] == np.float32(INITIAL_MASS)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
+def test_matches_faiss_with_a_unit_initial_step_and_revival(seed):
+    from faiss.contrib.e_means import NumpyEmeans
+
+    x, _ = gaussian_blobs(np.random.default_rng(seed), 3000, 6, 4, spread=8.0)
+    x = x.astype(np.float32)
+    options = {"batch_size": 128, "alpha0": 1.0}
+    reference = NumpyEmeans(6, 24, nepochs=2, seed=seed % 2**31, **options)
+    reference_centroids, _ = reference.train(x)
+    ours = EMeans(24, epochs=2, seed=seed % 2**31, **options)
+    result = ours.fit(x)
+    assert ours.splits == reference.n_splits
+    np.testing.assert_allclose(result.centroids, reference_centroids, rtol=1e-4, atol=1e-4)

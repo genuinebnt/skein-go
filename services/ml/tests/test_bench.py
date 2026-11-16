@@ -29,8 +29,7 @@ def test_every_scratch_algorithm_is_scored_the_same_way(algorithm, seed):
 
 def test_mean_run_averages_seeds():
     data = gaussian_blobs(300, 50, d=3, k=3, seed=1)
-    runs = [harness.run("kmeans_plus_plus", "scratch", data.train, data.test, 3, s)
-            for s in (1, 2)]
+    runs = [harness.run("kmeans_plus_plus", "scratch", data.train, data.test, 3, s) for s in (1, 2)]
     mean = harness.mean_run(runs)
     assert mean.train_objective == pytest.approx(np.mean([r.train_objective for r in runs]))
 
@@ -44,9 +43,10 @@ def test_embeddings_like_rows_are_unit_vectors():
 _SOURCE = os.environ.get("SKEIN_FAISS_CONTRIB", "/home/claude/ref/faiss/contrib")
 
 
-@pytest.mark.skipif(importlib.util.find_spec("faiss") is None
-                    or not Path(_SOURCE, "e_means").is_dir(),
-                    reason="needs faiss-cpu and a FAISS source checkout")
+@pytest.mark.skipif(
+    importlib.util.find_spec("faiss") is None or not Path(_SOURCE, "e_means").is_dir(),
+    reason="needs faiss-cpu and a FAISS source checkout",
+)
 def test_reference_e_means_falls_back_to_a_source_checkout(monkeypatch):
     real_import = importlib.import_module
 

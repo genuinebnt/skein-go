@@ -70,8 +70,9 @@ class MixtureResult:
 class GaussianMixture:
     """Diagonal-covariance Gaussian mixture."""
 
-    def __init__(self, k: int, max_iter: int = 200, tol: float = 1e-4, reg_covar: float = 1e-6,
-                 seed: int = 0):
+    def __init__(
+        self, k: int, max_iter: int = 200, tol: float = 1e-4, reg_covar: float = 1e-6, seed: int = 0
+    ):
         if reg_covar <= 0:
             raise ValueError("reg_covar must be positive")
         self.k = k
@@ -85,8 +86,9 @@ class GaussianMixture:
         self.history: list[float] = []
         self.counter = DistanceCounter()
 
-    def fit(self, x: np.ndarray, observer: Callable[[GaussianMixture], None] | None = None
-            ) -> MixtureResult:
+    def fit(
+        self, x: np.ndarray, observer: Callable[[GaussianMixture], None] | None = None
+    ) -> MixtureResult:
         """Fit by EM; ``observer`` runs after every M-step."""
         x = validate_input(x, self.k).astype(np.float64, copy=False)
         n = len(x)
@@ -113,21 +115,31 @@ class GaussianMixture:
             if observer is not None:
                 observer(self)
         log_resp, log_likelihood = self._e_step(x)
-        return MixtureResult(means=self.means, variances=self.variances, weights=self.weights,
-                             labels=np.argmax(log_resp, axis=1), log_likelihood=log_likelihood,
-                             iterations=iterations, distance_computations=self.counter.count,
-                             history=list(self.history))
+        return MixtureResult(
+            means=self.means,
+            variances=self.variances,
+            weights=self.weights,
+            labels=np.argmax(log_resp, axis=1),
+            log_likelihood=log_likelihood,
+            iterations=iterations,
+            distance_computations=self.counter.count,
+            history=list(self.history),
+        )
 
     def log_joint(self, x: np.ndarray) -> np.ndarray:
         """``log w_j + log N(x_i; mu_j, sigma_j^2)`` as an (n, k) matrix."""
         precision = 1.0 / self.variances
         d = x.shape[1]
-        quadratic = ((x**2) @ precision.T - 2.0 * x @ (self.means * precision).T
-                     + np.sum(self.means**2 * precision, axis=1)[None, :])
+        quadratic = (
+            (x**2) @ precision.T
+            - 2.0 * x @ (self.means * precision).T
+            + np.sum(self.means**2 * precision, axis=1)[None, :]
+        )
         log_det = np.sum(np.log(self.variances), axis=1)
         self.counter.add(len(x) * self.k)
-        return (np.log(self.weights)[None, :]
-                - 0.5 * (d * math.log(2 * math.pi) + log_det[None, :] + quadratic))
+        return np.log(self.weights)[None, :] - 0.5 * (
+            d * math.log(2 * math.pi) + log_det[None, :] + quadratic
+        )
 
     def score(self, x: np.ndarray) -> float:
         """Mean log-likelihood of ``x`` under the fitted model (for held-out data)."""
@@ -161,4 +173,3 @@ class GaussianMixture:
         for previous, current in zip(self.history, self.history[1:], strict=False):
             if current < previous - _MONOTONE_SLACK * max(1.0, abs(previous)):
                 raise InvariantViolation(f"EM log-likelihood fell from {previous} to {current}")
-

@@ -39,13 +39,18 @@ def gaussian_blobs(n_train: int, n_test: int, d: int, k: int, seed: int) -> Data
     centres = rng.uniform(-10.0, 10.0, size=(k, d))
     labels = rng.integers(k, size=n_train + n_test)
     x = centres[labels] + rng.normal(size=(n_train + n_test, d))
-    return Dataset(f"blobs-d{d}-k{k}",
-                   f"{k} isotropic Gaussian blobs in {d} dimensions (true k = {k})",
-                   x[:n_train], x[n_train:], k)
+    return Dataset(
+        f"blobs-d{d}-k{k}",
+        f"{k} isotropic Gaussian blobs in {d} dimensions (true k = {k})",
+        x[:n_train],
+        x[n_train:],
+        k,
+    )
 
 
-def embeddings_like(n_train: int, n_test: int, d: int, topics: int, seed: int,
-                    k: int | None = None, rank: int = 4) -> Dataset:
+def embeddings_like(
+    n_train: int, n_test: int, d: int, topics: int, seed: int, k: int | None = None, rank: int = 4
+) -> Dataset:
     """Anisotropic, Zipf-sized topic clusters on the unit sphere; see the module doc."""
     rng = np.random.default_rng(seed)
     n = n_train + n_test
@@ -58,10 +63,18 @@ def embeddings_like(n_train: int, n_test: int, d: int, topics: int, seed: int,
     centres = 0.6 * common + directions
     spread = rng.normal(size=(topics, rank, d)) / np.sqrt(d)
     coefficients = rng.normal(scale=0.9, size=(n, rank))
-    x = (centres[labels] + np.einsum("nr,nrd->nd", coefficients, spread[labels])
-         + rng.normal(scale=0.35 / np.sqrt(d), size=(n, d)))
+    x = (
+        centres[labels]
+        + np.einsum("nr,nrd->nd", coefficients, spread[labels])
+        + rng.normal(scale=0.35 / np.sqrt(d), size=(n, d))
+    )
     x /= np.linalg.norm(x, axis=1, keepdims=True)
     k = k or topics
-    return Dataset(f"embeddings-like-d{d}",
-                   f"{topics} Zipf-sized anisotropic topics on the unit sphere in {d} dimensions, "
-                   f"clustered into k = {k}", x[:n_train], x[n_train:], k)
+    return Dataset(
+        f"embeddings-like-d{d}",
+        f"{topics} Zipf-sized anisotropic topics on the unit sphere in {d} dimensions, "
+        f"clustered into k = {k}",
+        x[:n_train],
+        x[n_train:],
+        k,
+    )

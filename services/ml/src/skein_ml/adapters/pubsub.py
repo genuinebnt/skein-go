@@ -32,8 +32,9 @@ class PubSubEventSource:
         try:
             from google.cloud import pubsub_v1
         except ImportError as error:  # pragma: no cover - depends on the environment
-            raise RuntimeError("install the 'pubsub' extra: pip install 'skein-ml[pubsub]'") \
-                from error
+            raise RuntimeError(
+                "install the 'pubsub' extra: pip install 'skein-ml[pubsub]'"
+            ) from error
         self._pubsub = pubsub_v1
         self._subscriber = pubsub_v1.SubscriberClient()
         self._path = self._subscriber.subscription_path(project, subscription)
@@ -43,6 +44,7 @@ class PubSubEventSource:
 
     def start(self, handler: EventHandler) -> None:
         """See `EventSource.start`."""
+
         def on_message(message) -> None:
             try:
                 handler(self._decode(message.data, dict(message.attributes)))
@@ -52,8 +54,9 @@ class PubSubEventSource:
             message.ack()
 
         flow = self._pubsub.types.FlowControl(max_messages=self._max_messages)
-        self._future = self._subscriber.subscribe(self._path, callback=on_message,
-                                                  flow_control=flow)
+        self._future = self._subscriber.subscribe(
+            self._path, callback=on_message, flow_control=flow
+        )
         log.info("subscribed", extra={"subscription": self._path})
 
     def stop(self, timeout: float) -> None:

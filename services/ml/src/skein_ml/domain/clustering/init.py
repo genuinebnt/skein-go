@@ -34,9 +34,13 @@ def random_init(x: np.ndarray, k: int, rng: np.random.Generator) -> np.ndarray:
     return x[rng.choice(len(x), size=k, replace=False)].copy()
 
 
-def kmeans_plus_plus(x: np.ndarray, k: int, rng: np.random.Generator,
-                     counter: DistanceCounter | None = None,
-                     local_trials: int | None = None) -> np.ndarray:
+def kmeans_plus_plus(
+    x: np.ndarray,
+    k: int,
+    rng: np.random.Generator,
+    counter: DistanceCounter | None = None,
+    local_trials: int | None = None,
+) -> np.ndarray:
     """Greedy k-means++ seeding; returns a (k, d) array of rows of ``x``."""
     x = validate_input(x, k)
     n = len(x)

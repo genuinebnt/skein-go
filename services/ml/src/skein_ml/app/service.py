@@ -111,9 +111,15 @@ class Cluster:
 class MLApp:
     """Use cases of the ml service."""
 
-    def __init__(self, notes: NoteRepository, embeddings: EmbeddingRepository,
-                 processed: ProcessedEvents, cache: Cache, embedder: Embedder,
-                 settings: Settings = Settings()):
+    def __init__(
+        self,
+        notes: NoteRepository,
+        embeddings: EmbeddingRepository,
+        processed: ProcessedEvents,
+        cache: Cache,
+        embedder: Embedder,
+        settings: Settings = Settings(),
+    ):
         self.notes = notes
         self.embeddings = embeddings
         self.processed = processed
@@ -201,8 +207,14 @@ class MLApp:
             for block_id, vector in fresh.items():
                 loaded.upsert(BlockKey(note.note_id, block_id), vector)
         self._changed(note.workspace_id)
-        log.info("indexed blocks", extra={"note_id": note.note_id, "embedded": len(fresh),
-                                          "removed": len(change.removed_block_ids) + len(empty)})
+        log.info(
+            "indexed blocks",
+            extra={
+                "note_id": note.note_id,
+                "embedded": len(fresh),
+                "removed": len(change.removed_block_ids) + len(empty),
+            },
+        )
 
     def _changed(self, workspace_id: str) -> None:
         self.cache.invalidate_tags([_workspace_tag(workspace_id)])
@@ -227,16 +239,25 @@ class MLApp:
             computed = self.embedder.embed([texts[i] for i in missing])
             for i, vector in zip(missing, computed, strict=True):
                 out[i] = vector
-                self.cache.set(_embedding_key(model, texts[i]),
-                               np.asarray(vector, dtype=np.float32).tobytes(),
-                               self.settings.embedding_cache_seconds, [f"model:{model}"])
+                self.cache.set(
+                    _embedding_key(model, texts[i]),
+                    np.asarray(vector, dtype=np.float32).tobytes(),
+                    self.settings.embedding_cache_seconds,
+                    [f"model:{model}"],
+                )
         return out
 
     # --- semantic search -----------------------------------------------------
 
-    def semantic_search(self, workspace_id: str, query: str, k: int = 0,
-                        index: IndexKind | None = None, tags: Sequence[str] = (),
-                        measure_recall: bool = False) -> SearchOutcome:
+    def semantic_search(
+        self,
+        workspace_id: str,
+        query: str,
+        k: int = 0,
+        index: IndexKind | None = None,
+        tags: Sequence[str] = (),
+        measure_recall: bool = False,
+    ) -> SearchOutcome:
         """Top-k blocks by meaning, filtered by tags during the search."""
         started = time.perf_counter()
         if not workspace_id:
@@ -247,10 +268,14 @@ class MLApp:
         wanted = sorted({t.strip().lstrip("#").lower() for t in tags if t.strip()})
         with self._lock:
             vectors = self._workspace(workspace_id)
-            kind = index or (IndexKind.BRUTE_FORCE if len(vectors) < self.settings.exact_below
-                             else IndexKind.HNSW)
-            key = _search_key(workspace_id, self.embedder.model_id, kind, k, wanted, query,
-                              measure_recall)
+            kind = index or (
+                IndexKind.BRUTE_FORCE
+                if len(vectors) < self.settings.exact_below
+                else IndexKind.HNSW
+            )
+            key = _search_key(
+                workspace_id, self.embedder.model_id, kind, k, wanted, query, measure_recall
+            )
             cached = self.cache.get(key)
             if cached is not None:
                 hits, recall = _decode_search(cached)
@@ -261,17 +286,27 @@ class MLApp:
             recall = 1.0
             if measure_recall and kind != IndexKind.BRUTE_FORCE:
                 exact, _ = vectors.search(query_vector, k, IndexKind.BRUTE_FORCE, allowed)
-                recall = recall_at_k(np.array([_key_text(b) for b, _ in found], dtype=object),
-                                     np.array([_key_text(b) for b, _ in exact], dtype=object), k)
+                recall = recall_at_k(
+                    np.array([_key_text(b) for b, _ in found], dtype=object),
+                    np.array([_key_text(b) for b, _ in exact], dtype=object),
+                    k,
+                )
             hits = [SearchHit(b.note_id, b.block_id, score) for b, score in found]
-            self.cache.set(key, _encode_search(hits, recall), self.settings.search_cache_seconds,
-                           [_workspace_tag(workspace_id)])
+            self.cache.set(
+                key,
+                _encode_search(hits, recall),
+                self.settings.search_cache_seconds,
+                [_workspace_tag(workspace_id)],
+            )
         return SearchOutcome(hits, recall, _elapsed_ms(started), kind)
 
     def _searchable_notes(self, workspace_id: str, tags: list[str]) -> set[str]:
         required = set(tags)
-        return {note.note_id for note in self.notes.in_workspace(workspace_id)
-                if not note.trashed and required <= note.tags}
+        return {
+            note.note_id
+            for note in self.notes.in_workspace(workspace_id)
+            if not note.trashed and required <= note.tags
+        }
 
     def _workspace(self, workspace_id: str) -> WorkspaceVectors:
         loaded = self._workspaces.get(workspace_id)
@@ -311,8 +346,11 @@ class MLApp:
             for key, vector in self._workspace(workspace_id).items():
                 by_note.setdefault(key.note_id, []).append(vector)
             trashed = {n.note_id for n in self.notes.in_workspace(workspace_id) if n.trashed}
-        return {note: normalize(np.mean(rows, axis=0))[0]
-                for note, rows in sorted(by_note.items()) if note not in trashed}
+        return {
+            note: normalize(np.mean(rows, axis=0))[0]
+            for note, rows in sorted(by_note.items())
+            if note not in trashed
+        }
 
     def discover(self, note_id: str, k: int = 0) -> list[RelatedNote]:
         """Related notes with cosine, shared tags and link hops as separate signals."""
@@ -326,8 +364,9 @@ class MLApp:
         workspace_notes = self.notes.in_workspace(note.workspace_id)
         tags = {n.note_id: n.tags for n in workspace_notes}
         outbound = {n.note_id: n.links for n in workspace_notes}
-        return related_notes(note_id, embeddings, tags, outbound, k,
-                             self.settings.suggest_threshold)
+        return related_notes(
+            note_id, embeddings, tags, outbound, k, self.settings.suggest_threshold
+        )
 
     # --- clusters --------------------------------------------------------------
 
@@ -355,18 +394,30 @@ class MLApp:
         members = sorted((m for m in members if m), key=lambda m: (-len(m), m[0]))
         texts = {n.note_id: n.text() for n in self.notes.in_workspace(workspace_id)}
         terms = top_terms([[texts.get(n, "") for n in m] for m in members])
-        clusters = [Cluster(id=i, label=", ".join(t[:3]) or f"cluster {i}", top_terms=t,
-                            note_ids=m)
-                    for i, (m, t) in enumerate(zip(members, terms, strict=True))]
-        self.cache.set(key, json.dumps([c.__dict__ for c in clusters]).encode(),
-                       self.settings.search_cache_seconds, [_workspace_tag(workspace_id)])
+        clusters = [
+            Cluster(id=i, label=", ".join(t[:3]) or f"cluster {i}", top_terms=t, note_ids=m)
+            for i, (m, t) in enumerate(zip(members, terms, strict=True))
+        ]
+        self.cache.set(
+            key,
+            json.dumps([c.__dict__ for c in clusters]).encode(),
+            self.settings.search_cache_seconds,
+            [_workspace_tag(workspace_id)],
+        )
         return clusters
 
     # --- benchmarks ------------------------------------------------------------
 
-    def benchmark_clustering(self, workspace_id: str, algorithms: Sequence[str], k: int,
-                             runs: int = 1, seed: int = 0, include_references: bool = True,
-                             expired: Callable[[], bool] = lambda: False):
+    def benchmark_clustering(
+        self,
+        workspace_id: str,
+        algorithms: Sequence[str],
+        k: int,
+        runs: int = 1,
+        seed: int = 0,
+        include_references: bool = True,
+        expired: Callable[[], bool] = lambda: False,
+    ):
         """Run each algorithm ``runs`` times on the workspace's note vectors.
 
         80/20 train/test split by a seeded permutation. Returns one averaged
@@ -389,7 +440,8 @@ class MLApp:
         k = k or max(1, round(math.sqrt(len(train) / 2)))
         if len(train) < k:
             raise InvalidArgument(
-                f"the workspace has {len(train)} training notes, fewer than k={k}")
+                f"the workspace has {len(train)} training notes, fewer than k={k}"
+            )
         results = []
         for algorithm in algorithms or harness.ALGORITHMS:
             implementations = ["scratch"]
@@ -422,8 +474,9 @@ def _search_key(workspace_id, model, kind, k, tags, query, measure_recall) -> st
 
 
 def _encode_search(hits: list[SearchHit], recall: float) -> bytes:
-    return json.dumps({"hits": [[h.note_id, h.block_id, h.cosine] for h in hits],
-                       "recall": recall}).encode()
+    return json.dumps(
+        {"hits": [[h.note_id, h.block_id, h.cosine] for h in hits], "recall": recall}
+    ).encode()
 
 
 def _decode_search(data: bytes) -> tuple[list[SearchHit], float]:

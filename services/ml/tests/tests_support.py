@@ -38,6 +38,11 @@ class CountingEmbedder:
 
 def make_app(embedder=None, fail_first_embed: bool = False, **settings) -> MLApp:
     """An `MLApp` on in-memory fakes."""
-    return MLApp(InMemoryNoteRepository(), InMemoryEmbeddingRepository(),
-                 InMemoryProcessedEvents(), InMemoryCache(),
-                 embedder or CountingEmbedder(fail_next=fail_first_embed), Settings(**settings))
+    return MLApp(
+        InMemoryNoteRepository(),
+        InMemoryEmbeddingRepository(),
+        InMemoryProcessedEvents(),
+        InMemoryCache(),
+        embedder or CountingEmbedder(fail_next=fail_first_embed),
+        Settings(**settings),
+    )

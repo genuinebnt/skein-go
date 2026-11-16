@@ -120,13 +120,17 @@ class WorkspaceVectors:
         stored = self._exact.vectors
         return [(key, stored[self._id_of[key]]) for key in self.keys()]
 
-    def search(self, query: np.ndarray, k: int, kind: IndexKind,
-               allowed_notes: set[str] | None = None) -> tuple[list[tuple[BlockKey, float]], Hits]:
+    def search(
+        self, query: np.ndarray, k: int, kind: IndexKind, allowed_notes: set[str] | None = None
+    ) -> tuple[list[tuple[BlockKey, float]], Hits]:
         """Top-k blocks from the chosen index, restricted to ``allowed_notes`` if given."""
         mask = None
         if allowed_notes is not None:
-            mask = np.fromiter((key is not None and key.note_id in allowed_notes
-                                for key in self._key_of), dtype=bool, count=len(self._key_of))
+            mask = np.fromiter(
+                (key is not None and key.note_id in allowed_notes for key in self._key_of),
+                dtype=bool,
+                count=len(self._key_of),
+            )
         hits = self._index(kind).search(query, k, mask)
         found = [(self._key_of[i], float(s)) for i, s in zip(hits.ids, hits.scores, strict=True)]
         return found, hits
@@ -144,8 +148,13 @@ class WorkspaceVectors:
 
     def _build_hnsw(self) -> HNSWIndex:
         s = self.settings
-        index = HNSWIndex(self.dimension, m=s.hnsw_m, ef_construction=s.hnsw_ef_construction,
-                          ef_search=s.hnsw_ef_search, seed=s.seed)
+        index = HNSWIndex(
+            self.dimension,
+            m=s.hnsw_m,
+            ef_construction=s.hnsw_ef_construction,
+            ef_search=s.hnsw_ef_search,
+            seed=s.seed,
+        )
         self._replay(index)
         return index
 
@@ -156,8 +165,9 @@ class WorkspaceVectors:
             index = IVFIndex(np.zeros((1, self.dimension), np.float32), self.settings.ivf_nprobe)
         else:
             nlist = min(self.settings.ivf_max_lists, max(1, round(math.sqrt(len(live)))))
-            index = IVFIndex.train(vectors[live], nlist, nprobe=self.settings.ivf_nprobe,
-                                   seed=self.settings.seed)
+            index = IVFIndex.train(
+                vectors[live], nlist, nprobe=self.settings.ivf_nprobe, seed=self.settings.seed
+            )
         self._replay(index)
         self._ivf_trained_on = max(1, len(live))
         return index

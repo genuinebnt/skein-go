@@ -90,18 +90,26 @@ def build(config: Config, telemetry=None) -> Runtime:
         cache = RedisCache.from_url(config.redis_url)
     else:
         cache = memory.InMemoryCache()
-    app = MLApp(notes, embeddings, processed, cache, _embedder(config),
-                Settings(suggest_threshold=config.suggest_threshold))
+    app = MLApp(
+        notes,
+        embeddings,
+        processed,
+        cache,
+        _embedder(config),
+        Settings(suggest_threshold=config.suggest_threshold),
+    )
     service_metrics = ServiceMetrics(telemetry.meter)
-    server, health, port = build_server(app, config.address, telemetry.tracer, service_metrics,
-                                        config.workers)
+    server, health, port = build_server(
+        app, config.address, telemetry.tracer, service_metrics, config.workers
+    )
     consumer = None
     if config.pubsub_project:
         from .adapters.consumer import decode_or_skip
         from .adapters.pubsub import PubSubEventSource
 
-        consumer = PubSubEventSource(config.pubsub_project, config.pubsub_subscription,
-                                     decode_or_skip)
+        consumer = PubSubEventSource(
+            config.pubsub_project, config.pubsub_subscription, decode_or_skip
+        )
     return Runtime(app, server, health, port, telemetry, service_metrics, consumer, closers)
 
 
@@ -118,10 +126,17 @@ def main() -> None:
         signal.signal(signum, lambda *_: stop.set())
     runtime.server.start()
     if runtime.consumer is not None:
-        runtime.consumer.start(observed_handler(runtime.app, runtime.telemetry.tracer,
-                                                runtime.metrics))
-    log.info("serving", extra={"port": runtime.port, "embedder": runtime.app.embedder.model_id,
-                               "consumer": runtime.consumer is not None})
+        runtime.consumer.start(
+            observed_handler(runtime.app, runtime.telemetry.tracer, runtime.metrics)
+        )
+    log.info(
+        "serving",
+        extra={
+            "port": runtime.port,
+            "embedder": runtime.app.embedder.model_id,
+            "consumer": runtime.consumer is not None,
+        },
+    )
     stop.wait()
     runtime.shutdown(config.shutdown_grace_seconds)
 

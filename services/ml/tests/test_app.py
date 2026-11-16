@@ -36,8 +36,11 @@ class Feed:
 
     def note(self, note_id: str, title: str, *blocks: str, workspace: str = WS) -> None:
         self.send(NoteCreated(note_id, workspace, title))
-        self.send(BlocksChanged(note_id, tuple(ChangedBlock(f"b{i}", text)
-                                               for i, text in enumerate(blocks))))
+        self.send(
+            BlocksChanged(
+                note_id, tuple(ChangedBlock(f"b{i}", text) for i, text in enumerate(blocks))
+            )
+        )
 
 
 @pytest.fixture
@@ -48,8 +51,12 @@ def app() -> MLApp:
 @pytest.fixture
 def feed(app) -> Feed:
     feed = Feed(app)
-    feed.note("raft", "Raft", "leader election and log replication in raft #consensus",
-              "raft snapshots compact the log #consensus")
+    feed.note(
+        "raft",
+        "Raft",
+        "leader election and log replication in raft #consensus",
+        "raft snapshots compact the log #consensus",
+    )
     feed.note("paxos", "Paxos", "multi paxos leader and log replication #consensus")
     feed.note("bread", "Bread", "sourdough starter hydration and a long cold proof #baking")
     return feed
@@ -86,8 +93,11 @@ def test_purge_erases_the_note_everywhere(app, feed):
 
 
 def test_changed_and_removed_blocks_are_reindexed(app, feed):
-    feed.send(BlocksChanged("raft", (ChangedBlock("b0", "gardening tomatoes in spring"),),
-                            removed_block_ids=("b1",)))
+    feed.send(
+        BlocksChanged(
+            "raft", (ChangedBlock("b0", "gardening tomatoes in spring"),), removed_block_ids=("b1",)
+        )
+    )
     assert hits(app, "tomatoes gardening", k=1) == [("raft", "b0")]
     assert ("raft", "b1") not in hits(app, "raft snapshots compact", k=10)
 
@@ -139,8 +149,9 @@ def test_unchanged_text_is_not_embedded_twice():
 
 
 def test_measured_recall_compares_against_an_exact_scan(app, feed):
-    outcome = app.semantic_search(WS, "leader election", k=3, index=IndexKind.HNSW,
-                                  measure_recall=True)
+    outcome = app.semantic_search(
+        WS, "leader election", k=3, index=IndexKind.HNSW, measure_recall=True
+    )
     assert outcome.recall_at_k == 1.0
     assert outcome.latency_ms >= 0
 
@@ -197,8 +208,9 @@ def test_benchmark_runs_every_algorithm_on_workspace_vectors():
     words = ["raft", "paxos", "btree", "bread", "garlic", "onion", "index", "log"]
     for i in range(60):
         feed.note(f"n{i:02}", "t", " ".join(rng.choice(words, size=6)))
-    results = app.benchmark_clustering(WS, ["kmeans_plus_plus", "e_means", "gmm_em"], k=4,
-                                       runs=2, seed=1, include_references=False)
+    results = app.benchmark_clustering(
+        WS, ["kmeans_plus_plus", "e_means", "gmm_em"], k=4, runs=2, seed=1, include_references=False
+    )
     assert [r.algorithm for r in results] == ["kmeans_plus_plus", "e_means", "gmm_em"]
     assert all(r.implementation == "scratch" and r.train_points == 48 for r in results)
 
@@ -227,5 +239,6 @@ def test_workspace_vectors_stay_consistent_under_random_edits(seed):
         scores = {k: float(v @ (query / np.linalg.norm(query))) for k, v in oracle.items()}
         expected = sorted(scores, key=lambda k: (-scores[k], k))[:5]
         assert {k for k, _ in found} == set(expected) or np.allclose(
-            sorted(s for _, s in found), sorted(scores[k] for k in expected), atol=1e-6)
+            sorted(s for _, s in found), sorted(scores[k] for k in expected), atol=1e-6
+        )
     assert set(vectors.keys()) == set(oracle)

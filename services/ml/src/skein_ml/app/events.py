@@ -120,8 +120,16 @@ class Ignored:
     kind: EventKind = EventKind.IGNORED
 
 
-Payload = (NoteCreated | NoteRenamed | NoteTrashed | NoteRestored | NotePurged | BlocksChanged
-           | LinksChanged | Ignored)
+Payload = (
+    NoteCreated
+    | NoteRenamed
+    | NoteTrashed
+    | NoteRestored
+    | NotePurged
+    | BlocksChanged
+    | LinksChanged
+    | Ignored
+)
 
 
 @dataclass(frozen=True)

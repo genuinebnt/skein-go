@@ -61,7 +61,8 @@ def test_silhouette_matches_scikit_learn(seed):
     labels[:3] = 99  # a small extra cluster
     labels[3] = 100  # a singleton, whose silhouette is 0 by definition
     assert silhouette(x, labels, sample_size=None) == pytest.approx(
-        silhouette_score(x, labels), abs=1e-9)
+        silhouette_score(x, labels), abs=1e-9
+    )
 
 
 def test_silhouette_of_one_cluster_is_zero():

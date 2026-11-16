@@ -48,8 +48,18 @@ __all__ = [
 ]
 
 REDACTED = "[REDACTED]"
-_SENSITIVE_PARTS = ("password", "passwd", "secret", "token", "authorization", "cookie",
-                    "api_key", "apikey", "credential", "private_key")
+_SENSITIVE_PARTS = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "authorization",
+    "cookie",
+    "api_key",
+    "apikey",
+    "credential",
+    "private_key",
+)
 _CONTENT_KEYS = frozenset({"text", "query", "title", "content", "body", "note_text"})
 # Counting fields that merely mention tokens are not secrets.
 _ALLOWED_TOKEN_KEYS = frozenset({"input_tokens", "output_tokens", "max_tokens", "tokens"})
@@ -57,7 +67,10 @@ _ALLOWED_TOKEN_KEYS = frozenset({"input_tokens", "output_tokens", "max_tokens", 
 _request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 _RESERVED = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {
-    "message", "asctime", "taskName"}
+    "message",
+    "asctime",
+    "taskName",
+}
 
 
 def is_sensitive_key(key: str) -> bool:
@@ -98,8 +111,9 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Render one record."""
         out: dict[str, object] = {
-            "time": dt.datetime.fromtimestamp(record.created, dt.UTC).isoformat(
-                timespec="milliseconds").replace("+00:00", "Z"),
+            "time": dt.datetime.fromtimestamp(record.created, dt.UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
             "level": record.levelname,
             "msg": record.getMessage(),
             **self._static,
@@ -131,8 +145,9 @@ def _jsonable(value: object) -> object:
     return str(value)
 
 
-def configure_logging(service: str, version: str = "", env: str = "", level: str = "INFO",
-                      stream=None) -> logging.Handler:
+def configure_logging(
+    service: str, version: str = "", env: str = "", level: str = "INFO", stream=None
+) -> logging.Handler:
     """Install the JSON formatter on the root logger; returns the handler."""
     handler = logging.StreamHandler(stream or sys.stdout)
     handler.setFormatter(JsonFormatter(service, version, env))
@@ -160,8 +175,12 @@ class Telemetry:
                 stop()
 
 
-def setup_telemetry(service: str, version: str = "", env: str = "",
-                    lookup: Callable[[str], str | None] | None = None) -> Telemetry:
+def setup_telemetry(
+    service: str,
+    version: str = "",
+    env: str = "",
+    lookup: Callable[[str], str | None] | None = None,
+) -> Telemetry:
     """Install OTLP trace and metric providers as globals, per ``OTEL_*``."""
     import os
 
@@ -171,8 +190,9 @@ def setup_telemetry(service: str, version: str = "", env: str = "",
 
     from opentelemetry.sdk.resources import Resource
 
-    resource = Resource.create({"service.name": service, "service.version": version,
-                                "deployment.environment": env})
+    resource = Resource.create(
+        {"service.name": service, "service.version": version, "deployment.environment": env}
+    )
     shutdowns: list[Callable[[], None]] = []
     if _exporter_enabled(lookup, "TRACES"):
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -188,12 +208,14 @@ def setup_telemetry(service: str, version: str = "", env: str = "",
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
-        meter_provider = MeterProvider(resource=resource, metric_readers=[
-            PeriodicExportingMetricReader(OTLPMetricExporter())])
+        meter_provider = MeterProvider(
+            resource=resource, metric_readers=[PeriodicExportingMetricReader(OTLPMetricExporter())]
+        )
         metrics.set_meter_provider(meter_provider)
         shutdowns.append(meter_provider.shutdown)
-    return Telemetry(True, trace.get_tracer(service, version), metrics.get_meter(service, version),
-                     shutdowns)
+    return Telemetry(
+        True, trace.get_tracer(service, version), metrics.get_meter(service, version), shutdowns
+    )
 
 
 def _exporter_enabled(lookup: Callable[[str], str | None], signal: str) -> bool:
@@ -208,10 +230,14 @@ class ServiceMetrics:
 
     def __init__(self, meter: metrics.Meter):
         self.rpc_requests = meter.create_counter(
-            "skein.ml.rpc.requests", description="gRPC requests by method and status code")
+            "skein.ml.rpc.requests", description="gRPC requests by method and status code"
+        )
         self.rpc_duration = meter.create_histogram(
-            "skein.ml.rpc.duration", unit="ms", description="gRPC handler latency")
+            "skein.ml.rpc.duration", unit="ms", description="gRPC handler latency"
+        )
         self.events = meter.create_counter(
-            "skein.ml.events", description="documents.events by payload kind and outcome")
+            "skein.ml.events", description="documents.events by payload kind and outcome"
+        )
         self.search_recall = meter.create_histogram(
-            "skein.ml.search.recall", description="Measured recall@k of approximate searches")
+            "skein.ml.search.recall", description="Measured recall@k of approximate searches"
+        )

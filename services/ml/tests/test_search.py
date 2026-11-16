@@ -23,8 +23,14 @@ def _oracle(index: BruteForceIndex, queries: np.ndarray, k: int, allowed=None) -
 
 
 def _mean_recall(index, queries, truth, k, **options) -> float:
-    return float(np.mean([recall_at_k(index.search(q, k, **options).ids, t, k)
-                          for q, t in zip(queries, truth, strict=True)]))
+    return float(
+        np.mean(
+            [
+                recall_at_k(index.search(q, k, **options).ids, t, k)
+                for q, t in zip(queries, truth, strict=True)
+            ]
+        )
+    )
 
 
 def test_brute_force_matches_a_full_sort_with_ties_to_the_lower_id(rng):
@@ -72,8 +78,9 @@ def test_ivf_recall_never_drops_as_nprobe_grows(rng):
     previous = [0.0] * len(queries)
     for nprobe in (1, 2, 4, 8, 16, 32):
         ivf.set_nprobe(nprobe)
-        current = [recall_at_k(ivf.search(q, 10).ids, t, 10)
-                   for q, t in zip(queries, truth, strict=True)]
+        current = [
+            recall_at_k(ivf.search(q, 10).ids, t, 10) for q, t in zip(queries, truth, strict=True)
+        ]
         assert all(c >= p for c, p in zip(current, previous, strict=True))
         previous = current
     assert np.mean(previous) == 1.0
@@ -83,7 +90,7 @@ def test_ivf_invariants_hold_after_incremental_adds(rng):
     x = unit_rows(rng, 600, 12)
     ivf = IVFIndex.train(x[:300], nlist=10, seed=3)
     for begin in range(0, 600, 100):
-        ivf.add(x[begin:begin + 100])
+        ivf.add(x[begin : begin + 100])
         ivf.check_invariants()
     assert len(ivf) == 600
 
@@ -157,7 +164,7 @@ def test_hnsw_routes_through_removed_nodes_but_never_returns_them(built, rng):
 def test_hnsw_invariant_check_catches_an_overfull_neighbour_list(rng):
     index = HNSWIndex(4, m=3, ef_construction=8, seed=1)
     index.add(unit_rows(rng, 60, 4))
-    index._links[5][0] = [n for n in range(60) if n != 5][:index.m0 + 1]
+    index._links[5][0] = [n for n in range(60) if n != 5][: index.m0 + 1]
     with pytest.raises(AssertionError, match="links on layer 0"):
         index.check_invariants()
 

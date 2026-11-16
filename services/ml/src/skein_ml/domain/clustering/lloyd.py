@@ -42,8 +42,9 @@ Init = Literal["random", "kmeans++"] | np.ndarray
 _MONOTONE_SLACK = 1e-9
 
 
-def initial_centroids(x: np.ndarray, k: int, init: Init, rng: np.random.Generator,
-                      counter: DistanceCounter) -> np.ndarray:
+def initial_centroids(
+    x: np.ndarray, k: int, init: Init, rng: np.random.Generator, counter: DistanceCounter
+) -> np.ndarray:
     """Resolve an ``init`` option to a (k, d) array of starting centroids."""
     if isinstance(init, np.ndarray):
         if init.shape != (k, x.shape[1]):
@@ -101,9 +102,15 @@ class Lloyd:
             if observer is not None:
                 observer(self)
         self.centroids, self.labels = centroids, labels
-        return FitResult(centroids=centroids, labels=labels, objective=objective,
-                         iterations=iterations, epochs=float(iterations),
-                         distance_computations=self.counter.count, history=list(self.history))
+        return FitResult(
+            centroids=centroids,
+            labels=labels,
+            objective=objective,
+            iterations=iterations,
+            epochs=float(iterations),
+            distance_computations=self.counter.count,
+            history=list(self.history),
+        )
 
     def check_invariants(self) -> None:
         """Centroids finite, labels valid, objective non-increasing."""

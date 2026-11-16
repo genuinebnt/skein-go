@@ -28,8 +28,13 @@ def decode_event(data: bytes, attributes: dict[str, str] | None = None) -> event
         raise MalformedEvent(str(error)) from error
     if not message.id:
         raise MalformedEvent("event has no id")
-    return events.Event(id=message.id, payload=_payload(message), source=message.source,
-                        traceparent=message.traceparent, attributes=dict(attributes or {}))
+    return events.Event(
+        id=message.id,
+        payload=_payload(message),
+        source=message.source,
+        traceparent=message.traceparent,
+        attributes=dict(attributes or {}),
+    )
 
 
 def _payload(message) -> events.Payload:
@@ -49,17 +54,21 @@ def _payload(message) -> events.Payload:
         p = message.blocks_changed
         return events.BlocksChanged(
             note_id=p.note_id,
-            blocks=tuple(events.ChangedBlock(b.block_id, b.text, b.kind, b.language)
-                         for b in p.blocks),
-            removed_block_ids=tuple(p.removed_block_ids))
+            blocks=tuple(
+                events.ChangedBlock(b.block_id, b.text, b.kind, b.language) for b in p.blocks
+            ),
+            removed_block_ids=tuple(p.removed_block_ids),
+        )
     if which == "links_changed":
-        return events.LinksChanged(message.links_changed.note_id,
-                                   tuple(message.links_changed.targets))
+        return events.LinksChanged(
+            message.links_changed.note_id, tuple(message.links_changed.targets)
+        )
     return events.Ignored()
 
 
-def encode_event(event_id: str, payload: object, traceparent: str = "",
-                 source: str = "documents") -> bytes:
+def encode_event(
+    event_id: str, payload: object, traceparent: str = "", source: str = "documents"
+) -> bytes:
     """Build an encoded envelope (for tests and local tooling)."""
     message = events_pb2.Event(id=event_id, source=source, traceparent=traceparent)
     match payload:
@@ -79,8 +88,12 @@ def encode_event(event_id: str, payload: object, traceparent: str = "",
         case events.BlocksChanged():
             message.blocks_changed.note_id = payload.note_id
             for block in payload.blocks:
-                message.blocks_changed.blocks.add(block_id=block.block_id, text=block.text,
-                                                  kind=block.block_kind, language=block.language)
+                message.blocks_changed.blocks.add(
+                    block_id=block.block_id,
+                    text=block.text,
+                    kind=block.block_kind,
+                    language=block.language,
+                )
             message.blocks_changed.removed_block_ids.extend(payload.removed_block_ids)
         case events.LinksChanged():
             message.links_changed.note_id = payload.note_id

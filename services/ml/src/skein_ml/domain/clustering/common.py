@@ -71,8 +71,9 @@ class FitResult:
     history: list[float] = field(default_factory=list)
 
 
-def squared_distances(x: np.ndarray, centroids: np.ndarray, counter: DistanceCounter | None = None
-                      ) -> np.ndarray:
+def squared_distances(
+    x: np.ndarray, centroids: np.ndarray, counter: DistanceCounter | None = None
+) -> np.ndarray:
     """Return the (n, k) matrix of squared Euclidean distances."""
     if counter is not None:
         counter.add(len(x) * len(centroids))
@@ -83,8 +84,12 @@ def squared_distances(x: np.ndarray, centroids: np.ndarray, counter: DistanceCou
     return distances
 
 
-def assign_nearest(x: np.ndarray, centroids: np.ndarray, counter: DistanceCounter | None = None,
-                   chunk_rows: int = 8192) -> tuple[np.ndarray, np.ndarray]:
+def assign_nearest(
+    x: np.ndarray,
+    centroids: np.ndarray,
+    counter: DistanceCounter | None = None,
+    chunk_rows: int = 8192,
+) -> tuple[np.ndarray, np.ndarray]:
     """Return (labels, squared distance to the nearest centroid) for every row.
 
     Chunked so the (n, k) distance matrix never has to fit in memory at once.
@@ -93,16 +98,17 @@ def assign_nearest(x: np.ndarray, centroids: np.ndarray, counter: DistanceCounte
     labels = np.empty(len(x), dtype=np.int64)
     nearest = np.empty(len(x), dtype=np.float64)
     for begin in range(0, len(x), chunk_rows):
-        rows = x[begin:begin + chunk_rows]
+        rows = x[begin : begin + chunk_rows]
         distances = squared_distances(rows, centroids, counter)
         chunk_labels = np.argmin(distances, axis=1)
-        labels[begin:begin + len(rows)] = chunk_labels
-        nearest[begin:begin + len(rows)] = distances[np.arange(len(rows)), chunk_labels]
+        labels[begin : begin + len(rows)] = chunk_labels
+        nearest[begin : begin + len(rows)] = distances[np.arange(len(rows)), chunk_labels]
     return labels, nearest
 
 
-def cluster_means(x: np.ndarray, labels: np.ndarray, previous: np.ndarray
-                  ) -> tuple[np.ndarray, np.ndarray]:
+def cluster_means(
+    x: np.ndarray, labels: np.ndarray, previous: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """Return (means, counts); clusters assigned nothing keep their previous position.
 
     Keeping empty clusters in place (rather than re-seeding them) is what

@@ -27,20 +27,31 @@ __all__ = ["decode_or_skip", "observed_handler"]
 log = logging.getLogger(__name__)
 
 
-def observed_handler(app: MLApp, tracer: trace.Tracer, service_metrics: ServiceMetrics
-                     ) -> Callable[[Event | None], None]:
+def observed_handler(
+    app: MLApp, tracer: trace.Tracer, service_metrics: ServiceMetrics
+) -> Callable[[Event | None], None]:
     """An `EventHandler` that applies events through ``app`` with tracing and metrics."""
 
     def handle(event: Event | None) -> None:
         if event is None:
             return
         kind = str(event.payload.kind)
-        parent = propagate.extract({"traceparent": event.traceparent}) if event.traceparent \
-            else None
-        with request_context(event.id), tracer.start_as_current_span(
-                "documents.events process", context=parent, kind=trace.SpanKind.CONSUMER,
-                attributes={"messaging.system": "gcp_pubsub", "messaging.message.id": event.id,
-                            "skein.event.kind": kind}):
+        parent = (
+            propagate.extract({"traceparent": event.traceparent}) if event.traceparent else None
+        )
+        with (
+            request_context(event.id),
+            tracer.start_as_current_span(
+                "documents.events process",
+                context=parent,
+                kind=trace.SpanKind.CONSUMER,
+                attributes={
+                    "messaging.system": "gcp_pubsub",
+                    "messaging.message.id": event.id,
+                    "skein.event.kind": kind,
+                },
+            ),
+        ):
             try:
                 applied = app.handle(event)
             except Exception:

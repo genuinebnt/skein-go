@@ -104,12 +104,24 @@ class Elkan:
                 break
 
         objective = float(((x - centroids[labels]) ** 2).sum())
-        return FitResult(centroids=centroids, labels=labels, objective=objective,
-                         iterations=iterations, epochs=float(iterations),
-                         distance_computations=self.counter.count, history=history)
+        return FitResult(
+            centroids=centroids,
+            labels=labels,
+            objective=objective,
+            iterations=iterations,
+            epochs=float(iterations),
+            distance_computations=self.counter.count,
+            history=history,
+        )
 
-    def _assign(self, x: np.ndarray, centroids: np.ndarray, labels: np.ndarray,
-                upper: np.ndarray, lower: np.ndarray) -> bool:
+    def _assign(
+        self,
+        x: np.ndarray,
+        centroids: np.ndarray,
+        labels: np.ndarray,
+        upper: np.ndarray,
+        lower: np.ndarray,
+    ) -> bool:
         """One bound-pruned assignment pass, in place. Returns whether any label changed."""
         k = self.k
         between = np.sqrt(squared_distances(centroids, centroids))
@@ -129,8 +141,11 @@ class Elkan:
         before = assigned.copy()
 
         for centre in range(k):
-            candidate = ((assigned != centre) & (bound > point_lower[:, centre])
-                         & (bound > 0.5 * between[assigned, centre]))
+            candidate = (
+                (assigned != centre)
+                & (bound > point_lower[:, centre])
+                & (bound > 0.5 * between[assigned, centre])
+            )
             if not candidate.any():
                 continue
             tighten = np.flatnonzero(candidate & stale)
@@ -140,8 +155,9 @@ class Elkan:
                 bound[tighten] = exact
                 point_lower[tighten, assigned[tighten]] = exact
                 stale[tighten] = False
-                candidate &= ((bound > point_lower[:, centre])
-                              & (bound > 0.5 * between[assigned, centre]))
+                candidate &= (bound > point_lower[:, centre]) & (
+                    bound > 0.5 * between[assigned, centre]
+                )
             rows = np.flatnonzero(candidate)
             if len(rows) == 0:
                 continue

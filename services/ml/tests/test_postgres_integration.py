@@ -27,8 +27,9 @@ def store():
     store = PostgresStore(url)
     yield store
     with store._connection.transaction():
-        store._connection.execute("TRUNCATE ml.notes, ml.blocks, ml.block_embeddings, "
-                                  "ml.processed_events")
+        store._connection.execute(
+            "TRUNCATE ml.notes, ml.blocks, ml.block_embeddings, ml.processed_events"
+        )
     store.close()
 
 

@@ -56,8 +56,9 @@ def top_terms(clusters: Sequence[Iterable[str]], count: int = 5) -> list[list[st
     for texts in clusters:
         counter: Counter[str] = Counter()
         for text in texts:
-            counter.update(t for t in tokens(text)
-                           if t not in STOP_WORDS and len(t) > 1 and not t.isdigit())
+            counter.update(
+                t for t in tokens(text) if t not in STOP_WORDS and len(t) > 1 and not t.isdigit()
+            )
         term_counts.append(counter)
     overall: Counter[str] = Counter()
     for counter in term_counts:
@@ -66,8 +67,14 @@ def top_terms(clusters: Sequence[Iterable[str]], count: int = 5) -> list[list[st
     average = sum(sizes) / max(1, len(sizes))
     labels = []
     for counter, size in zip(term_counts, sizes, strict=True):
-        weighted = [(count_t / size * math.log(1 + average / overall[term]), term)
-                    for term, count_t in counter.items()] if size else []
+        weighted = (
+            [
+                (count_t / size * math.log(1 + average / overall[term]), term)
+                for term, count_t in counter.items()
+            ]
+            if size
+            else []
+        )
         weighted.sort(key=lambda item: (-item[0], item[1]))
         labels.append([term for _, term in weighted[:count]])
     return labels

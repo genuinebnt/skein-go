@@ -56,8 +56,14 @@ __all__ = ["HNSWIndex"]
 class HNSWIndex:
     """HNSW graph over cosine distance."""
 
-    def __init__(self, dimension: int, m: int = 16, ef_construction: int = 200,
-                 ef_search: int = 64, seed: int = 0):
+    def __init__(
+        self,
+        dimension: int,
+        m: int = 16,
+        ef_construction: int = 200,
+        ef_search: int = 64,
+        seed: int = 0,
+    ):
         if m < 2:
             raise ValueError("M must be at least 2")
         self.dimension = dimension
@@ -85,7 +91,7 @@ class HNSWIndex:
         return len(self._levels)
 
     def __len__(self) -> int:
-        return int(self._alive[:self.count].sum())
+        return int(self._alive[: self.count].sum())
 
     def add(self, vectors: np.ndarray) -> np.ndarray:
         """Insert rows one by one; returns their ids."""
@@ -99,16 +105,21 @@ class HNSWIndex:
         ids = np.asarray(ids, dtype=np.int64)
         self._alive[ids[(ids >= 0) & (ids < self.count)]] = False
 
-    def search(self, query: np.ndarray, k: int, allowed: np.ndarray | None = None,
-               ef_search: int | None = None) -> Hits:
+    def search(
+        self,
+        query: np.ndarray,
+        k: int,
+        allowed: np.ndarray | None = None,
+        ef_search: int | None = None,
+    ) -> Hits:
         """Approximate top-k by cosine among live nodes passing ``allowed``."""
         if k <= 0 or self.entry_point < 0:
             return Hits(np.empty(0, np.int64), np.empty(0, np.float32))
         before = self.distance_computations
         unit = normalize(query)[0]
-        returnable = self._alive[:self.count].copy()
+        returnable = self._alive[: self.count].copy()
         if allowed is not None:
-            returnable &= np.asarray(allowed[:self.count], dtype=bool)
+            returnable &= np.asarray(allowed[: self.count], dtype=bool)
         if not returnable.any():
             return Hits(np.empty(0, np.int64), np.empty(0, np.float32))
         entry = self._descend(unit, self.entry_point, self.top_level, 0)
@@ -166,8 +177,14 @@ class HNSWIndex:
                     improved = True
         return current
 
-    def _search_layer(self, vector: np.ndarray, entries: list[int], ef: int, layer: int,
-                      returnable: np.ndarray | None) -> list[tuple[float, int]]:
+    def _search_layer(
+        self,
+        vector: np.ndarray,
+        entries: list[int],
+        ef: int,
+        layer: int,
+        returnable: np.ndarray | None,
+    ) -> list[tuple[float, int]]:
         """Beam search on one layer (Algorithm 2); returns (distance, node), nearest first.
 
         With ``returnable`` set, every node is explored but only returnable
@@ -234,8 +251,10 @@ class HNSWIndex:
 
     def layer_sizes(self) -> list[int]:
         """Nodes on each layer, bottom first."""
-        return [sum(1 for level in self._levels if level >= layer)
-                for layer in range(self.top_level + 1)]
+        return [
+            sum(1 for level in self._levels if level >= layer)
+            for layer in range(self.top_level + 1)
+        ]
 
     def check_invariants(self) -> None:
         """Layer, degree and entry-point invariants (see module doc)."""
@@ -258,7 +277,8 @@ class HNSWIndex:
                 limit = self.m0 if layer == 0 else self.m
                 if len(neighbours) > limit:
                     raise InvariantViolation(
-                        f"node {node} has {len(neighbours)} links on layer {layer}, max {limit}")
+                        f"node {node} has {len(neighbours)} links on layer {layer}, max {limit}"
+                    )
                 if len(set(neighbours)) != len(neighbours):
                     raise InvariantViolation(f"node {node} has duplicate links on layer {layer}")
                 for neighbour in neighbours:
@@ -266,4 +286,5 @@ class HNSWIndex:
                         raise InvariantViolation(f"node {node} links to itself")
                     if not 0 <= neighbour < n or self._levels[neighbour] < layer:
                         raise InvariantViolation(
-                            f"node {node} links to {neighbour}, which is not on layer {layer}")
+                            f"node {node} links to {neighbour}, which is not on layer {layer}"
+                        )

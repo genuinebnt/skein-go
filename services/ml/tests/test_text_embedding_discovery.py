@@ -36,11 +36,13 @@ def test_hashing_embedder_is_deterministic_and_unit_length():
 
 def test_hashing_embedder_ranks_lexical_overlap_higher():
     embedder = HashingEmbedder(256)
-    query, close, far = embedder.embed([
-        "raft leader election and log replication",
-        "log replication in raft after a leader election",
-        "sourdough bread with a long cold proof",
-    ])
+    query, close, far = embedder.embed(
+        [
+            "raft leader election and log replication",
+            "log replication in raft after a leader election",
+            "sourdough bread with a long cold proof",
+        ]
+    )
     assert query @ close > 0.5 > query @ far
 
 
@@ -74,8 +76,13 @@ def test_onnx_embedder_produces_384_dimensional_unit_vectors():
 
 
 def test_top_terms_prefers_terms_distinctive_to_a_cluster():
-    labels = top_terms([["raft raft consensus log", "raft quorum notes"],
-                        ["bread proof flour notes", "flour hydration"]], count=2)
+    labels = top_terms(
+        [
+            ["raft raft consensus log", "raft quorum notes"],
+            ["bread proof flour notes", "flour hydration"],
+        ],
+        count=2,
+    )
     assert labels[0][0] == "raft"
     assert labels[1][0] == "flour"
     assert "notes" not in labels[0][:1] + labels[1][:1]
@@ -101,10 +108,18 @@ def test_jaccard_of_two_empty_tag_sets_is_zero():
 
 def test_related_notes_report_each_signal_separately_ranked_by_cosine():
     unit = lambda v: np.asarray(v, dtype=np.float32) / np.linalg.norm(v)  # noqa: E731
-    embeddings = {"t": unit([1, 0, 0]), "linked": unit([1, 0.1, 0]), "far": unit([1, 0.2, 0]),
-                  "unrelated": unit([0, 0, 1]), "tagged": unit([0.1, 1, 0])}
-    tags = {"t": frozenset({"db", "rust"}), "tagged": frozenset({"db", "rust"}),
-            "far": frozenset({"db"})}
+    embeddings = {
+        "t": unit([1, 0, 0]),
+        "linked": unit([1, 0.1, 0]),
+        "far": unit([1, 0.2, 0]),
+        "unrelated": unit([0, 0, 1]),
+        "tagged": unit([0.1, 1, 0]),
+    }
+    tags = {
+        "t": frozenset({"db", "rust"}),
+        "tagged": frozenset({"db", "rust"}),
+        "far": frozenset({"db"}),
+    }
     outbound = {"t": ["linked"], "linked": ["mid"], "mid": ["far"]}
     related = {r.note_id: r for r in related_notes("t", embeddings, tags, outbound, k=10)}
     assert list(related) == ["linked", "far", "tagged", "unrelated"]

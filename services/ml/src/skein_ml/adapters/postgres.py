@@ -25,16 +25,18 @@ from ..domain.notes import Note
 __all__ = ["PostgresStore", "migrate"]
 
 # The source tree's migrations/; installed images point SKEIN_ML_MIGRATIONS_DIR at a copy.
-MIGRATIONS = Path(os.environ.get("SKEIN_ML_MIGRATIONS_DIR")
-                  or Path(__file__).resolve().parents[3] / "migrations")
+MIGRATIONS = Path(
+    os.environ.get("SKEIN_ML_MIGRATIONS_DIR") or Path(__file__).resolve().parents[3] / "migrations"
+)
 
 
 def _connect(url: str):
     try:
         import psycopg
     except ImportError as error:  # pragma: no cover - depends on the environment
-        raise RuntimeError("install the 'postgres' extra: pip install 'skein-ml[postgres]'") \
-            from error
+        raise RuntimeError(
+            "install the 'postgres' extra: pip install 'skein-ml[postgres]'"
+        ) from error
     return psycopg.connect(url, autocommit=False)
 
 
@@ -43,8 +45,10 @@ def migrate(connection, directory: Path = MIGRATIONS) -> list[str]:
     applied = []
     with connection.transaction():
         connection.execute("CREATE SCHEMA IF NOT EXISTS ml")
-        connection.execute("CREATE TABLE IF NOT EXISTS ml.schema_migrations "
-                           "(name text PRIMARY KEY, applied_at timestamptz DEFAULT now())")
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS ml.schema_migrations "
+            "(name text PRIMARY KEY, applied_at timestamptz DEFAULT now())"
+        )
         done = {row[0] for row in connection.execute("SELECT name FROM ml.schema_migrations")}
         for path in sorted(directory.glob("*.sql")):
             if path.name in done:
@@ -87,45 +91,61 @@ class _Notes:
 
     def get(self, note_id: str) -> Note | None:
         def work(c):
-            row = c.execute("SELECT workspace_id, title, trashed, links FROM ml.notes "
-                            "WHERE note_id = %s", (note_id,)).fetchone()
+            row = c.execute(
+                "SELECT workspace_id, title, trashed, links FROM ml.notes WHERE note_id = %s",
+                (note_id,),
+            ).fetchone()
             if row is None:
                 return None
-            blocks = dict(c.execute("SELECT block_id, body FROM ml.blocks WHERE note_id = %s",
-                                    (note_id,)).fetchall())
+            blocks = dict(
+                c.execute(
+                    "SELECT block_id, body FROM ml.blocks WHERE note_id = %s", (note_id,)
+                ).fetchall()
+            )
             return Note(note_id, row[0], row[1], row[2], blocks, tuple(row[3]))
+
         return self._store._run(work)
 
     def put(self, note: Note) -> None:
         def work(c):
-            c.execute("INSERT INTO ml.notes (note_id, workspace_id, title, trashed, links) "
-                      "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (note_id) DO UPDATE SET "
-                      "workspace_id = EXCLUDED.workspace_id, title = EXCLUDED.title, "
-                      "trashed = EXCLUDED.trashed, links = EXCLUDED.links, updated_at = now()",
-                      (note.note_id, note.workspace_id, note.title, note.trashed,
-                       list(note.links)))
+            c.execute(
+                "INSERT INTO ml.notes (note_id, workspace_id, title, trashed, links) "
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (note_id) DO UPDATE SET "
+                "workspace_id = EXCLUDED.workspace_id, title = EXCLUDED.title, "
+                "trashed = EXCLUDED.trashed, links = EXCLUDED.links, updated_at = now()",
+                (note.note_id, note.workspace_id, note.title, note.trashed, list(note.links)),
+            )
             c.execute("DELETE FROM ml.blocks WHERE note_id = %s", (note.note_id,))
             with c.cursor() as cursor:
-                cursor.executemany("INSERT INTO ml.blocks (note_id, block_id, body) "
-                                   "VALUES (%s, %s, %s)",
-                                   [(note.note_id, b, t) for b, t in sorted(note.blocks.items())])
+                cursor.executemany(
+                    "INSERT INTO ml.blocks (note_id, block_id, body) VALUES (%s, %s, %s)",
+                    [(note.note_id, b, t) for b, t in sorted(note.blocks.items())],
+                )
+
         self._store._run(work)
 
     def delete(self, note_id: str) -> None:
-        self._store._run(lambda c: c.execute("DELETE FROM ml.notes WHERE note_id = %s",
-                                             (note_id,)))
+        self._store._run(lambda c: c.execute("DELETE FROM ml.notes WHERE note_id = %s", (note_id,)))
 
     def in_workspace(self, workspace_id: str) -> list[Note]:
         def work(c):
-            rows = c.execute("SELECT note_id, title, trashed, links FROM ml.notes "
-                             "WHERE workspace_id = %s ORDER BY note_id", (workspace_id,)).fetchall()
+            rows = c.execute(
+                "SELECT note_id, title, trashed, links FROM ml.notes "
+                "WHERE workspace_id = %s ORDER BY note_id",
+                (workspace_id,),
+            ).fetchall()
             blocks: dict[str, dict[str, str]] = {}
             for note_id, block_id, body in c.execute(
-                    "SELECT b.note_id, b.block_id, b.body FROM ml.blocks b JOIN ml.notes n "
-                    "USING (note_id) WHERE n.workspace_id = %s", (workspace_id,)):
+                "SELECT b.note_id, b.block_id, b.body FROM ml.blocks b JOIN ml.notes n "
+                "USING (note_id) WHERE n.workspace_id = %s",
+                (workspace_id,),
+            ):
                 blocks.setdefault(note_id, {})[block_id] = body
-            return [Note(r[0], workspace_id, r[1], r[2], blocks.get(r[0], {}), tuple(r[3]))
-                    for r in rows]
+            return [
+                Note(r[0], workspace_id, r[1], r[2], blocks.get(r[0], {}), tuple(r[3]))
+                for r in rows
+            ]
+
         return self._store._run(work)
 
 
@@ -134,14 +154,20 @@ class _Embeddings:
         self._store = store
 
     def get(self, note_id: str, model_id: str) -> dict[str, np.ndarray]:
-        rows = self._store._run(lambda c: c.execute(
-            "SELECT block_id, vector FROM ml.block_embeddings WHERE note_id = %s AND model_id = %s",
-            (note_id, model_id)).fetchall())
+        rows = self._store._run(
+            lambda c: c.execute(
+                "SELECT block_id, vector FROM ml.block_embeddings "
+                "WHERE note_id = %s AND model_id = %s",
+                (note_id, model_id),
+            ).fetchall()
+        )
         return {block: np.frombuffer(bytes(data), dtype="<f4").copy() for block, data in rows}
 
     def put(self, note_id: str, model_id: str, vectors: Mapping[str, np.ndarray]) -> None:
-        rows = [(note_id, model_id, block, len(v), np.asarray(v, dtype="<f4").tobytes())
-                for block, v in sorted(vectors.items())]
+        rows = [
+            (note_id, model_id, block, len(v), np.asarray(v, dtype="<f4").tobytes())
+            for block, v in sorted(vectors.items())
+        ]
         if not rows:
             return
 
@@ -150,19 +176,26 @@ class _Embeddings:
                 cursor.executemany(
                     "INSERT INTO ml.block_embeddings (note_id, model_id, block_id, dimension, "
                     "vector) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (note_id, model_id, block_id) "
-                    "DO UPDATE SET dimension = EXCLUDED.dimension, vector = EXCLUDED.vector", rows)
+                    "DO UPDATE SET dimension = EXCLUDED.dimension, vector = EXCLUDED.vector",
+                    rows,
+                )
+
         self._store._run(work)
 
     def delete_blocks(self, note_id: str, block_ids: Iterable[str]) -> None:
         ids = list(block_ids)
         if ids:
-            self._store._run(lambda c: c.execute(
-                "DELETE FROM ml.block_embeddings WHERE note_id = %s AND block_id = ANY(%s)",
-                (note_id, ids)))
+            self._store._run(
+                lambda c: c.execute(
+                    "DELETE FROM ml.block_embeddings WHERE note_id = %s AND block_id = ANY(%s)",
+                    (note_id, ids),
+                )
+            )
 
     def delete_note(self, note_id: str) -> None:
-        self._store._run(lambda c: c.execute(
-            "DELETE FROM ml.block_embeddings WHERE note_id = %s", (note_id,)))
+        self._store._run(
+            lambda c: c.execute("DELETE FROM ml.block_embeddings WHERE note_id = %s", (note_id,))
+        )
 
 
 class _Processed:
@@ -170,11 +203,19 @@ class _Processed:
         self._store = store
 
     def contains(self, event_id: str) -> bool:
-        return self._store._run(lambda c: c.execute(
-            "SELECT 1 FROM ml.processed_events WHERE event_id = %s", (event_id,)).fetchone()
-        ) is not None
+        return (
+            self._store._run(
+                lambda c: c.execute(
+                    "SELECT 1 FROM ml.processed_events WHERE event_id = %s", (event_id,)
+                ).fetchone()
+            )
+            is not None
+        )
 
     def record(self, event_id: str) -> None:
-        self._store._run(lambda c: c.execute(
-            "INSERT INTO ml.processed_events (event_id) VALUES (%s) ON CONFLICT DO NOTHING",
-            (event_id,)))
+        self._store._run(
+            lambda c: c.execute(
+                "INSERT INTO ml.processed_events (event_id) VALUES (%s) ON CONFLICT DO NOTHING",
+                (event_id,),
+            )
+        )

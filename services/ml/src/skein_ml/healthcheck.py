@@ -20,7 +20,8 @@ def main() -> int:
     try:
         with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
             response = health_pb2_grpc.HealthStub(channel).Check(
-                health_pb2.HealthCheckRequest(service="skein.v1.MLService"), timeout=2)
+                health_pb2.HealthCheckRequest(service="skein.v1.MLService"), timeout=2
+            )
     except grpc.RpcError as error:
         print(f"unhealthy: {error.code().name}", file=sys.stderr)
         return 1

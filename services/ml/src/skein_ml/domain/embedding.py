@@ -65,8 +65,11 @@ class HashingEmbedder:
             raise ValueError("idf must have one weight per bucket")
         self._dimension = dimension
         self._idf = None if idf is None else idf.astype(np.float32)
-        digest = "" if idf is None else "-idf" + hashlib.blake2b(
-            self._idf.tobytes(), digest_size=6).hexdigest()
+        digest = (
+            ""
+            if idf is None
+            else "-idf" + hashlib.blake2b(self._idf.tobytes(), digest_size=6).hexdigest()
+        )
         self._model_id = f"hashing-tfidf-v1-d{dimension}{digest}"
 
     @property

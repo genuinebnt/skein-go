@@ -45,10 +45,12 @@ class RedisCache:
         try:
             import redis
         except ImportError as error:  # pragma: no cover - depends on the environment
-            raise RuntimeError("install the 'redis' extra: pip install 'skein-ml[redis]'") \
-                from error
-        return cls(redis.Redis.from_url(url, socket_timeout=0.5, socket_connect_timeout=0.5),
-                   prefix)
+            raise RuntimeError(
+                "install the 'redis' extra: pip install 'skein-ml[redis]'"
+            ) from error
+        return cls(
+            redis.Redis.from_url(url, socket_timeout=0.5, socket_connect_timeout=0.5), prefix
+        )
 
     def get(self, key: str) -> bytes | None:
         """See `Cache.get`."""

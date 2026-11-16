@@ -81,8 +81,9 @@ class Config:
             pubsub_project=text("SKEIN_ML_PUBSUB_PROJECT", ""),
             pubsub_subscription=text("SKEIN_ML_PUBSUB_SUBSCRIPTION", cls.pubsub_subscription),
             suggest_threshold=number("SKEIN_ML_SUGGEST_THRESHOLD", cls.suggest_threshold, float),
-            shutdown_grace_seconds=number("SKEIN_ML_SHUTDOWN_GRACE_SECONDS",
-                                          cls.shutdown_grace_seconds, float),
+            shutdown_grace_seconds=number(
+                "SKEIN_ML_SHUTDOWN_GRACE_SECONDS", cls.shutdown_grace_seconds, float
+            ),
             log_level=text("SKEIN_ML_LOG_LEVEL", cls.log_level).upper(),
             env=text("SKEIN_ENV", cls.env),
             version=text("SKEIN_VERSION", cls.version),

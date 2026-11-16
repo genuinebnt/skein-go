@@ -82,14 +82,25 @@ class MLServicer(ml_pb2_grpc.MLServiceServicer):
         """See ``ml.proto``."""
         try:
             outcome = self.app.semantic_search(
-                request.workspace_id, request.query, request.k,
-                _INDEX_FROM_PROTO.get(request.index), list(request.tags), request.measure_recall)
+                request.workspace_id,
+                request.query,
+                request.k,
+                _INDEX_FROM_PROTO.get(request.index),
+                list(request.tags),
+                request.measure_recall,
+            )
         except MLError as error:
             _fail(context, error)
         return ml_pb2.SemanticSearchResponse(
-            hits=[ml_pb2.SemanticHit(location={"note_id": h.note_id, "block_id": h.block_id},
-                                     cosine=h.cosine) for h in outcome.hits],
-            recall_at_k=outcome.recall_at_k, latency_ms=outcome.latency_ms)
+            hits=[
+                ml_pb2.SemanticHit(
+                    location={"note_id": h.note_id, "block_id": h.block_id}, cosine=h.cosine
+                )
+                for h in outcome.hits
+            ],
+            recall_at_k=outcome.recall_at_k,
+            latency_ms=outcome.latency_ms,
+        )
 
     def Discover(self, request, context):  # noqa: N802
         """See ``ml.proto``."""
@@ -97,10 +108,19 @@ class MLServicer(ml_pb2_grpc.MLServiceServicer):
             related = self.app.discover(request.note_id, request.k)
         except MLError as error:
             _fail(context, error)
-        return ml_pb2.DiscoverResponse(related=[
-            ml_pb2.RelatedNote(note_id=r.note_id, cosine=r.cosine, shared_tags=r.shared_tags,
-                               tag_jaccard=r.tag_jaccard, hops=r.hops, suggest_link=r.suggest_link)
-            for r in related])
+        return ml_pb2.DiscoverResponse(
+            related=[
+                ml_pb2.RelatedNote(
+                    note_id=r.note_id,
+                    cosine=r.cosine,
+                    shared_tags=r.shared_tags,
+                    tag_jaccard=r.tag_jaccard,
+                    hops=r.hops,
+                    suggest_link=r.suggest_link,
+                )
+                for r in related
+            ]
+        )
 
     def ListClusters(self, request, context):  # noqa: N802
         """See ``ml.proto``."""
@@ -108,9 +128,12 @@ class MLServicer(ml_pb2_grpc.MLServiceServicer):
             clusters = self.app.list_clusters(request.workspace_id)
         except MLError as error:
             _fail(context, error)
-        return ml_pb2.ListClustersResponse(clusters=[
-            ml_pb2.Cluster(id=c.id, label=c.label, top_terms=c.top_terms, note_ids=c.note_ids)
-            for c in clusters])
+        return ml_pb2.ListClustersResponse(
+            clusters=[
+                ml_pb2.Cluster(id=c.id, label=c.label, top_terms=c.top_terms, note_ids=c.note_ids)
+                for c in clusters
+            ]
+        )
 
     def BenchmarkClustering(self, request, context):  # noqa: N802
         """See ``ml.proto``; objectives are sums (K-means) or mean NLL (mixtures)."""
@@ -124,8 +147,9 @@ class MLServicer(ml_pb2_grpc.MLServiceServicer):
             return remaining is not None and remaining <= 0
 
         try:
-            runs = self.app.benchmark_clustering(request.workspace_id, names, request.k,
-                                                 request.runs, request.seed, expired=expired)
+            runs = self.app.benchmark_clustering(
+                request.workspace_id, names, request.k, request.runs, request.seed, expired=expired
+            )
         except MLError as error:
             _fail(context, error)
         return ml_pb2.BenchmarkClusteringResponse(results=[_result(r) for r in runs])
@@ -134,14 +158,23 @@ class MLServicer(ml_pb2_grpc.MLServiceServicer):
 def _result(run) -> ml_pb2.ClusteringResult:
     mixture = run.algorithm == "gmm_em"
     objective = run.negative_log_likelihood if mixture else run.train_objective * run.train_points
-    test_objective = (run.test_negative_log_likelihood or 0.0) if mixture \
+    test_objective = (
+        (run.test_negative_log_likelihood or 0.0)
+        if mixture
         else run.test_objective * run.test_points
+    )
     return ml_pb2.ClusteringResult(
-        algorithm=_ALGORITHM_ENUMS[run.algorithm], implementation=run.implementation,
-        mean_seconds=run.seconds, mean_iterations=run.iterations, objective=objective,
-        silhouette=run.silhouette, distance_computations=run.distance_computations or 0,
-        epochs=run.epochs, test_objective=test_objective,
-        dead_clusters=round(run.dead_clusters))
+        algorithm=_ALGORITHM_ENUMS[run.algorithm],
+        implementation=run.implementation,
+        mean_seconds=run.seconds,
+        mean_iterations=run.iterations,
+        objective=objective,
+        silhouette=run.silhouette,
+        distance_computations=run.distance_computations or 0,
+        epochs=run.epochs,
+        test_objective=test_objective,
+        dead_clusters=round(run.dead_clusters),
+    )
 
 
 class ObservabilityInterceptor(grpc.ServerInterceptor):
@@ -166,9 +199,15 @@ class ObservabilityInterceptor(grpc.ServerInterceptor):
             parent = propagate.extract(metadata)
             started = time.perf_counter()
             code = grpc.StatusCode.OK
-            with request_context(request_id), tracer.start_as_current_span(
-                    method.lstrip("/"), context=parent, kind=trace.SpanKind.SERVER,
-                    attributes={"rpc.system": "grpc", "rpc.method": method}) as span:
+            with (
+                request_context(request_id),
+                tracer.start_as_current_span(
+                    method.lstrip("/"),
+                    context=parent,
+                    kind=trace.SpanKind.SERVER,
+                    attributes={"rpc.system": "grpc", "rpc.method": method},
+                ) as span,
+            ):
                 context.send_initial_metadata((("x-request-id", request_id),))
                 try:
                     return inner(request, context)
@@ -184,21 +223,35 @@ class ObservabilityInterceptor(grpc.ServerInterceptor):
                     service_metrics.rpc_duration.record(elapsed, labels)
                     # Health probes arrive every few seconds; keep them out of INFO.
                     level = logging.DEBUG if method.startswith("/grpc.health.") else logging.INFO
-                    log.log(level, "rpc finished", extra={"method": method, "code": code.name,
-                                                          "duration_ms": round(elapsed, 3)})
+                    log.log(
+                        level,
+                        "rpc finished",
+                        extra={
+                            "method": method,
+                            "code": code.name,
+                            "duration_ms": round(elapsed, 3),
+                        },
+                    )
 
         return grpc.unary_unary_rpc_method_handler(
-            observed, request_deserializer=handler.request_deserializer,
-            response_serializer=handler.response_serializer)
+            observed,
+            request_deserializer=handler.request_deserializer,
+            response_serializer=handler.response_serializer,
+        )
 
 
-def build_server(app: MLApp, address: str, tracer: trace.Tracer,
-                 service_metrics: ServiceMetrics, max_workers: int = 8
-                 ) -> tuple[grpc.Server, health.HealthServicer, int]:
+def build_server(
+    app: MLApp,
+    address: str,
+    tracer: trace.Tracer,
+    service_metrics: ServiceMetrics,
+    max_workers: int = 8,
+) -> tuple[grpc.Server, health.HealthServicer, int]:
     """A started-ready server bound to ``address``; returns (server, health, port)."""
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers,
-                                                    thread_name_prefix="grpc"),
-                         interceptors=[ObservabilityInterceptor(tracer, service_metrics)])
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="grpc"),
+        interceptors=[ObservabilityInterceptor(tracer, service_metrics)],
+    )
     ml_pb2_grpc.add_MLServiceServicer_to_server(MLServicer(app), server)
     health_servicer = health.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)

@@ -45,8 +45,15 @@ class IVFIndex:
         self.set_nprobe(nprobe)
 
     @classmethod
-    def train(cls, vectors: np.ndarray, nlist: int, nprobe: int = 8, seed: int = 0,
-              trainer: Literal["lloyd", "emeans"] = "lloyd", max_iter: int = 25) -> IVFIndex:
+    def train(
+        cls,
+        vectors: np.ndarray,
+        nlist: int,
+        nprobe: int = 8,
+        seed: int = 0,
+        trainer: Literal["lloyd", "emeans"] = "lloyd",
+        max_iter: int = 25,
+    ) -> IVFIndex:
         """Cluster ``vectors`` into ``nlist`` cells and return an empty index over them."""
         rows = normalize(vectors)
         nlist = max(1, min(nlist, len(rows)))
@@ -79,9 +86,10 @@ class IVFIndex:
     def search(self, query: np.ndarray, k: int, allowed: np.ndarray | None = None) -> Hits:
         """Scan the ``nprobe`` nearest cells exactly."""
         unit = normalize(query)
-        cell_distances = (np.einsum("ij,ij->i", self.centroids, self.centroids)
-                          - 2.0 * self.centroids @ unit[0])
-        probe = np.argsort(cell_distances, kind="stable")[:self.nprobe]
+        cell_distances = (
+            np.einsum("ij,ij->i", self.centroids, self.centroids) - 2.0 * self.centroids @ unit[0]
+        )
+        probe = np.argsort(cell_distances, kind="stable")[: self.nprobe]
         candidates = np.fromiter((i for cell in probe for i in self._lists[cell]), dtype=np.int64)
         if len(candidates):
             mask = self._store.alive[candidates]

@@ -37,7 +37,8 @@ def _ensure_importable() -> None:
             sys.path.insert(0, candidate)
             return
     raise ImportError(
-        "generated stubs for skein.v1 not found; run services/ml/scripts/gen_proto.sh")
+        "generated stubs for skein.v1 not found; run services/ml/scripts/gen_proto.sh"
+    )
 
 
 _ensure_importable()

@@ -102,7 +102,7 @@ ALPHA_MIN_FACTOR = 0.1
 """The cosine schedule ends at this fraction of ``alpha0``."""
 CHECK_UNUSED_EVERY = 5
 """Updates between revival checks."""
-INITIAL_MASS = 2.0 ** -16
+INITIAL_MASS = 2.0**-16
 """Starting ``N_j``; the paper uses 1e-10."""
 SPLIT_EPSILON = 1e-4
 """Relative coordinate offset ``delta`` applied when splitting a donor."""
@@ -193,9 +193,16 @@ class Recipe:
         return sum(self.epoch_steps)
 
 
-def resolve_recipe(n: int, d: int, k: int, epochs: float, batch_size: int | None = None,
-                   alpha0: float | None = None, batch_law: str = "auto",
-                   unused_threshold: float | None = None) -> Recipe:
+def resolve_recipe(
+    n: int,
+    d: int,
+    k: int,
+    epochs: float,
+    batch_size: int | None = None,
+    alpha0: float | None = None,
+    batch_law: str = "auto",
+    unused_threshold: float | None = None,
+) -> Recipe:
     """Turn options and the data shape into a `Recipe`.
 
     A given ``batch_size`` keeps the step law for ``alpha0``; giving both
@@ -228,16 +235,30 @@ def resolve_recipe(n: int, d: int, k: int, epochs: float, batch_size: int | None
             raise ValueError("unused_threshold must be >= 0 (0 disables revival)")
     rows = epoch_rows(n, epochs)
     steps = tuple((r + batch - 1) // batch for r in rows)
-    return Recipe(batch_size=batch, alpha0=alpha, batch_law=law, batch_law_reason=reason,
-                  epoch_rows=tuple(rows), epoch_steps=steps, unused_threshold=threshold)
+    return Recipe(
+        batch_size=batch,
+        alpha0=alpha,
+        batch_law=law,
+        batch_law_reason=reason,
+        epoch_rows=tuple(rows),
+        epoch_steps=steps,
+        unused_threshold=threshold,
+    )
 
 
 class EMeans:
     """e-means clustering. One object per run: call ``fit`` once."""
 
-    def __init__(self, k: int, epochs: float = 5.0, batch_size: int | None = None,
-                 alpha0: float | None = None, batch_law: str = "auto", seed: int = 1234,
-                 unused_threshold: float | None = None):
+    def __init__(
+        self,
+        k: int,
+        epochs: float = 5.0,
+        batch_size: int | None = None,
+        alpha0: float | None = None,
+        batch_law: str = "auto",
+        seed: int = 1234,
+        unused_threshold: float | None = None,
+    ):
         self.k = int(k)
         self.epochs = float(epochs)
         self.batch_size = batch_size
@@ -255,13 +276,25 @@ class EMeans:
         self._expected_mass = 0.0
         self._split_rng: np.random.RandomState | None = None
 
-    def fit(self, x: np.ndarray, init: np.ndarray | None = None,
-            observer: Callable[[EMeans], None] | None = None) -> FitResult:
+    def fit(
+        self,
+        x: np.ndarray,
+        init: np.ndarray | None = None,
+        observer: Callable[[EMeans], None] | None = None,
+    ) -> FitResult:
         """Cluster ``x``; ``observer`` runs after every update (and its revival)."""
         x = np.ascontiguousarray(validate_input(x, self.k), dtype=np.float32)
         n, d = x.shape
-        recipe = resolve_recipe(n, d, self.k, self.epochs, self.batch_size, self.alpha0,
-                                self.batch_law, self.unused_threshold)
+        recipe = resolve_recipe(
+            n,
+            d,
+            self.k,
+            self.epochs,
+            self.batch_size,
+            self.alpha0,
+            self.batch_law,
+            self.unused_threshold,
+        )
         self.recipe = recipe
         self._begin(x, init)
         last = len(recipe.epoch_rows) - 1
@@ -272,7 +305,7 @@ class EMeans:
             order = np.random.RandomState(epoch_seed(self.seed, epoch)).permutation(n)
             objective = 0.0
             for begin in range(0, rows, recipe.batch_size):
-                index = order[begin:min(begin + recipe.batch_size, rows)]
+                index = order[begin : min(begin + recipe.batch_size, rows)]
                 batch = x[index]
                 batch_labels, sums, counts, batch_objective = self._accumulate(batch)
                 objective += batch_objective
@@ -287,15 +320,22 @@ class EMeans:
         centroids = self.centroids.copy()
         occupied = closing_counts > 0
         centroids[occupied] = closing_sums[occupied] / closing_counts[occupied, None].astype(
-            np.float32)
+            np.float32
+        )
         self.centroids = centroids
         seen = labels >= 0
-        objective = float(((x[seen].astype(np.float64)
-                            - centroids[labels[seen]].astype(np.float64)) ** 2).sum())
-        return FitResult(centroids=centroids, labels=labels, objective=objective,
-                         iterations=recipe.total_steps, epochs=sum(recipe.epoch_rows) / n,
-                         distance_computations=self.counter.count,
-                         history=list(self.epoch_objectives))
+        objective = float(
+            ((x[seen].astype(np.float64) - centroids[labels[seen]].astype(np.float64)) ** 2).sum()
+        )
+        return FitResult(
+            centroids=centroids,
+            labels=labels,
+            objective=objective,
+            iterations=recipe.total_steps,
+            epochs=sum(recipe.epoch_rows) / n,
+            distance_computations=self.counter.count,
+            history=list(self.epoch_objectives),
+        )
 
     def _begin(self, x: np.ndarray, init: np.ndarray | None) -> None:
         n, d = x.shape
@@ -307,7 +347,7 @@ class EMeans:
         elif n == self.k:
             self.centroids = x.copy()
         else:
-            self.centroids = x[np.random.RandomState(self.seed).permutation(n)[:self.k]].copy()
+            self.centroids = x[np.random.RandomState(self.seed).permutation(n)[: self.k]].copy()
         self.mass = np.full(self.k, INITIAL_MASS, dtype=np.float32)
         self._expected_mass = float(self.mass.sum(dtype=np.float64))
         self._split_rng = np.random.RandomState(self.seed)
@@ -365,8 +405,9 @@ class EMeans:
         """
         mass = self.mass
         # float32 throughout, as the reference computes it.
-        threshold = np.float32(mass.sum(dtype=np.float32) * np.float32(
-            self.recipe.unused_threshold)) / np.float32(self.k)
+        threshold = np.float32(
+            mass.sum(dtype=np.float32) * np.float32(self.recipe.unused_threshold)
+        ) / np.float32(self.k)
         dead = mass < threshold
         donors = ~dead & (mass > 0)
         count = min(int(dead.sum()), int(donors.sum()))
@@ -406,7 +447,8 @@ class EMeans:
         total = float(self.mass.sum(dtype=np.float64))
         if not math.isclose(total, self._expected_mass, rel_tol=1e-4, abs_tol=1e-6):
             raise InvariantViolation(
-                f"e-means masses sum to {total}, the decay implies {self._expected_mass}")
+                f"e-means masses sum to {total}, the decay implies {self._expected_mass}"
+            )
 
 
 def _separate_identical(donor: np.ndarray, child: np.ndarray) -> None:

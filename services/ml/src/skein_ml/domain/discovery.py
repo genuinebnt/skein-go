@@ -63,8 +63,9 @@ def jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / union if union else 0.0
 
 
-def should_suggest_link(cosine: float, hops: int,
-                        threshold: float = DEFAULT_SUGGEST_THRESHOLD) -> bool:
+def should_suggest_link(
+    cosine: float, hops: int, threshold: float = DEFAULT_SUGGEST_THRESHOLD
+) -> bool:
     """Close in meaning but not directly linked (or not connected at all)."""
     return cosine >= threshold and (hops >= 2 or hops == NOT_CONNECTED)
 
@@ -89,9 +90,14 @@ def link_hops(outbound: Mapping[str, Iterable[str]], source: str) -> dict[str, i
     return distances
 
 
-def related_notes(target: str, embeddings: Mapping[str, np.ndarray],
-                  tags: Mapping[str, frozenset[str]], outbound: Mapping[str, Iterable[str]],
-                  k: int, threshold: float = DEFAULT_SUGGEST_THRESHOLD) -> list[RelatedNote]:
+def related_notes(
+    target: str,
+    embeddings: Mapping[str, np.ndarray],
+    tags: Mapping[str, frozenset[str]],
+    outbound: Mapping[str, Iterable[str]],
+    k: int,
+    threshold: float = DEFAULT_SUGGEST_THRESHOLD,
+) -> list[RelatedNote]:
     """The ``k`` notes closest in meaning to ``target``, each with all three signals.
 
     ``embeddings`` must hold unit vectors from one embedding space and
@@ -113,8 +119,14 @@ def related_notes(target: str, embeddings: Mapping[str, np.ndarray],
         other_tags = tags.get(note, frozenset())
         distance = hops.get(note, NOT_CONNECTED)
         cosine = float(cosines[i])
-        related.append(RelatedNote(
-            note_id=note, cosine=cosine, shared_tags=len(own_tags & other_tags),
-            tag_jaccard=jaccard(own_tags, other_tags), hops=distance,
-            suggest_link=should_suggest_link(cosine, distance, threshold)))
+        related.append(
+            RelatedNote(
+                note_id=note,
+                cosine=cosine,
+                shared_tags=len(own_tags & other_tags),
+                tag_jaccard=jaccard(own_tags, other_tags),
+                hops=distance,
+                suggest_link=should_suggest_link(cosine, distance, threshold),
+            )
+        )
     return related

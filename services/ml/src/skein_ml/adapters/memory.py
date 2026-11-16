@@ -60,8 +60,11 @@ class InMemoryNoteRepository:
     def in_workspace(self, workspace_id: str) -> list[Note]:
         """See `NoteRepository.in_workspace`."""
         with self._lock:
-            return [copy.deepcopy(self._notes[i]) for i in sorted(self._notes)
-                    if self._notes[i].workspace_id == workspace_id]
+            return [
+                copy.deepcopy(self._notes[i])
+                for i in sorted(self._notes)
+                if self._notes[i].workspace_id == workspace_id
+            ]
 
 
 class InMemoryEmbeddingRepository:
@@ -188,8 +191,9 @@ class InMemoryEventSource:
     Protobuf bytes and exercise the real codec, or `Event` objects directly.
     """
 
-    def __init__(self, decode: Callable[[object], Event] | None = None,
-                 retry_delay: float = 0.01) -> None:
+    def __init__(
+        self, decode: Callable[[object], Event] | None = None, retry_delay: float = 0.01
+    ) -> None:
         self._queue: queue.Queue[object] = queue.Queue()
         self._decode = decode or (lambda item: item)  # type: ignore[assignment,return-value]
         self._retry_delay = retry_delay
@@ -209,8 +213,9 @@ class InMemoryEventSource:
     def start(self, handler: EventHandler) -> None:
         """See `EventSource.start`."""
         self._stop.clear()
-        self._thread = threading.Thread(target=self._run, args=(handler,), daemon=True,
-                                        name="documents-events")
+        self._thread = threading.Thread(
+            target=self._run, args=(handler,), daemon=True, name="documents-events"
+        )
         self._thread.start()
 
     def stop(self, timeout: float) -> None:

@@ -46,9 +46,15 @@ def _measure(search, queries, truth, k) -> tuple[float, float]:
     return recall, elapsed
 
 
-def run_search_benchmark(vectors: np.ndarray, queries: np.ndarray, k: int = 10, m: int = 16,
-                         ef_construction: int = 100, seed: int = 0,
-                         filter_fraction: float = 0.05) -> tuple[list[SearchRow], list[SearchRow]]:
+def run_search_benchmark(
+    vectors: np.ndarray,
+    queries: np.ndarray,
+    k: int = 10,
+    m: int = 16,
+    ef_construction: int = 100,
+    seed: int = 0,
+    filter_fraction: float = 0.05,
+) -> tuple[list[SearchRow], list[SearchRow]]:
     """Return (unfiltered rows, filtered rows)."""
     vectors, queries = normalize(vectors), normalize(queries)
     n, d = vectors.shape
@@ -71,8 +77,17 @@ def run_search_benchmark(vectors: np.ndarray, queries: np.ndarray, k: int = 10, 
         ivf.set_nprobe(nprobe)
         work = np.mean([ivf.search(q, k).visited for q in queries])
         recall, ms = _measure(lambda q: ivf.search(q, k).ids, queries, truth, k)
-        rows.append(SearchRow("IVF-Flat", "scratch", f"nlist={nlist}, nprobe={nprobe}",
-                              ivf_build, recall, ms, float(work)))
+        rows.append(
+            SearchRow(
+                "IVF-Flat",
+                "scratch",
+                f"nlist={nlist}, nprobe={nprobe}",
+                ivf_build,
+                recall,
+                ms,
+                float(work),
+            )
+        )
 
     started = time.perf_counter()
     hnsw = HNSWIndex(d, m=m, ef_construction=ef_construction, seed=seed)
@@ -80,10 +95,20 @@ def run_search_benchmark(vectors: np.ndarray, queries: np.ndarray, k: int = 10, 
     hnsw_build = time.perf_counter() - started
     for ef in (16, 32, 64, 128):
         work = np.mean([hnsw.search(q, k, ef_search=ef).visited for q in queries])
-        recall, ms = _measure(lambda q, ef=ef: hnsw.search(q, k, ef_search=ef).ids, queries,
-                              truth, k)
-        rows.append(SearchRow("HNSW", "scratch", f"M={m}, efC={ef_construction}, ef={ef}",
-                              hnsw_build, recall, ms, float(work)))
+        recall, ms = _measure(
+            lambda q, ef=ef: hnsw.search(q, k, ef_search=ef).ids, queries, truth, k
+        )
+        rows.append(
+            SearchRow(
+                "HNSW",
+                "scratch",
+                f"M={m}, efC={ef_construction}, ef={ef}",
+                hnsw_build,
+                recall,
+                ms,
+                float(work),
+            )
+        )
 
     library = None
     if importlib.util.find_spec("hnswlib") is not None:
@@ -98,8 +123,17 @@ def run_search_benchmark(vectors: np.ndarray, queries: np.ndarray, k: int = 10, 
         for ef in (16, 32, 64, 128):
             library.set_ef(ef)
             recall, ms = _measure(lambda q: library.knn_query(q, k)[0][0], queries, truth, k)
-            rows.append(SearchRow("HNSW", "hnswlib", f"M={m}, efC={ef_construction}, ef={ef}",
-                                  library_build, recall, ms, None))
+            rows.append(
+                SearchRow(
+                    "HNSW",
+                    "hnswlib",
+                    f"M={m}, efC={ef_construction}, ef={ef}",
+                    library_build,
+                    recall,
+                    ms,
+                    None,
+                )
+            )
 
     if importlib.util.find_spec("faiss") is not None:
         import faiss
@@ -113,13 +147,34 @@ def run_search_benchmark(vectors: np.ndarray, queries: np.ndarray, k: int = 10, 
         faiss_build = time.perf_counter() - started
         for nprobe in (1, 4, 16):
             reference_ivf.nprobe = nprobe
-            recall, ms = _measure(lambda q: reference_ivf.search(q[None, :], k)[1][0], queries,
-                                  truth, k)
-            rows.append(SearchRow("IVF-Flat", "faiss", f"nlist={nlist}, nprobe={nprobe}",
-                                  faiss_build, recall, ms, None))
+            recall, ms = _measure(
+                lambda q: reference_ivf.search(q[None, :], k)[1][0], queries, truth, k
+            )
+            rows.append(
+                SearchRow(
+                    "IVF-Flat",
+                    "faiss",
+                    f"nlist={nlist}, nprobe={nprobe}",
+                    faiss_build,
+                    recall,
+                    ms,
+                    None,
+                )
+            )
 
-    filtered = _filtered_rows(vectors, queries, exact, hnsw, library, k, seed, filter_fraction,
-                              hnsw_build, m, ef_construction)
+    filtered = _filtered_rows(
+        vectors,
+        queries,
+        exact,
+        hnsw,
+        library,
+        k,
+        seed,
+        filter_fraction,
+        hnsw_build,
+        m,
+        ef_construction,
+    )
     return rows, filtered
 
 
@@ -131,18 +186,37 @@ def _filtered_rows(vectors, queries, exact, hnsw, library, k, seed, fraction, bu
     label = f"{fraction:.0%} of vectors allowed"
     allowed_ids = set(np.flatnonzero(allowed).tolist())
     for ef in (64, 128):
-        recall, ms = _measure(lambda q, ef=ef: hnsw.search(q, k, allowed, ef_search=ef).ids,
-                              queries, truth, k)
-        rows.append(SearchRow("HNSW, filter in descent", "scratch",
-                              f"M={m}, efC={efc}, ef={ef}; {label}", build, recall, ms, None))
+        recall, ms = _measure(
+            lambda q, ef=ef: hnsw.search(q, k, allowed, ef_search=ef).ids, queries, truth, k
+        )
+        rows.append(
+            SearchRow(
+                "HNSW, filter in descent",
+                "scratch",
+                f"M={m}, efC={efc}, ef={ef}; {label}",
+                build,
+                recall,
+                ms,
+                None,
+            )
+        )
 
         def post_filter(q, ef=ef):
             ids = hnsw.search(q, ef, ef_search=ef).ids
             return ids[allowed[ids]][:k]
 
         recall, ms = _measure(post_filter, queries, truth, k)
-        rows.append(SearchRow("HNSW, filter after search", "scratch",
-                              f"M={m}, efC={efc}, ef={ef}; {label}", build, recall, ms, None))
+        rows.append(
+            SearchRow(
+                "HNSW, filter after search",
+                "scratch",
+                f"M={m}, efC={efc}, ef={ef}; {label}",
+                build,
+                recall,
+                ms,
+                None,
+            )
+        )
         if library is not None:
             library.set_ef(ef)
 
@@ -151,7 +225,15 @@ def _filtered_rows(vectors, queries, exact, hnsw, library, k, seed, fraction, bu
                 return labels[0]
 
             recall, ms = _measure(library_filtered, queries, truth, k)
-            rows.append(SearchRow("HNSW, filter in descent", "hnswlib",
-                                  f"M={m}, efC={efc}, ef={ef}; {label}", float("nan"), recall,
-                                  ms, None))
+            rows.append(
+                SearchRow(
+                    "HNSW, filter in descent",
+                    "hnswlib",
+                    f"M={m}, efC={efc}, ef={ef}; {label}",
+                    float("nan"),
+                    recall,
+                    ms,
+                    None,
+                )
+            )
     return rows

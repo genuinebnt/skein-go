@@ -46,8 +46,14 @@ __all__ = ["MiniBatch"]
 class MiniBatch:
     """Mini-batch K-means with MacQueen's cumulative update."""
 
-    def __init__(self, k: int, batch_size: int = 1024, epochs: float = 3.0,
-                 init: Init = "kmeans++", seed: int = 0):
+    def __init__(
+        self,
+        k: int,
+        batch_size: int = 1024,
+        epochs: float = 3.0,
+        init: Init = "kmeans++",
+        seed: int = 0,
+    ):
         if batch_size < 1:
             raise ValueError("batch_size must be at least 1")
         if epochs <= 0:
@@ -78,7 +84,7 @@ class MiniBatch:
         for epoch, rows in enumerate(plan):
             order = rng.permutation(n)[:rows]
             for begin in range(0, rows, batch):
-                index = order[begin:begin + batch]
+                index = order[begin : begin + batch]
                 batch_labels, _ = assign_nearest(x[index], self.centroids, self.counter)
                 if epoch == len(plan) - 1:
                     labels[index] = batch_labels
@@ -88,9 +94,14 @@ class MiniBatch:
                     observer(self)
         seen = labels >= 0
         objective = float(((x[seen] - self.centroids[labels[seen]]) ** 2).sum())
-        return FitResult(centroids=self.centroids, labels=labels, objective=objective,
-                         iterations=updates, epochs=sum(plan) / n,
-                         distance_computations=self.counter.count)
+        return FitResult(
+            centroids=self.centroids,
+            labels=labels,
+            objective=objective,
+            iterations=updates,
+            epochs=sum(plan) / n,
+            distance_computations=self.counter.count,
+        )
 
     def _update(self, points: np.ndarray, labels: np.ndarray) -> None:
         counts = np.bincount(labels, minlength=self.k).astype(np.float64)
@@ -113,5 +124,5 @@ class MiniBatch:
             raise InvariantViolation("a mini-batch cluster mass is negative")
         if not math.isclose(float(self.mass.sum()), self.points_seen, rel_tol=1e-12):
             raise InvariantViolation(
-                f"masses sum to {self.mass.sum()}, but {self.points_seen} points were seen")
-
+                f"masses sum to {self.mass.sum()}, but {self.points_seen} points were seen"
+            )

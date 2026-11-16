@@ -95,6 +95,7 @@ def test_redis_errors_degrade_to_cache_misses():
         def __getattr__(self, name):
             def fail(*args, **kwargs):
                 raise redis.ConnectionError("down")
+
             return fail
 
     cache = RedisCache(Broken())
@@ -148,23 +149,28 @@ def test_consumer_applies_encoded_events_and_redelivers_failures():
     source.start(observed_handler(app, tracer, service_metrics))
     try:
         source.publish(encode_event("e1", events.NoteCreated("n", "ws", "t")))
-        source.publish(encode_event("e2", events.BlocksChanged(
-            "n", (events.ChangedBlock("b", "merkle trees"),))))
+        source.publish(
+            encode_event(
+                "e2", events.BlocksChanged("n", (events.ChangedBlock("b", "merkle trees"),))
+            )
+        )
         source.publish(b"\xff poison")
         source.publish(encode_event("e2", events.BlocksChanged("n", ())))  # duplicate id
         assert source.wait_idle(5.0)
     finally:
         source.stop(1.0)
     assert source.failures == 1
-    assert [(h.note_id, h.block_id) for h in app.semantic_search("ws", "merkle", k=1).hits] \
-        == [("n", "b")]
+    assert [(h.note_id, h.block_id) for h in app.semantic_search("ws", "merkle", k=1).hits] == [
+        ("n", "b")
+    ]
 
 
 def _format(record_extra: dict, **context) -> dict:
     formatter = JsonFormatter("ml", "1.2.3", "test")
     logger = logging.getLogger("format-test")
-    record = logger.makeRecord("format-test", logging.INFO, __file__, 1, "hello %s", ("you",),
-                               None, extra=record_extra)
+    record = logger.makeRecord(
+        "format-test", logging.INFO, __file__, 1, "hello %s", ("you",), None, extra=record_extra
+    )
     return json.loads(formatter.format(record))
 
 
@@ -173,8 +179,15 @@ def test_json_logs_carry_the_shared_fields_and_redact_secrets_and_contents():
 
     tracer = TracerProvider().get_tracer("test")
     with tracer.start_as_current_span("span") as span, request_context("req-7"):
-        line = _format({"password": "hunter2", "text": "my private note", "input_tokens": 12,
-                        "nested": {"api_key": "k", "count": 3}, "note_id": "n1"})
+        line = _format(
+            {
+                "password": "hunter2",
+                "text": "my private note",
+                "input_tokens": 12,
+                "nested": {"api_key": "k", "count": 3},
+                "note_id": "n1",
+            }
+        )
         expected_trace = format(span.get_span_context().trace_id, "032x")
     assert line["msg"] == "hello you" and line["level"] == "INFO"
     assert (line["service"], line["version"], line["env"]) == ("ml", "1.2.3", "test")

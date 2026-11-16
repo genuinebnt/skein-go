@@ -30,14 +30,14 @@ class BruteForceIndex:
     @property
     def vectors(self) -> np.ndarray:
         """Read-only view of the stored unit rows, including tombstones."""
-        view = self._vectors[:self.count]
+        view = self._vectors[: self.count]
         view.flags.writeable = False
         return view
 
     @property
     def alive(self) -> np.ndarray:
         """Mask of ids that have not been removed."""
-        return self._alive[:self.count].copy()
+        return self._alive[: self.count].copy()
 
     def add(self, vectors: np.ndarray) -> np.ndarray:
         """Insert rows; returns their ids."""
@@ -62,9 +62,9 @@ class BruteForceIndex:
 
     def search(self, query: np.ndarray, k: int, allowed: np.ndarray | None = None) -> Hits:
         """Exact top-k by cosine similarity among live, allowed ids."""
-        mask = self._alive[:self.count]
+        mask = self._alive[: self.count]
         if allowed is not None:
-            mask = mask & np.asarray(allowed[:self.count], dtype=bool)
+            mask = mask & np.asarray(allowed[: self.count], dtype=bool)
         candidates = np.flatnonzero(mask)
         if k <= 0 or len(candidates) == 0:
             return Hits(np.empty(0, np.int64), np.empty(0, np.float32))
@@ -73,12 +73,12 @@ class BruteForceIndex:
         return Hits(ids, best, visited=len(candidates))
 
     def __len__(self) -> int:
-        return int(self._alive[:self.count].sum())
+        return int(self._alive[: self.count].sum())
 
     def check_invariants(self) -> None:
         """Every stored row is unit length or zero."""
-        norms = np.linalg.norm(self._vectors[:self.count], axis=1)
+        norms = np.linalg.norm(self._vectors[: self.count], axis=1)
         if not np.all((np.abs(norms - 1) < 1e-4) | (norms == 0)):
             raise InvariantViolation("a stored vector is not normalised")
-        if self._alive[self.count:].any():
+        if self._alive[self.count :].any():
             raise InvariantViolation("an id beyond the count is marked alive")

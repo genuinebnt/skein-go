@@ -56,8 +56,14 @@ __all__ = [
     "score",
 ]
 
-ALGORITHMS = ("kmeans_random", "kmeans_plus_plus", "kmeans_elkan", "kmeans_mini_batch",
-              "gmm_em", "e_means")
+ALGORITHMS = (
+    "kmeans_random",
+    "kmeans_plus_plus",
+    "kmeans_elkan",
+    "kmeans_mini_batch",
+    "gmm_em",
+    "e_means",
+)
 """Algorithm names, matching ``ClusteringAlgorithm`` without the prefix (lower case)."""
 
 
@@ -97,19 +103,30 @@ class AlgorithmRun:
     notes: list[str] = field(default_factory=list)
 
 
-def score(centroids: np.ndarray, x_train: np.ndarray, x_test: np.ndarray, sample: int, seed: int
-          ) -> tuple[float, float, float, int]:
+def score(
+    centroids: np.ndarray, x_train: np.ndarray, x_test: np.ndarray, sample: int, seed: int
+) -> tuple[float, float, float, int]:
     """(train MSE, test MSE, silhouette, dead clusters) of a centroid table."""
     centroids = np.asarray(centroids, dtype=np.float64)
     labels, train_nearest = assign_nearest(x_train, centroids)
     _, test_nearest = assign_nearest(x_test, centroids) if len(x_test) else (None, np.zeros(1))
-    return (float(train_nearest.mean()), float(test_nearest.mean()),
-            silhouette(x_train, labels, sample_size=sample, seed=seed),
-            count_dead_clusters(labels, len(centroids)))
+    return (
+        float(train_nearest.mean()),
+        float(test_nearest.mean()),
+        silhouette(x_train, labels, sample_size=sample, seed=seed),
+        count_dead_clusters(labels, len(centroids)),
+    )
 
 
-def run(algorithm: str, implementation: str, x_train: np.ndarray, x_test: np.ndarray, k: int,
-        seed: int, options: BenchOptions = BenchOptions()) -> AlgorithmRun | None:
+def run(
+    algorithm: str,
+    implementation: str,
+    x_train: np.ndarray,
+    x_test: np.ndarray,
+    k: int,
+    seed: int,
+    options: BenchOptions = BenchOptions(),
+) -> AlgorithmRun | None:
     """Fit and score one algorithm; None when that reference is not installed."""
     runner = _RUNNERS.get((algorithm, implementation))
     if runner is None:
@@ -122,11 +139,20 @@ def run(algorithm: str, implementation: str, x_train: np.ndarray, x_test: np.nda
         return None
     centroids, seconds, iterations, epochs, distances, extra = fitted
     train, test, sil, dead = score(centroids, x_train, x_test, options.silhouette_sample, seed)
-    result = AlgorithmRun(algorithm=algorithm, implementation=implementation, seconds=seconds,
-                          iterations=iterations, epochs=epochs, distance_computations=distances,
-                          train_objective=train, test_objective=test, silhouette=sil,
-                          dead_clusters=dead, train_points=len(x_train),
-                          test_points=len(x_test))
+    result = AlgorithmRun(
+        algorithm=algorithm,
+        implementation=implementation,
+        seconds=seconds,
+        iterations=iterations,
+        epochs=epochs,
+        distance_computations=distances,
+        train_objective=train,
+        test_objective=test,
+        silhouette=sil,
+        dead_clusters=dead,
+        train_points=len(x_train),
+        test_points=len(x_test),
+    )
     result.negative_log_likelihood = extra.get("nll")
     result.test_negative_log_likelihood = extra.get("test_nll")
     result.notes = list(extra.get("notes", ()))
@@ -143,15 +169,22 @@ def mean_run(runs: list[AlgorithmRun]) -> AlgorithmRun:
 
     distances = mean("distance_computations")
     return AlgorithmRun(
-        algorithm=first.algorithm, implementation=first.implementation, seconds=mean("seconds"),
-        iterations=mean("iterations"), epochs=mean("epochs"),
+        algorithm=first.algorithm,
+        implementation=first.implementation,
+        seconds=mean("seconds"),
+        iterations=mean("iterations"),
+        epochs=mean("epochs"),
         distance_computations=None if distances is None else round(distances),
-        train_objective=mean("train_objective"), test_objective=mean("test_objective"),
-        silhouette=mean("silhouette"), dead_clusters=mean("dead_clusters"),
+        train_objective=mean("train_objective"),
+        test_objective=mean("test_objective"),
+        silhouette=mean("silhouette"),
+        dead_clusters=mean("dead_clusters"),
         negative_log_likelihood=mean("negative_log_likelihood"),
         test_negative_log_likelihood=mean("test_negative_log_likelihood"),
-        train_points=first.train_points, test_points=first.test_points,
-        notes=sorted({n for r in runs for n in r.notes}))
+        train_points=first.train_points,
+        test_points=first.test_points,
+        notes=sorted({n for r in runs for n in r.notes}),
+    )
 
 
 def reference_implementations(algorithm: str) -> list[str]:
@@ -178,52 +211,90 @@ def _timed(fit):
 
 # --- scratch -----------------------------------------------------------------
 
+
 def _scratch_lloyd(init):
     def runner(x, x_test, k, seed, options):
-        result, seconds = _timed(lambda: Lloyd(k, init=init, max_iter=options.lloyd_max_iter,
-                                               seed=seed).fit(x))
-        return (result.centroids, seconds, result.iterations, result.epochs,
-                result.distance_computations, {})
+        result, seconds = _timed(
+            lambda: Lloyd(k, init=init, max_iter=options.lloyd_max_iter, seed=seed).fit(x)
+        )
+        return (
+            result.centroids,
+            seconds,
+            result.iterations,
+            result.epochs,
+            result.distance_computations,
+            {},
+        )
+
     return runner
 
 
 def _scratch_elkan(x, x_test, k, seed, options):
     result, seconds = _timed(lambda: Elkan(k, max_iter=options.lloyd_max_iter, seed=seed).fit(x))
-    return (result.centroids, seconds, result.iterations, result.epochs,
-            result.distance_computations, {})
+    return (
+        result.centroids,
+        seconds,
+        result.iterations,
+        result.epochs,
+        result.distance_computations,
+        {},
+    )
 
 
 def _scratch_mini_batch(x, x_test, k, seed, options):
-    model = MiniBatch(k, batch_size=options.mini_batch_size, epochs=options.mini_batch_epochs,
-                      seed=seed)
+    model = MiniBatch(
+        k, batch_size=options.mini_batch_size, epochs=options.mini_batch_epochs, seed=seed
+    )
     result, seconds = _timed(lambda: model.fit(x))
-    return (result.centroids, seconds, result.iterations, result.epochs,
-            result.distance_computations, {})
+    return (
+        result.centroids,
+        seconds,
+        result.iterations,
+        result.epochs,
+        result.distance_computations,
+        {},
+    )
 
 
 def _scratch_e_means(x, x_test, k, seed, options):
     model = EMeans(k, epochs=options.e_means_epochs, seed=seed)
     result, seconds = _timed(lambda: model.fit(x))
-    notes = [f"B={model.recipe.batch_size}, alpha0={model.recipe.alpha0:.3g}, "
-             f"{model.recipe.batch_law} law, {model.splits} splits"]
-    return (result.centroids, seconds, result.iterations, result.epochs,
-            result.distance_computations, {"notes": notes})
+    notes = [
+        f"B={model.recipe.batch_size}, alpha0={model.recipe.alpha0:.3g}, "
+        f"{model.recipe.batch_law} law, {model.splits} splits"
+    ]
+    return (
+        result.centroids,
+        seconds,
+        result.iterations,
+        result.epochs,
+        result.distance_computations,
+        {"notes": notes},
+    )
 
 
 def _scratch_gmm(x, x_test, k, seed, options):
     model = GaussianMixture(k, max_iter=options.gmm_max_iter, tol=options.gmm_tol, seed=seed)
     result, seconds = _timed(lambda: model.fit(x))
     extra = {"nll": result.objective, "test_nll": -model.score(x_test) if len(x_test) else None}
-    return (result.means, seconds, result.iterations, float(result.iterations),
-            result.distance_computations, extra)
+    return (
+        result.means,
+        seconds,
+        result.iterations,
+        float(result.iterations),
+        result.distance_computations,
+        extra,
+    )
 
 
 # --- references --------------------------------------------------------------
 
+
 def _sklearn():
     try:
         return importlib.import_module("sklearn.cluster"), importlib.import_module(
-            "sklearn.mixture")
+            "sklearn.mixture"
+        )
     except ImportError as error:
         raise _Missing from error
 
@@ -231,18 +302,30 @@ def _sklearn():
 def _sklearn_kmeans(init, algorithm):
     def runner(x, x_test, k, seed, options):
         cluster, _ = _sklearn()
-        model = cluster.KMeans(k, init=init, n_init=1, max_iter=options.lloyd_max_iter,
-                               algorithm=algorithm, random_state=seed % 2**32)
+        model = cluster.KMeans(
+            k,
+            init=init,
+            n_init=1,
+            max_iter=options.lloyd_max_iter,
+            algorithm=algorithm,
+            random_state=seed % 2**32,
+        )
         _, seconds = _timed(lambda: model.fit(x))
         return model.cluster_centers_, seconds, model.n_iter_, float(model.n_iter_), None, {}
+
     return runner
 
 
 def _sklearn_mini_batch(x, x_test, k, seed, options):
     cluster, _ = _sklearn()
     batch = min(options.mini_batch_size, len(x))
-    model = cluster.MiniBatchKMeans(k, batch_size=batch, max_iter=int(options.mini_batch_epochs),
-                                    n_init=1, random_state=seed % 2**32)
+    model = cluster.MiniBatchKMeans(
+        k,
+        batch_size=batch,
+        max_iter=int(options.mini_batch_epochs),
+        n_init=1,
+        random_state=seed % 2**32,
+    )
     _, seconds = _timed(lambda: model.fit(x))
     epochs = model.n_steps_ * batch / len(x)
     notes = ["k-means++ init on a sample, reassigns small clusters, may stop early"]
@@ -251,8 +334,13 @@ def _sklearn_mini_batch(x, x_test, k, seed, options):
 
 def _sklearn_gmm(x, x_test, k, seed, options):
     _, mixture = _sklearn()
-    model = mixture.GaussianMixture(k, covariance_type="diag", max_iter=options.gmm_max_iter,
-                                    tol=options.gmm_tol, random_state=seed % 2**32)
+    model = mixture.GaussianMixture(
+        k,
+        covariance_type="diag",
+        max_iter=options.gmm_max_iter,
+        tol=options.gmm_tol,
+        random_state=seed % 2**32,
+    )
     _, seconds = _timed(lambda: model.fit(x))
     extra = {"nll": -model.score(x), "test_nll": -model.score(x_test) if len(x_test) else None}
     return model.means_, seconds, model.n_iter_, float(model.n_iter_), None, extra
@@ -269,12 +357,24 @@ def _faiss_kmeans(x, x_test, k, seed, options):
     faiss = _faiss()
     data = np.ascontiguousarray(x, dtype=np.float32)
     iterations = options.faiss_kmeans_iterations
-    model = faiss.Kmeans(data.shape[1], k, niter=iterations, seed=seed % 2**31, verbose=False,
-                         max_points_per_centroid=len(data))
+    model = faiss.Kmeans(
+        data.shape[1],
+        k,
+        niter=iterations,
+        seed=seed % 2**31,
+        verbose=False,
+        max_points_per_centroid=len(data),
+    )
     _, seconds = _timed(lambda: model.train(data))
     # faiss.Kmeans runs every iteration (no early stop) with exact assignment.
-    return (model.centroids, seconds, iterations, float(iterations), iterations * len(data) * k,
-            {"notes": ["random init, fixed iteration count"]})
+    return (
+        model.centroids,
+        seconds,
+        iterations,
+        float(iterations),
+        iterations * len(data) * k,
+        {"notes": ["random init, fixed iteration count"]},
+    )
 
 
 def load_reference_e_means() -> tuple[type, str]:
@@ -303,12 +403,20 @@ def _faiss_e_means(x, x_test, k, seed, options):
     _, seconds = _timed(lambda: model.train(data))
     recipe = model.recipe
     rows = sum(recipe["epoch_rows"])
-    notes = [f"B={recipe['batch_size']}, alpha0={recipe['alpha0']:.3g}, "
-             f"{recipe['batch_law']} law, {model.n_splits} splits"]
+    notes = [
+        f"B={recipe['batch_size']}, alpha0={recipe['alpha0']:.3g}, "
+        f"{recipe['batch_law']} law, {model.n_splits} splits"
+    ]
     if origin != "faiss":
         notes.append("reference loaded from a FAISS source checkout")
-    return (model.centroids, seconds, recipe["total_steps"], rows / len(data), rows * k,
-            {"notes": notes})
+    return (
+        model.centroids,
+        seconds,
+        recipe["total_steps"],
+        rows / len(data),
+        rows * k,
+        {"notes": notes},
+    )
 
 
 _RUNNERS = {

@@ -21,8 +21,13 @@ from .common import squared_distances
 __all__ = ["silhouette"]
 
 
-def silhouette(x: np.ndarray, labels: np.ndarray, sample_size: int | None = 2000,
-               seed: int = 0, chunk_rows: int = 1024) -> float:
+def silhouette(
+    x: np.ndarray,
+    labels: np.ndarray,
+    sample_size: int | None = 2000,
+    seed: int = 0,
+    chunk_rows: int = 1024,
+) -> float:
     """Mean silhouette coefficient of ``labels`` (Euclidean distance)."""
     x = np.asarray(x, dtype=np.float64)
     labels = np.asarray(labels)
