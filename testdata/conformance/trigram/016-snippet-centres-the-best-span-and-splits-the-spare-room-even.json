@@ -1,0 +1,42 @@
+{
+  "name": "snippet centres the best span and splits the spare room evenly",
+  "why": "BestSnippet picks 50..58 (both terms). The window of 20 leaves 12 spare code points, 6 on each side: 44..64. Highlights are relative to the window.",
+  "kind": "snippet",
+  "input": {
+    "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxraft logyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+    "matches": [
+      {
+        "term": 0,
+        "start": 50,
+        "end": 54
+      },
+      {
+        "term": 1,
+        "start": 55,
+        "end": 58
+      }
+    ],
+    "window": 20
+  },
+  "expect": {
+    "window": [
+      44,
+      64
+    ],
+    "text": "xxxxxxraft logyyyyyy",
+    "highlights": [
+      [
+        6,
+        10
+      ],
+      [
+        11,
+        14
+      ]
+    ],
+    "focus": [
+      50,
+      54
+    ]
+  }
+}

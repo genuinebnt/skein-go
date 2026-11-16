@@ -8,7 +8,7 @@ They are added one milestone at a time; see `docs/architecture.md` section 8.
 | `gateway` | Go | phase 2: REST and WebSocket edge (`services/gateway/README.md`) |
 | `identity` | Go | planned |
 | `documents` | Go | planned |
-| `search` | Go | planned |
+| `search` | Go | phase 2: text, regex and code search, title completion, graph algorithms, projections (`services/search/README.md`) |
 | `ml` | Python | phase 1: algorithms, benchmark, gRPC service (`services/ml/README.md`) |
 | `agent` | Python (LangGraph) | planned |
 | `notifications` | Go | planned |

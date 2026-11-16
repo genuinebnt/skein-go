@@ -1,0 +1,46 @@
+# The search service (services/search/README.md). Included by the main
+# compose file in the integration step; ports bind to 127.0.0.1 only.
+services:
+  search:
+    build:
+      context: ../../..
+      dockerfile: services/search/Dockerfile
+    environment:
+      SKEIN_ENV: dev
+      DATABASE_URL: postgres://search:search@postgres:5432/skein?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      PUBSUB_PROJECT: skein-local
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      GRPC_ADDR: ":9090"
+      ADMIN_ADDR: ":8080"
+      IDENTITY_ADDR: dns:///identity:9090
+      IDENTITY_JWKS_URL: http://identity:8080/.well-known/jwks.json
+      # Empty disables semantic path weights and ml relevance for reading
+      # plans (lexical relevance is used); set to dns:///ml:50051 once ml is
+      # in the stack.
+      ML_ADDR: ""
+      OTEL_SERVICE_NAME: search
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+        required: false
+    ports:
+      - "127.0.0.1:9093:9090"
+      - "127.0.0.1:8083:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/search", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 512m}

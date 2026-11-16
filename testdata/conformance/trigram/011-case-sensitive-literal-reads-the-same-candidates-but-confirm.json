@@ -1,0 +1,40 @@
+{
+  "name": "case-sensitive literal reads the same candidates but confirms exactly",
+  "why": "Trigrams are folded, so the three documents are still candidates; only Kelvin scale has the exact code points K-e-l-v-i-n (the Kelvin sign is not K).",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 1,
+        "text": "Kelvin scale"
+      },
+      {
+        "id": 2,
+        "text": "Kelvin"
+      },
+      {
+        "id": 3,
+        "text": "kelvinator"
+      }
+    ],
+    "op": "literal",
+    "query": "Kelvin",
+    "options": {
+      "case_sensitive": true
+    }
+  },
+  "expect": {
+    "candidates": 3,
+    "hits": [
+      {
+        "doc": 1,
+        "matches": [
+          [
+            0,
+            6
+          ]
+        ]
+      }
+    ]
+  }
+}

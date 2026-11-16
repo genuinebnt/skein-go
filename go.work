@@ -5,9 +5,11 @@ use (
 	./libs/crdt
 	./libs/dp
 	./libs/graph
+	./libs/trigram
 	./platform
 	./services/gateway
 	./services/identity
 	./services/notifications
+	./services/search
 	./tools/seed
 )

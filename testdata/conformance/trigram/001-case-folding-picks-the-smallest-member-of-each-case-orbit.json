@@ -1,0 +1,11 @@
+{
+  "name": "case folding picks the smallest member of each case orbit",
+  "why": "k, K and the Kelvin sign U+212A share one simple case-folding orbit whose smallest member is K (U+004B); s, S and long s U+017F fold to S; final sigma, sigma and capital sigma fold to U+03A3. Folding maps one code point to one, so offsets survive it.",
+  "kind": "fold",
+  "input": {
+    "text": "kKK sſS σςΣ"
+  },
+  "expect": {
+    "folded": "KKK SSS ΣΣΣ"
+  }
+}

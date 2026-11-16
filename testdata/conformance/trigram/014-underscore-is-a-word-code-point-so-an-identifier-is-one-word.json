@@ -1,0 +1,32 @@
+{
+  "name": "underscore is a word code point, so an identifier is one word",
+  "why": "In my_store store, the first store is preceded by _ (a word code point, as in RE2's \\w and libs/dp Words), so whole-word mode rejects it; the second, at 9..14, stands alone.",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 1,
+        "text": "my_store store"
+      }
+    ],
+    "op": "literal",
+    "query": "store",
+    "options": {
+      "whole_word": true
+    }
+  },
+  "expect": {
+    "candidates": 1,
+    "hits": [
+      {
+        "doc": 1,
+        "matches": [
+          [
+            9,
+            14
+          ]
+        ]
+      }
+    ]
+  }
+}

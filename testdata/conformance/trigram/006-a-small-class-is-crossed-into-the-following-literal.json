@@ -1,0 +1,12 @@
+{
+  "name": "a small class is crossed into the following literal",
+  "why": "[ab]cd has exact set {ACD, BCD} (cross product of the class and the literal), so either trigram will do.",
+  "kind": "query",
+  "input": {
+    "pattern": "[ab]cd",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "(\"ACD\"|\"BCD\")"
+  }
+}

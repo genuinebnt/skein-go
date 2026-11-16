@@ -1,0 +1,49 @@
+{
+  "name": "case-insensitive whole-word literal matches the Kelvin sign but not a longer word",
+  "why": "All three documents hold the folded trigrams of kelvin, so all are candidates. Folded comparison matches Kelvin and Kelvin at code points 0..6. In kelvinator the match ends between n and a, both letters, so whole-word mode rejects it.",
+  "kind": "search",
+  "input": {
+    "docs": [
+      {
+        "id": 1,
+        "text": "Kelvin scale"
+      },
+      {
+        "id": 2,
+        "text": "Kelvin"
+      },
+      {
+        "id": 3,
+        "text": "kelvinator"
+      }
+    ],
+    "op": "literal",
+    "query": "kelvin",
+    "options": {
+      "whole_word": true
+    }
+  },
+  "expect": {
+    "candidates": 3,
+    "hits": [
+      {
+        "doc": 1,
+        "matches": [
+          [
+            0,
+            6
+          ]
+        ]
+      },
+      {
+        "doc": 2,
+        "matches": [
+          [
+            0,
+            6
+          ]
+        ]
+      }
+    ]
+  }
+}

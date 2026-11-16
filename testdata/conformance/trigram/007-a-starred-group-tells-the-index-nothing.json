@@ -1,0 +1,12 @@
+{
+  "name": "a starred group tells the index nothing",
+  "why": "(abc)* also matches the empty string, so no trigram is required and every document is a candidate.",
+  "kind": "query",
+  "input": {
+    "pattern": "(abc)*",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "+"
+  }
+}

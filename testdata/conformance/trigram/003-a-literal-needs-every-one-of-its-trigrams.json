@@ -1,0 +1,12 @@
+{
+  "name": "a literal needs every one of its trigrams",
+  "why": "abcd matches only text containing both ABC and BCD; the exact set {ABCD} is long enough that simplify moves its trigrams into the query.",
+  "kind": "query",
+  "input": {
+    "pattern": "abcd",
+    "case_sensitive": true
+  },
+  "expect": {
+    "query": "\"ABC\" \"BCD\""
+  }
+}
