@@ -1,0 +1,55 @@
+# The notification service. Included by the stack's compose file during
+# integration; paths are relative to this file. gRPC on 9090 (reached by the
+# gateway as dns:///notifications:9090), HTTP admin on 8080 (/healthz,
+# /readyz); on the host 127.0.0.1:19095 and :18085 (8085 is the Pub/Sub
+# emulator, 9090 Prometheus). Email goes to Mailpit, whose UI is http://localhost:8025.
+# Identity is reached lazily (keys and Authorize are retried), so it is not
+# a hard dependency.
+services:
+  notifications:
+    build:
+      context: ../../..
+      dockerfile: services/notifications/Dockerfile
+    environment:
+      SKEIN_ENV: dev
+      # Local development credentials (deploy/compose/postgres/init.sql).
+      DATABASE_URL: postgres://notifications:notifications@postgres:5432/skein?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      PUBSUB_PROJECT: skein-local
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      GRPC_ADDR: ":9090"
+      HTTP_ADDR: ":8080"
+      IDENTITY_GRPC_TARGET: dns:///identity:9090
+      IDENTITY_JWKS_URL: http://identity:8080/.well-known/jwks.json
+      SMTP_ADDR: mailpit:1025
+      SMTP_FROM: "Skein <notifications@skein.localhost>"
+      APP_BASE_URL: http://localhost:3000
+      OTEL_SERVICE_NAME: notifications
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "127.0.0.1:19095:9090"
+      - "127.0.0.1:18085:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      identity:
+        condition: service_started
+        required: false
+    healthcheck:
+      test: ["CMD", "/notifications", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    # Longer than the shutdown manager's 25 s, so a drain finishes.
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 256m}

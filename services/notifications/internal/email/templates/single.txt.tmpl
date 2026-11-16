@@ -1,0 +1,15 @@
+Hi {{.RecipientName}},
+
+{{.Item.Title}}
+{{- if .Item.Body}}
+
+{{.Item.Body}}
+{{- end}}
+{{- if .Item.Link}}
+
+Open it: {{.Item.Link}}
+{{- end}}
+
+--
+You get this email because of your Skein notification settings.
+Change them: {{.SettingsLink}}

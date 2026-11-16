@@ -1,0 +1,17 @@
+Hi {{.RecipientName}},
+
+You have {{len .Items}} new notifications:
+{{range .Items}}
+* {{.Title}}
+{{- if .Body}}
+  {{.Body}}
+{{- end}}
+{{- if .Link}}
+  {{.Link}}
+{{- end}}
+{{end}}
+See them all: {{.InboxLink}}
+
+--
+You get this email because of your Skein notification settings.
+Change them: {{.SettingsLink}}
