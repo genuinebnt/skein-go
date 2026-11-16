@@ -1,0 +1,20 @@
+{
+  "name": "equal-length paths are broken by walking back to the smallest neighbour",
+  "why": "s and t are opposite corners of the undirected 6-cycle s-a-y-t-b-z. Forward breadth-first search would discover t from y first (a is dequeued before z) and return s, a, y, t; the rule instead walks back from t to the smallest-ID neighbour one hop closer, which is b, then z. The rule is easy to state in any language.",
+  "graph": {
+    "nodes": [{"id": "s"}, {"id": "a"}, {"id": "y"}, {"id": "t"}, {"id": "b"}, {"id": "z"}, {"id": "q"}],
+    "edges": [
+      {"from": "s", "to": "a"}, {"from": "a", "to": "y"}, {"from": "y", "to": "t"},
+      {"from": "z", "to": "s"}, {"from": "b", "to": "z"}, {"from": "t", "to": "b"}]
+  },
+  "queries": [
+    {"query": {"op": "shortest_path", "from": "s", "to": "t"}, "expected": {"found": true, "path": ["s", "z", "b", "t"], "cost": 3},
+     "why": "t's neighbours b and y are both 2 from s; b is smaller. b's only neighbour at distance 1 is z."},
+    {"query": {"op": "shortest_path", "from": "t", "to": "s"}, "expected": {"found": true, "path": ["t", "y", "a", "s"], "cost": 3},
+     "why": "Reversed: s's neighbours a and z are both 2 from t; a is smaller. So paths are not simply reversed."},
+    {"query": {"op": "shortest_path", "from": "s", "to": "q"}, "expected": {"found": false, "path": [], "cost": 0},
+     "why": "q is isolated. No path is a different answer from an empty path."},
+    {"query": {"op": "diameter"}, "expected": {"length": 3, "from": "a", "to": "b"},
+     "why": "Opposite corners of the 6-cycle are 3 apart: (a,b), (s,t), (y,z). The isolated q is skipped, not infinitely far. (a,b) is the smallest pair."}
+  ]
+}

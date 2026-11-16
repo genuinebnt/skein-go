@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "share_links.schema.json",
+  "title": "One line of share_links.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "note_id",
+    "role",
+    "created_by",
+    "created_at",
+    "expires_at",
+    "revoked_at",
+    "token",
+    "token_sha256"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/noteRole"
+    },
+    "created_by": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revoked_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^shl_[0-9a-f]{32}$"
+    },
+    "token_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    }
+  }
+}

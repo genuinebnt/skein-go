@@ -1,0 +1,12 @@
+{
+  "name": "Louvain breaks equal gains by the label of the node a community started from",
+  "why": "The path e - b - a - c - d has two partitions of equal modularity, {a,c,d}{b,e} and {a,b,e}{c,d}; which one is returned is decided by the tie rule alone. m = 4, degrees a, b, c = 2 and d, e = 1, so gain(c) = k_in(c) - tot(c) * k / 8.",
+  "graph": {
+    "nodes": [{"id": "e"}, {"id": "d"}, {"id": "c"}, {"id": "b"}, {"id": "a"}],
+    "edges": [{"from": "e", "to": "b"}, {"from": "b", "to": "a"}, {"from": "a", "to": "c"}, {"from": "c", "to": "d"}]
+  },
+  "queries": [
+    {"query": {"op": "louvain"}, "expected": {"of": {"a": 0, "c": 0, "d": 0, "b": 1, "e": 1}, "modularity": 0.21875},
+     "why": "Pass 1: a sees b and c at gain 1 - 2*2/8 = 0.5 each and joins the smaller label, b's. b then prefers e (0.75 over 0.5) and leaves a alone under label b; c joins d (0.75), and d and e stay. Pass 2: a sees {c,d} (label d) and {b,e} (label e) at gain 1 - 3*2/8 = 0.25 each and joins label d, the smaller, even though b is the smallest member of {b,e}. Q = 2/4 - (5/8)^2 + 1/4 - (3/8)^2 = 0.21875."}
+  ]
+}

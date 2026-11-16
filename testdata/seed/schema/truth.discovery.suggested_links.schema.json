@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.discovery.suggested_links.schema.json",
+  "title": "One line of truth/discovery/suggested_links.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "a",
+    "b",
+    "shared_terms",
+    "hash_cosine",
+    "hash_rank_b_for_a",
+    "hash_rank_a_for_b"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "a": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "b": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "shared_terms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "hash_cosine": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "hash_rank_b_for_a": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hash_rank_a_for_b": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

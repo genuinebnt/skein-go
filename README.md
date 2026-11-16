@@ -56,5 +56,6 @@ docs/            architecture, decisions, specs, guides
 - [Testing guide](docs/testing.md)
 - [Porting guide](docs/porting-to-rust.md)
 - [Performance log](docs/PERF.md)
+- [Seed data](docs/seed-data.md): deterministic datasets with ground truth (`make seed PROFILE=medium`)
 - [e-means research notes](docs/research/e-means.md)
 - [Contributor and agent rules](AGENTS.md)

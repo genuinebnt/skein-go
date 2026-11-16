@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rejected_ops.schema.json",
+  "title": "One line of rejected_ops.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "note_id",
+    "seq",
+    "replica_id",
+    "user_id",
+    "kind",
+    "created_at",
+    "delivered_at",
+    "reason",
+    "op_count",
+    "ops_base64",
+    "sha256"
+  ],
+  "properties": {
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "replica_id": {
+      "$ref": "common.schema.json#/$defs/replicaId"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "kind": {
+      "$ref": "common.schema.json#/$defs/batchKind"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "delivered_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "reason": {
+      "enum": [
+        "access_revoked",
+        "insufficient_role"
+      ]
+    },
+    "op_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ops_base64": {
+      "type": "string",
+      "pattern": "^U0sB[A-Za-z0-9+/]*={0,2}$",
+      "description": "base64 of a wire format v1 batch (starts with 'SK' 0x01)"
+    },
+    "sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    }
+  }
+}

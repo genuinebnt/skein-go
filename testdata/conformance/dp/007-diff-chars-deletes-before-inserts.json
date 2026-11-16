@@ -1,0 +1,31 @@
+{
+  "name": "within a change, the delete hunk comes before the insert hunk",
+  "why": "abc -> axc: common prefix a and suffix c are stripped; the middle b -> x is one delete and one insert, emitted delete first by the canonical form.",
+  "kind": "diff",
+  "input": {
+    "a": "abc",
+    "b": "axc",
+    "tokens": "chars",
+    "algorithm": "myers"
+  },
+  "expect": {
+    "hunks": [
+      {
+        "kind": "equal",
+        "text": "a"
+      },
+      {
+        "kind": "delete",
+        "text": "b"
+      },
+      {
+        "kind": "insert",
+        "text": "x"
+      },
+      {
+        "kind": "equal",
+        "text": "c"
+      }
+    ]
+  }
+}

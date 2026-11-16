@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.blast_radius.schema.json",
+  "title": "One line of truth/graph/blast_radius.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "note_id",
+    "direction",
+    "max_hops",
+    "reached",
+    "ring_sizes",
+    "hops",
+    "truncated",
+    "why"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "direction": {
+      "enum": [
+        "outbound",
+        "inbound"
+      ]
+    },
+    "max_hops": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reached": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ring_sizes": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1
+    },
+    "hops": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "why": {
+      "type": "string"
+    }
+  }
+}

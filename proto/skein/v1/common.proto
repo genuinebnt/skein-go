@@ -3,26 +3,33 @@ syntax = "proto3";
 // Types shared by every Skein service.
 package skein.v1;
 
+import "protoc-gen-openapiv2/options/annotations.proto";
+
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
-// Cursor-based pagination. Page tokens are opaque to clients.
+// Cursor-based pagination. Page tokens are opaque to clients. Over REST the
+// fields are query parameters: `?page.pageSize=50&page.pageToken=...`.
 message PageRequest {
   // Maximum items to return. The server may return fewer. 0 means the default.
-  uint32 page_size = 1;
+  uint32 page_size = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "50"}];
   // Token from a previous response's next_page_token; empty for the first page.
-  string page_token = 2;
+  string page_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"CgwIgICAgICAgICAARIA\""}];
 }
 
 message PageResponse {
   // Empty when there are no more pages.
-  string next_page_token = 1;
+  string next_page_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"CgwIgICAgICAgICAARIA\""}];
 }
 
 // A location inside a note: the block and, optionally, a character range in
-// code points within the block's text.
+// code points within the block's text (ADR-0003; the browser converts to
+// UTF-16). start == end == 0 means the whole block.
 message BlockRef {
-  string note_id = 1; // UUIDv7
-  string block_id = 2; // "replica:counter" of the block marker
+  // UUIDv7.
+  string note_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f40-2b3c-7d4e-9f50-6a7b8c9d0e1f\""}];
+  // "replica:counter" of the block marker, in decimal.
+  string block_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107:17\""}];
+  // Half-open range [start, end) in code points.
   uint32 start = 3;
   uint32 end = 4;
 }

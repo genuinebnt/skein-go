@@ -1,0 +1,27 @@
+{
+  "name": "Myers keeps the repeated lines and moves the unique one (2 edits)",
+  "why": "Lines a = [}, }, # Heading], b = [# Heading, }, }]. No common prefix or suffix. The LCS is [}, }], so the shortest script inserts the heading before the braces and deletes it after: insert, equal, delete.",
+  "kind": "diff",
+  "input": {
+    "a": "}\n}\n# Heading\n",
+    "b": "# Heading\n}\n}\n",
+    "tokens": "lines",
+    "algorithm": "myers"
+  },
+  "expect": {
+    "hunks": [
+      {
+        "kind": "insert",
+        "text": "# Heading\n"
+      },
+      {
+        "kind": "equal",
+        "text": "}\n}\n"
+      },
+      {
+        "kind": "delete",
+        "text": "# Heading\n"
+      }
+    ]
+  }
+}

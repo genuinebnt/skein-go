@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.crdt.final.schema.json",
+  "title": "One line of truth/crdt/final.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "note_id",
+    "workspace_id",
+    "text",
+    "text_sha256",
+    "length",
+    "blocks",
+    "version_vector",
+    "ops",
+    "inserts",
+    "deletes",
+    "tombstones",
+    "batches",
+    "replicas"
+  ],
+  "properties": {
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "text": {
+      "type": "string",
+      "pattern": "^(\u001e[^\u001e]*)+$"
+    },
+    "text_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "blocks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "version_vector": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/versionEntry"
+      },
+      "minItems": 1
+    },
+    "ops": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "inserts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "deletes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tombstones": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "batches": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
