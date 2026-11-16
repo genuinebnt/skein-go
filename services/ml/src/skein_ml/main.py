@@ -6,7 +6,8 @@ the gRPC server with health, and the ``documents.events`` consumer.
 
 Graceful shutdown on SIGTERM or SIGINT:
 
-1. health reports NOT_SERVING, so load balancers stop sending traffic;
+1. health reports NOT_SERVING and ``/readyz`` 503, so load balancers stop
+   sending traffic;
 2. the consumer stops pulling and finishes in-flight events;
 3. the gRPC server stops accepting RPCs and gives in-flight ones the grace
    period (``SKEIN_ML_SHUTDOWN_GRACE_SECONDS``);
@@ -42,9 +43,12 @@ class Runtime:
     metrics: object
     consumer: object | None = None
     closers: list = field(default_factory=list)
+    admin: object | None = None
+    serving: threading.Event = field(default_factory=threading.Event)
 
     def shutdown(self, grace: float) -> None:
         """Run the shutdown sequence in the module doc."""
+        self.serving.clear()
         self.health.enter_graceful_shutdown()
         log.info("shutting down", extra={"grace_seconds": grace})
         if self.consumer is not None:
@@ -52,6 +56,8 @@ class Runtime:
         self.server.stop(grace).wait()
         for close in self.closers:
             close()
+        if self.admin is not None:
+            self.admin.stop()
         self.telemetry.shutdown()
         log.info("stopped")
 
@@ -96,7 +102,10 @@ def build(config: Config, telemetry=None) -> Runtime:
         processed,
         cache,
         _embedder(config),
-        Settings(suggest_threshold=config.suggest_threshold),
+        Settings(
+            suggest_threshold=config.suggest_threshold,
+            cluster_algorithm=config.cluster_algorithm,
+        ),
     )
     service_metrics = ServiceMetrics(telemetry.meter)
     server, health, port = build_server(
@@ -110,7 +119,12 @@ def build(config: Config, telemetry=None) -> Runtime:
         consumer = PubSubEventSource(
             config.pubsub_project, config.pubsub_subscription, decode_or_skip
         )
-    return Runtime(app, server, health, port, telemetry, service_metrics, consumer, closers)
+    runtime = Runtime(app, server, health, port, telemetry, service_metrics, consumer, closers)
+    if config.admin_address:
+        from .adapters.admin import AdminServer
+
+        runtime.admin = AdminServer(config.admin_address, runtime.serving.is_set)
+    return runtime
 
 
 def main() -> None:
@@ -125,6 +139,9 @@ def main() -> None:
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: stop.set())
     runtime.server.start()
+    if runtime.admin is not None:
+        runtime.admin.start()
+    runtime.serving.set()
     if runtime.consumer is not None:
         runtime.consumer.start(
             observed_handler(runtime.app, runtime.telemetry.tracer, runtime.metrics)

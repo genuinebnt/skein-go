@@ -75,6 +75,17 @@ KNOWN_PRICES: dict[str, Pricing] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class RunUsage:
+    """What a run has spent so far: the tracker's counters, as stored with a
+    paused run and with a finished run's record."""
+
+    steps: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+
+
 class BudgetTracker:
     """Counts what a run has spent and says whether it may continue."""
 
@@ -86,6 +97,21 @@ class BudgetTracker:
         self.output_tokens = 0
         self.cost_usd = 0.0
         self.exceeded: BudgetKind | None = None
+
+    @classmethod
+    def resumed(cls, budget: Budget, pricing: Pricing, usage: RunUsage) -> BudgetTracker:
+        """A tracker that continues from ``usage``, for a run resumed after a
+        pause, so a restart never hands a run a fresh budget."""
+        tracker = cls(budget, pricing)
+        tracker.steps = usage.steps
+        tracker.input_tokens = usage.input_tokens
+        tracker.output_tokens = usage.output_tokens
+        tracker.cost_usd = usage.cost_usd
+        return tracker
+
+    def usage(self) -> RunUsage:
+        """The counters, as a value."""
+        return RunUsage(self.steps, self.input_tokens, self.output_tokens, self.cost_usd)
 
     @property
     def total_tokens(self) -> int:

@@ -17,26 +17,28 @@ src/skein_ml/
     text.py notes.py tokenising, #tags, cluster labels; the note projection
   app/               use cases (MLApp), port interfaces, events, typed errors, per-workspace indexes
   adapters/          grpc_server, events_codec, consumer, pubsub, postgres, redis_cache,
-                     onnx_embedder, observability, memory (in-memory ports), grpc_stubs
+                     onnx_embedder, observability, memory (in-memory ports)
   bench/             benchmark harness, datasets, search benchmark, CLI
   config.py main.py  environment configuration; wiring and graceful shutdown
 tests/               pytest; no test needs Docker, the network or another service
 migrations/          SQL for the optional Postgres adapter (schema `ml`)
-scripts/gen_proto.sh generates gRPC stubs into _gen/ (git-ignored)
 ```
+
+Generated messages and stubs come from the shared package in
+[`gen/python`](../../gen/python) (`skein_proto.v1`), a path dependency in
+`pyproject.toml`; after `make proto` changes it, reinstall the service.
 
 ## Quick start
 
 ```
 cd services/ml
 python3 -m venv .venv && . .venv/bin/activate
-pip install -e '.[dev,bench,redis,postgres,pubsub]'   # or: uv pip install -e ...
-./scripts/gen_proto.sh          # stubs into _gen/ until gen/python lands
+pip install -e '.[dev,bench,redis,postgres,pubsub]'   # also installs ../../gen/python
 pytest                          # unit tests (integration, onnx, loopback are opt-in)
 pytest -m loopback              # the real gRPC server on 127.0.0.1
 ruff check src tests
 python -m skein_ml.bench        # writes docs/ml-benchmarks.md (about 3 minutes on 2 cores)
-OTEL_SDK_DISABLED=true python -m skein_ml   # serve on :50051 with in-memory adapters
+OTEL_SDK_DISABLED=true python -m skein_ml   # gRPC on :9090, /healthz and /readyz on :8080, in memory
 ```
 
 Randomised tests print their seed; replay a failure with `SKEIN_SEED=<seed> pytest ...`.
@@ -47,6 +49,11 @@ the same steps were replayed by hand with a non-editable install):
 ```
 docker build -f services/ml/Dockerfile -t skein/ml .      # from the repository root
 ```
+
+Compose: [`deploy/compose/services/ml.yml`](../../deploy/compose/services/ml.yml)
+publishes gRPC on `127.0.0.1:9105` and `/healthz`, `/readyz` on
+`127.0.0.1:8105` (container ports 9090 and 8080), with Postgres (role and schema `ml`), Redis
+database 1 and the `ml.documents-events` subscription.
 
 ## Algorithms
 
@@ -95,6 +102,15 @@ filtering after the search drops it to about 0.3 (see the benchmark).
   (18.0) is far better: random starts leave merged blobs that 3 epochs of
   revival do not undo. The laws were fitted on 1e5 to 1e7 rows, far above
   these sizes.
+- e-means seeded by k-means++ (`scratch-kmeans++`, our addition; the
+  reference only has random starts) closes that gap. On the blobs it reaches
+  converged k-means++ Lloyd's held-out loss exactly (17.963 against 58.64
+  with random starts) with half of Lloyd's distance computations (5.0M
+  against 10.6M); on the embeddings-like set it gains 0.7% (0.4877 against
+  0.4912) and ends 0.3% from converged Lloyd with a tenth of its distances.
+  The price is the seeding: about two thirds of its distance computations
+  and twice to three times the wall time of random-start e-means, so the
+  "fraction of Lloyd's passes" advantage now mostly measures k-means++.
 - Scratch search latency is pure Python; compare recall and distances per
   query, not milliseconds, against hnswlib and FAISS.
 
@@ -111,8 +127,13 @@ filtering after the search drops it to about 0.3 (see the benchmark).
 - **Discovery.** Cosine, shared tags with Jaccard, and link hops (`-1` = not
   connected) are returned separately, never blended; `suggest_link` is set when
   cosine >= `SKEIN_ML_SUGGEST_THRESHOLD` (0.70) and hops >= 2 or -1.
-- **Clusters.** Lloyd with k-means++ on note vectors, `k = round(sqrt(n/2))`,
-  labelled by class-based TF-IDF terms.
+- **Clusters.** Lloyd with k-means++ on note vectors by default
+  (`SKEIN_ML_CLUSTER_ALGORITHM`: `lloyd`, `e_means`, or `e_means_kmeans++`),
+  `k = round(sqrt(n/2))`, notes labelled by their nearest final centroid,
+  clusters by class-based TF-IDF terms. Workspaces are small, where Lloyd
+  converges in milliseconds; e-means pays off on large ones.
+- **Admin HTTP.** `/healthz` (process up) and `/readyz` (503 once draining)
+  on `SKEIN_ML_ADMIN_ADDRESS` (`:8080`), beside gRPC on `:9090`.
 - **Cache.** Embeddings are content-addressed; search results and clusters are
   tagged by workspace and invalidated by every change to it. Redis
   (`SKEIN_ML_REDIS_URL`) or in-memory.
@@ -139,9 +160,7 @@ hashing of unigrams and bigrams with sublinear TF and optional fitted IDF.
 
 ## Follow-ups
 
-- Switch `adapters/grpc_stubs.py` to `gen/python` when the contracts change
-  lands; delete `_gen/` and `scripts/gen_proto.sh`.
-- Add the service to `deploy/compose` and a Kubernetes manifest.
+- A Kubernetes manifest.
 - Run the Postgres integration tests (`-m integration` with
   `SKEIN_ML_TEST_DATABASE_URL`) and the Docker build in CI.
 - Per-workspace locks instead of one service-wide lock; persist built HNSW

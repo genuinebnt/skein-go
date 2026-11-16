@@ -1,0 +1,2 @@
+# setuptools writes build/ here whenever a service installs this package by path.
+/build/

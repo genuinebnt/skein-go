@@ -10,7 +10,7 @@ ports and adapters (ADR-0013):
 - ``app``: use cases (runs, chats), the LangGraph graph, the tool catalogue,
   and the port interfaces they need.
 - ``adapters``: gRPC server and clients, Anthropic model, Redis, Postgres
-  checkpointer, logging and OpenTelemetry.
+  stores and checkpointer (schema ``agent``), logging and OpenTelemetry.
 - ``fakes``: in-memory implementations of every port, used by tests and the
   evals.
 - ``evals``: ``python -m skein_agent.evals``.

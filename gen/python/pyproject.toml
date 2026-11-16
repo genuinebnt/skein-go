@@ -1,7 +1,7 @@
 # Generated Python bindings for Skein's gRPC contracts (proto/skein/v1).
-# The code under skein_proto/ is produced by scripts/gen-python.sh; only this
-# file, README.md, skein_proto/__init__.py, py.typed and tests/ are written
-# by hand.
+# The code under skein_proto/ (and v1/descriptor_set.binpb) is produced by
+# scripts/gen-python.sh; only this file, README.md, skein_proto/__init__.py,
+# py.typed and tests/ are written by hand.
 [build-system]
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
@@ -27,7 +27,7 @@ test = ["pytest>=8"]
 include = ["skein_proto*"]
 
 [tool.setuptools.package-data]
-"*" = ["py.typed", "*.pyi"]
+"*" = ["py.typed", "*.pyi", "*.binpb"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

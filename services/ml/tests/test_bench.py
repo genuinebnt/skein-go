@@ -27,6 +27,15 @@ def test_every_scratch_algorithm_is_scored_the_same_way(algorithm, seed):
     assert (run.negative_log_likelihood is not None) == (algorithm == "gmm_em")
 
 
+def test_e_means_has_a_kmeans_plus_plus_scratch_row_that_is_not_a_reference():
+    assert harness.scratch_implementations("e_means") == ["scratch", "scratch-kmeans++"]
+    assert harness.scratch_implementations("kmeans_elkan") == ["scratch"]
+    assert not any(i.startswith("scratch") for i in harness.reference_implementations("e_means"))
+    data = gaussian_blobs(600, 150, d=4, k=5, seed=3)
+    run = harness.run("e_means", "scratch-kmeans++", data.train, data.test, data.k, 3)
+    assert any("k-means++" in n for n in run.notes)
+
+
 def test_mean_run_averages_seeds():
     data = gaussian_blobs(300, 50, d=3, k=3, seed=1)
     runs = [harness.run("kmeans_plus_plus", "scratch", data.train, data.test, 3, s) for s in (1, 2)]
@@ -67,3 +76,5 @@ def test_cli_writes_a_markdown_report(tmp_path):
     report = output.read_text()
     assert "## Machine" in report and "| e-means | scratch |" in report
     assert "blobs-d16-k32" in report and "embeddings-like-d128" in report
+    assert "| e-means | scratch-kmeans++ |" in report
+    assert report.count("e-means seeding: test MSE") == 2, "one comparison per data set"

@@ -15,7 +15,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 def main() -> int:
     """Query ``grpc.health.v1.Health/Check`` on the configured port."""
-    address = os.environ.get("SKEIN_ML_ADDRESS", "[::]:50051")
+    address = os.environ.get("SKEIN_ML_ADDRESS", "[::]:9090")
     port = address.rsplit(":", 1)[-1]
     try:
         with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:

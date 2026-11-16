@@ -26,11 +26,11 @@ from concurrent import futures
 import grpc
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from opentelemetry import propagate, trace
+from skein_proto.v1 import ml_pb2, ml_pb2_grpc
 
 from ..app.errors import DeadlineExceeded, InvalidArgument, MLError, NotFound, Unavailable
 from ..app.service import MLApp
 from ..app.vectors import IndexKind
-from .grpc_stubs import ml_pb2, ml_pb2_grpc
 from .observability import ServiceMetrics, new_request_id, request_context
 
 __all__ = ["SERVICE_NAME", "MLServicer", "ObservabilityInterceptor", "build_server"]

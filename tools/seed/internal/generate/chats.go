@@ -81,14 +81,15 @@ func jsonArgs(v any) string {
 }
 
 type transcript struct {
-	r      *prng.Rand
-	ids    *prng.Rand
-	at     time.Time
-	msgs   []ChatMessage
-	steps  int
-	runID  string
-	calls  int
-	events []ChatEvent
+	r        *prng.Rand
+	ids      *prng.Rand
+	at       time.Time
+	msgs     []ChatMessage
+	steps    int
+	runID    string
+	calls    int
+	confirms int
+	events   []ChatEvent
 }
 
 func (t *transcript) tick() time.Time {
@@ -120,7 +121,8 @@ func (t *transcript) cite(loc Location, quote string) {
 }
 
 func (t *transcript) confirm(tool string, args any, description string) {
-	id := fmt.Sprintf("confirm_%d", t.calls+1)
+	t.confirms++
+	id := fmt.Sprintf("confirm_%d", t.confirms)
 	a := jsonArgs(args)
 	t.events = append(t.events, ChatEvent{Kind: "confirmation", CallID: &id, Tool: &tool, Arguments: &a, Text: &description})
 }
@@ -213,34 +215,48 @@ func castIndex(key string) int {
 	return 0
 }
 
+// evalTranscript writes the golden transcript of one eval. Tool names and
+// arguments are the agent service's own (anchor.AgentTools), so every call
+// in it is one the real tool accepts.
 func (a *aggregate) evalTranscript(t *transcript, e EvalRecord, src anchor.Eval) {
 	t.user(e.Prompt)
 	t.startRun()
+	search := map[string]string{"query": e.Prompt}
 	switch e.Outcome {
 	case "refuse":
-		t.call("search_notes", map[string]string{"query": e.Prompt}, "No readable notes matched", false)
+		// A removed member's run is refused before any tool runs.
+		if !containsString(e.ForbiddenTools, "search") {
+			t.call("search", search, "No readable notes matched", false)
+		}
 		t.finish("I can't help with that: you don't have access to the note this needs, or the request isn't allowed for your role.", "OUTCOME_COMPLETED")
 	case "confirm":
-		args := map[string]any{"note_ids": e.Confirmation.TargetNoteIDs}
-		t.call("search_notes", map[string]string{"query": e.Prompt}, fmt.Sprintf("Found %d notes", len(e.Confirmation.TargetNoteIDs)), false)
-		t.confirm(e.Confirmation.Tool, args, fmt.Sprintf("%s on %d note(s)", e.Confirmation.Tool, len(e.Confirmation.TargetNoteIDs)))
-		t.pause("This needs your confirmation before I go ahead.")
-		t.user("Yes, go ahead.")
-		t.confirmed(true)
-		t.call(e.Confirmation.Tool, args, "Done", false)
+		tool := e.Confirmation.Tool
+		targets := e.Confirmation.TargetNoteIDs
+		t.call("search", search, fmt.Sprintf("Found %d notes", len(targets)), false)
+		// One batch of calls, one per note; the gate asks about each in turn
+		// and nothing runs until every one is approved.
+		for i, id := range targets {
+			t.confirm(tool, confirmArgs(tool, id), describeConfirmation(tool, src.Confirmation.Targets[i]))
+			t.pause("This needs your confirmation before I go ahead.")
+			t.user("Yes, go ahead.")
+			t.confirmed(true)
+		}
+		for _, id := range targets {
+			t.call(tool, confirmArgs(tool, id), "Done", false)
+		}
 		t.finish("Done.", "OUTCOME_COMPLETED")
 	default:
 		read := map[string]bool{}
-		t.call("search_notes", map[string]string{"query": e.Prompt}, fmt.Sprintf("Found %d notes", max(1, len(e.Citations))), false)
+		t.call("search", search, fmt.Sprintf("Found %d notes", max(1, len(e.Citations))), false)
 		for _, c := range e.Citations {
 			if !read[c.NoteID] {
 				read[c.NoteID] = true
-				t.call("read_note", map[string]string{"note_id": c.NoteID}, "Read 1 note", false)
+				t.call("get_note", map[string]string{"note_id": c.NoteID}, "Read 1 note", false)
 			}
 		}
 		for _, tool := range e.ExpectedTools {
-			if tool != "search_notes" && tool != "read_note" {
-				t.call(tool, map[string]string{"workspace_id": e.WorkspaceID}, "Done", false)
+			if tool != "search" && tool != "get_note" {
+				t.call(tool, a.evalToolArgs(tool, src), "Done", false)
 			}
 		}
 		var parts []string
@@ -261,6 +277,48 @@ func (a *aggregate) evalTranscript(t *transcript, e EvalRecord, src anchor.Eval)
 	}
 }
 
+// confirmArgs are the arguments of a confirmation-requiring call on one note.
+func confirmArgs(tool, noteID string) map[string]any {
+	if tool == "create_share_link" {
+		return map[string]any{"note_id": noteID, "role": "NOTE_ROLE_VIEWER"}
+	}
+	return map[string]any{"note_id": noteID}
+}
+
+// describeConfirmation is the sentence the user is asked to confirm, in the
+// agent's wording.
+func describeConfirmation(tool, title string) string {
+	if tool == "create_share_link" {
+		return fmt.Sprintf("Create a view-only share link for %q", title)
+	}
+	return fmt.Sprintf("Move %q to the trash", title)
+}
+
+// evalToolArgs are the arguments of an eval's expected tool other than
+// search and get_note. truth.go checks the eval carries what each needs.
+func (a *aggregate) evalToolArgs(tool string, e anchor.Eval) map[string]any {
+	switch tool {
+	case "blast_radius":
+		return map[string]any{"note_id": a.anchorNoteID(e.Subject), "max_hops": 1, "direction": "BLAST_DIRECTION_CITED_BY"}
+	case "apply_edit":
+		return map[string]any{"note_id": a.anchorNoteID(e.Subject), "edits": []map[string]string{{"find": e.Edit.Find, "replace": e.Edit.Replace}}}
+	case "create_note":
+		var md strings.Builder
+		md.WriteString("# " + e.NewNote.Title + "\n")
+		for _, l := range e.NewNote.Links {
+			md.WriteString("\n- [[" + l + "]]")
+		}
+		return map[string]any{"title": e.NewNote.Title, "markdown": md.String()}
+	}
+	return map[string]any{}
+}
+
+// anchorNoteID is the ID of the anchor note with a unique title; truth.go
+// has already rejected evals naming a missing or ambiguous one.
+func (a *aggregate) anchorNoteID(title string) string {
+	return a.p.notes[a.p.workspaces[0].TitleIndex[title]].ID
+}
+
 func (a *aggregate) noteTranscript(t *transcript, cp chatPlan, n *notePlan) {
 	b, ok := firstText(a.kept[n.Index])
 	loc := Location{NoteID: n.ID}
@@ -273,8 +331,8 @@ func (a *aggregate) noteTranscript(t *transcript, cp chatPlan, n *notePlan) {
 	case "summarise":
 		t.user("Summarise " + n.Title)
 		t.startRun()
-		t.call("search_notes", map[string]string{"query": n.Title}, "Found 1 note", false)
-		t.call("read_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
+		t.call("search", map[string]string{"query": n.Title}, "Found 1 note", false)
+		t.call("get_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
 		if ok {
 			t.cite(loc, quote)
 		}
@@ -282,9 +340,9 @@ func (a *aggregate) noteTranscript(t *transcript, cp chatPlan, n *notePlan) {
 	case "delete-confirmed", "delete-declined":
 		t.user("Delete " + n.Title)
 		t.startRun()
-		args := map[string]any{"note_ids": []string{n.ID}}
-		t.call("search_notes", map[string]string{"query": n.Title}, "Found 1 note", false)
-		t.confirm("delete_note", args, "Move "+n.Title+" to the trash")
+		args := confirmArgs("delete_note", n.ID)
+		t.call("search", map[string]string{"query": n.Title}, "Found 1 note", false)
+		t.confirm("delete_note", args, describeConfirmation("delete_note", n.Title))
 		t.pause("Moving this note to the trash needs your confirmation.")
 		if cp.Kind == "delete-confirmed" {
 			t.user("Yes.")
@@ -299,13 +357,13 @@ func (a *aggregate) noteTranscript(t *transcript, cp chatPlan, n *notePlan) {
 	case "refuse-edit":
 		t.user("Add a summary at the top of " + n.Title)
 		t.startRun()
-		t.call("read_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
+		t.call("get_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
 		t.finish("You can read this note but not edit it, so I can't change it. I can draft the summary here instead.", "OUTCOME_COMPLETED")
 	case "create":
 		t.user("Create a note with the open questions from " + n.Title)
 		t.startRun()
-		t.call("read_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
-		t.call("create_note", map[string]string{"workspace_id": a.p.ws(n).ID, "title": "Open questions: " + n.Title}, "Created 1 note", false)
+		t.call("get_note", map[string]string{"note_id": n.ID}, "Read 1 note", false)
+		t.call("create_note", map[string]string{"title": "Open questions: " + n.Title, "markdown": "Open questions from [[" + n.Title + "]]."}, "Created 1 note", false)
 		if ok {
 			t.cite(loc, quote)
 		}

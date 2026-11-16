@@ -22,16 +22,17 @@ Field names stay snake_case; ``google.protobuf.json_format.ParseDict``
 accepts them, and it also rejects wrong types and unknown enum names,
 which is the validation the executor relies on.
 
-Descriptions come from the proto comments when the descriptor set with
-source info (``gen/skein.binpb``) is available; without it schemas are
-still complete, only less descriptive.
+Descriptions come from the proto comments, read from the descriptor set
+with source info that ships with the generated package
+(``skein_proto/v1/descriptor_set.binpb``); without it schemas are still
+complete, only less descriptive.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from functools import cache
-from pathlib import Path
+from importlib.resources.abc import Traversable
 from typing import Any
 
 from google.protobuf import descriptor_pb2
@@ -60,7 +61,7 @@ _MAX_DEPTH = 4  # proto messages here nest at most two deep; this stops cycles
 
 
 @cache
-def proto_comments(path: Path = pb.DESCRIPTOR_SET_PATH) -> dict[str, str]:
+def proto_comments(path: Traversable = pb.DESCRIPTOR_SET) -> dict[str, str]:
     """Map fully qualified names (``skein.v1.GetNoteRequest.note_id``,
     ``skein.v1.DocumentService.GetNote``) to their leading or trailing
     proto comment. Empty if the descriptor set is missing."""
@@ -77,8 +78,7 @@ def proto_comments(path: Path = pb.DESCRIPTOR_SET_PATH) -> dict[str, str]:
             loc = by_path.get(loc_path)
             if loc is None:
                 return ""
-            text = loc.leading_comments or loc.trailing_comments
-            return " ".join(text.split())
+            return _flatten_comment(loc.leading_comments or loc.trailing_comments)
 
         def visit_message(m: descriptor_pb2.DescriptorProto, prefix: str, loc: tuple[int, ...]) -> None:
             name = f"{prefix}.{m.name}"
@@ -97,6 +97,16 @@ def proto_comments(path: Path = pb.DESCRIPTOR_SET_PATH) -> dict[str, str]:
                 if c := comment((6, i, 2, j)):
                     out[f"{f.package}.{svc.name}.{method.name}"] = c
     return out
+
+
+def _flatten_comment(text: str) -> str:
+    """One line from a proto comment. RPC comments open with an OpenAPI
+    summary paragraph ("Get a note's blast radius") that has no full stop;
+    paragraphs are joined as sentences so the summary does not run into the
+    description."""
+    paragraphs = [" ".join(p.split()) for p in text.split("\n\n") if p.strip()]
+    last = len(paragraphs) - 1
+    return " ".join(p if i == last or p[-1] in ".:!?" else f"{p}." for i, p in enumerate(paragraphs))
 
 
 def _field_schema(field: FieldDescriptor, comments: dict[str, str], depth: int) -> dict[str, Any] | None:

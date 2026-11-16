@@ -93,3 +93,16 @@ def test_stub_round_trips_through_an_in_process_server():
         assert reply.note.id == "abc"
     finally:
         server.stop(grace=None)
+
+
+def test_descriptor_set_ships_with_source_comments():
+    from importlib.resources import files
+
+    from google.protobuf import descriptor_pb2
+
+    data = (files("skein_proto.v1") / "descriptor_set.binpb").read_bytes()
+    fds = descriptor_pb2.FileDescriptorSet.FromString(data)
+    names = sorted(f.name for f in fds.file)
+    assert names == sorted(f"skein/v1/{f}.proto" for f in PROTO_FILES)
+    documents = next(f for f in fds.file if f.name == "skein/v1/documents.proto")
+    assert any(loc.leading_comments.strip() for loc in documents.source_code_info.location)

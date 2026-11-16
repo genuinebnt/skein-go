@@ -26,6 +26,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/genuinebnt/skein-go/libs/crdt"
+	"github.com/genuinebnt/skein-go/tools/seed/internal/corpus/anchor"
 	"github.com/genuinebnt/skein-go/tools/seed/internal/generate"
 	"github.com/genuinebnt/skein-go/tools/seed/internal/history"
 )
@@ -1203,6 +1204,102 @@ func TestAgentEvalCitationsQuoteTheirBlocks(t *testing.T) {
 	}
 	if len(es) < 20 || len(es) > 30 || outcomes["refuse"] == 0 || outcomes["confirm"] == 0 || outcomes["answer"] == 0 || outcomes["act"] == 0 {
 		t.Fatalf("%d evals with outcomes %v; want 20 to 30 covering every outcome", len(es), outcomes)
+	}
+}
+
+// TestGoldenTranscriptsFollowTheirEvals checks each eval's golden chat
+// against the eval itself: only agent tool names, every expected tool
+// called, no forbidden tool called, and one approved confirmation per
+// target before the confirmed calls run.
+func TestGoldenTranscriptsFollowTheirEvals(t *testing.T) {
+	dir := smallDir(t)
+	type eval struct {
+		ID             string   `json:"id"`
+		ExpectedTools  []string `json:"expected_tools"`
+		ForbiddenTools []string `json:"forbidden_tools"`
+		Confirmation   *struct {
+			Tool          string   `json:"tool"`
+			TargetNoteIDs []string `json:"target_note_ids"`
+		} `json:"confirmation"`
+	}
+	type event struct {
+		Kind      string  `json:"kind"`
+		Tool      *string `json:"tool"`
+		Arguments *string `json:"arguments_json"`
+		Approved  *bool   `json:"approved"`
+	}
+	type chat struct {
+		EvalID   *string `json:"eval_id"`
+		Messages []struct {
+			Events []event `json:"events"`
+		} `json:"messages"`
+	}
+	known := map[string]bool{}
+	for _, name := range anchor.AgentTools {
+		known[name] = true
+	}
+	golden := map[string][]event{}
+	for _, c := range lines[chat](t, dir, "chats.jsonl") {
+		var events []event
+		for _, m := range c.Messages {
+			events = append(events, m.Events...)
+		}
+		for _, e := range events {
+			if e.Tool != nil && !known[*e.Tool] {
+				t.Fatalf("chat uses %q, which is not an agent tool", *e.Tool)
+			}
+		}
+		if c.EvalID != nil {
+			golden[*c.EvalID] = events
+		}
+	}
+	for _, e := range lines[eval](t, dir, "truth/agent/evals.jsonl") {
+		events, ok := golden[e.ID]
+		if !ok {
+			t.Fatalf("%s: no golden transcript", e.ID)
+		}
+		called := map[string]bool{}
+		var confirmedTargets []string
+		approvals := 0
+		for _, ev := range events {
+			switch ev.Kind {
+			case "tool_call":
+				called[*ev.Tool] = true
+			case "confirmation":
+				var args struct {
+					NoteID string `json:"note_id"`
+				}
+				if err := json.Unmarshal([]byte(*ev.Arguments), &args); err != nil {
+					t.Fatalf("%s: confirmation arguments: %v", e.ID, err)
+				}
+				if e.Confirmation == nil || *ev.Tool != e.Confirmation.Tool {
+					t.Fatalf("%s: unexpected confirmation for %q", e.ID, *ev.Tool)
+				}
+				confirmedTargets = append(confirmedTargets, args.NoteID)
+			case "confirmed":
+				if *ev.Approved {
+					approvals++
+				}
+			}
+		}
+		for _, tool := range e.ExpectedTools {
+			if !called[tool] {
+				t.Errorf("%s: expected tool %q is never called", e.ID, tool)
+			}
+		}
+		for _, tool := range e.ForbiddenTools {
+			if called[tool] {
+				t.Errorf("%s: forbidden tool %q is called", e.ID, tool)
+			}
+		}
+		if e.Confirmation != nil {
+			if strings.Join(confirmedTargets, ",") != strings.Join(e.Confirmation.TargetNoteIDs, ",") || approvals != len(confirmedTargets) {
+				t.Errorf("%s: confirmations for %v with %d approvals, want one approved confirmation per target %v",
+					e.ID, confirmedTargets, approvals, e.Confirmation.TargetNoteIDs)
+			}
+		} else if len(confirmedTargets) > 0 {
+			t.Errorf("%s: asks for confirmation but the eval expects none", e.ID)
+		}
 	}
 }
 

@@ -103,14 +103,27 @@ def test_config_requires_a_key_for_the_anthropic_backend(missing) -> None:
 
     with pytest.raises(ConfigError, match=missing):
         load_settings({})
-    s = load_settings({"SKEIN_AGENT_MODEL_BACKEND": "scripted"})
+    s = load_settings({"SKEIN_AGENT_MODEL_BACKEND": "scripted", "SKEIN_AGENT_STORAGE": "memory"})
     assert s.model == "claude-sonnet-5-5" and s.pricing.input_per_mtok == 2.0
+
+
+def test_config_defaults_to_postgres_storage_and_requires_its_dsn() -> None:
+    from skein_agent.config import ConfigError, load_settings
+
+    base = {"SKEIN_AGENT_MODEL_BACKEND": "scripted"}
+    with pytest.raises(ConfigError, match="SKEIN_AGENT_POSTGRES_DSN"):
+        load_settings(base)
+    s = load_settings({**base, "SKEIN_AGENT_POSTGRES_DSN": "postgresql://db/skein"})
+    assert s.storage == "postgres" and s.postgres_dsn == "postgresql://db/skein"
+    assert (s.addr, s.admin_addr) == ("0.0.0.0:9090", "0.0.0.0:8080"), "the backends' ports"
+    with pytest.raises(ConfigError, match="SKEIN_AGENT_STORAGE"):
+        load_settings({**base, "SKEIN_AGENT_STORAGE": "sqlite"})
 
 
 def test_config_rejects_unknown_models_without_prices_and_bad_numbers() -> None:
     from skein_agent.config import ConfigError, load_settings
 
-    base = {"ANTHROPIC_API_KEY": "k"}
+    base = {"ANTHROPIC_API_KEY": "k", "SKEIN_AGENT_STORAGE": "memory"}
     with pytest.raises(ConfigError, match="no price known"):
         load_settings({**base, "SKEIN_AGENT_MODEL": "claude-future-9"})
     s = load_settings(
@@ -126,7 +139,7 @@ def test_config_rejects_unknown_models_without_prices_and_bad_numbers() -> None:
         load_settings({**base, "SKEIN_AGENT_MAX_STEPS": "many"})
     with pytest.raises(ConfigError):
         load_settings({**base, "SKEIN_AGENT_MAX_STEPS": "0"})
-    assert "sk-" not in repr(load_settings({"ANTHROPIC_API_KEY": "sk-secret"}))
+    assert "sk-" not in repr(load_settings({**base, "ANTHROPIC_API_KEY": "sk-secret"}))
 
 
 def test_anthropic_provider_builds_a_streaming_chat_model_without_network() -> None:

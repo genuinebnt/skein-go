@@ -30,6 +30,7 @@ Invariants (``SourceRegistry.check_invariants``): source labels are exactly
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 UNTRUSTED_TAG = "untrusted_data"
@@ -124,6 +125,22 @@ class SourceRegistry:
 
     def __len__(self) -> int:
         return len(self._sources)
+
+    def sources(self) -> tuple[Source, ...]:
+        """Every source, in label order: what a paused run stores so the
+        labels the model has already seen still resolve after a restart."""
+        return tuple(self._sources)
+
+    @classmethod
+    def restore(cls, sources: Iterable[Source]) -> SourceRegistry:
+        """A registry holding ``sources``, which must be labelled S1..Sn in
+        order (as ``sources()`` returns them)."""
+        registry = cls()
+        for source in sources:
+            registry._sources.append(source)
+            registry._by_key[(source.note_id, source.block_id, source.start, source.end)] = source
+        registry.check_invariants()
+        return registry
 
     def check_invariants(self) -> None:
         """Raise AssertionError if labels or keys are inconsistent."""

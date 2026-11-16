@@ -86,7 +86,8 @@ def main(argv: list[str] | None = None) -> int:
 def _run_clustering(dataset: Dataset, runs: int, seed: int) -> list[harness.AlgorithmRun]:
     results = []
     for algorithm in harness.ALGORITHMS:
-        for implementation in ["scratch", *harness.reference_implementations(algorithm)]:
+        implementations = harness.scratch_implementations(algorithm)
+        for implementation in [*implementations, *harness.reference_implementations(algorithm)]:
             measured = []
             for r in range(runs):
                 print(
@@ -164,6 +165,40 @@ def _clustering_table(rows: list[harness.AlgorithmRun]) -> list[str]:
     return lines
 
 
+def _e_means_seeding(rows: list[harness.AlgorithmRun]) -> list[str]:
+    """Compare e-means seeded randomly (as the reference) and by k-means++,
+    against converged Lloyd with k-means++, in numbers computed from the rows.
+
+    Both e-means rows run the same recipe, so their e-means distance counts
+    are equal and the difference between their totals is exactly what the
+    k-means++ seeding cost."""
+    by_key = {(r.algorithm, r.implementation): r for r in rows}
+    random_seeded = by_key.get(("e_means", "scratch"))
+    seeded = by_key.get(("e_means", "scratch-kmeans++"))
+    lloyd = by_key.get(("kmeans_plus_plus", "scratch"))
+    if random_seeded is None or seeded is None or lloyd is None:
+        return []
+
+    def change(new: float, old: float) -> str:
+        percent = round(100 * (new - old) / old, 1) + 0.0  # + 0.0 turns -0.0 into 0.0
+        return f"{percent:+.1f}%"
+
+    seeding = (seeded.distance_computations or 0) - (random_seeded.distance_computations or 0)
+    share = seeding / seeded.distance_computations if seeded.distance_computations else 0.0
+    return [
+        "",
+        f"e-means seeding: test MSE {_number(seeded.test_objective, 5)} with k-means++ "
+        f"against {_number(random_seeded.test_objective, 5)} with random points "
+        f"({change(seeded.test_objective, random_seeded.test_objective)}); converged Lloyd "
+        f"with k-means++ reaches {_number(lloyd.test_objective, 5)} "
+        f"(e-means with k-means++ is {change(seeded.test_objective, lloyd.test_objective)} "
+        f"from it) using {_count(lloyd.distance_computations)} distances against "
+        f"{_count(seeded.distance_computations)}, of which the seeding is "
+        f"{_count(seeding)} ({share:.0%}). Wall time {seeded.seconds:.3f} s against "
+        f"{random_seeded.seconds:.3f} s with random points.",
+    ]
+
+
 def _search_table(rows: list[SearchRow]) -> list[str]:
     lines = [
         "| Index | Impl. | Parameters | Build s | Recall@10 | ms/query | Distances/query |",
@@ -217,6 +252,7 @@ def _report(datasets, clustering, search_rows, search_shape, args, elapsed) -> s
             "",
         ]
         lines += _clustering_table(clustering[dataset.name])
+        lines += _e_means_seeding(clustering[dataset.name])
         lines.append("")
     if search_rows is not None:
         unfiltered, filtered = search_rows

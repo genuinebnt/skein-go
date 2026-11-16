@@ -11,6 +11,7 @@ import pytest
 from conftest import gaussian_blobs
 
 from skein_ml.domain.clustering import EMeans, Lloyd, sum_squared_error
+from skein_ml.domain.clustering.common import DistanceCounter
 from skein_ml.domain.clustering.e_means import (
     INITIAL_MASS,
     epoch_rows,
@@ -18,6 +19,7 @@ from skein_ml.domain.clustering.e_means import (
     round_to_power_of_two,
     scheduled_alpha,
 )
+from skein_ml.domain.clustering.init import kmeans_plus_plus
 
 
 def test_one_full_batch_update_with_unit_step_is_one_lloyd_iteration(seed):
@@ -235,3 +237,23 @@ def test_matches_faiss_with_a_unit_initial_step_and_revival(seed):
     result = ours.fit(x)
     assert ours.splits == reference.n_splits
     np.testing.assert_allclose(result.centroids, reference_centroids, rtol=1e-4, atol=1e-4)
+
+
+def test_kmeans_plus_plus_init_is_lloyds_seeding_and_its_distances_are_counted(seed):
+    x, _ = gaussian_blobs(np.random.default_rng(seed), 2000, 8, 12, spread=4.0)
+    x32 = np.ascontiguousarray(x, dtype=np.float32)
+    seeding = DistanceCounter()
+    centres = kmeans_plus_plus(x32.astype(np.float64), 12, np.random.default_rng(seed), seeding)
+    seeded = EMeans(12, epochs=2, seed=seed, init="kmeans++").fit(
+        x32, observer=lambda m: m.check_invariants()
+    )
+    given = EMeans(12, epochs=2, seed=seed).fit(x32, init=centres.astype(np.float32))
+    np.testing.assert_array_equal(seeded.centroids, given.centroids)
+    np.testing.assert_array_equal(seeded.labels, given.labels)
+    assert seeding.count > 0
+    assert seeded.distance_computations == given.distance_computations + seeding.count
+
+
+def test_unknown_inits_are_refused():
+    with pytest.raises(ValueError, match="unknown init"):
+        EMeans(3, init="kmeans||")

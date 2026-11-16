@@ -18,8 +18,10 @@ from typing import Protocol
 from google.protobuf.message import Message
 from langchain_core.language_models import BaseChatModel
 
+from ..domain.budget import RunUsage
 from ..domain.events import RunTrace, TraceEntry
 from ..domain.ratelimit import Decision
+from ..domain.untrusted import Source
 
 
 class ServiceClient(Protocol):
@@ -79,19 +81,90 @@ class ModelProvider(Protocol):
         ...
 
 
-class RunStore(Protocol):
-    """Run traces. In memory for now; a Postgres adapter follows."""
+@dataclass(frozen=True, slots=True)
+class RunInfo:
+    """What a run is, fixed when it starts."""
 
-    async def create(self, run_id: str, chat_id: str, user_id: str) -> None:
-        """Start an empty trace."""
+    run_id: str
+    chat_id: str
+    user_id: str
+    workspace_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class PausedRun:
+    """Everything a paused run needs to resume in another process, apart
+    from the graph state, which the LangGraph checkpointer holds under the
+    thread ID ``run_id``.
+
+    No token is stored: resuming asks identity for a new delegated token with
+    the token of the user who answers the confirmation. ``nonce`` and
+    ``sources`` keep the untrusted-data delimiters and the citation labels
+    the model has already seen valid; ``usage`` and ``active_seconds`` keep
+    the budget from starting over.
+    """
+
+    run: RunInfo
+    user_text: str
+    input_count: int  # messages given to the graph; later ones are the run's own
+    confirmation_id: str
+    call_id: str
+    tool: str
+    nonce: str
+    sources: tuple[Source, ...]
+    replica_id: int
+    usage: RunUsage
+    active_seconds: float
+    paused_at_ms: int
+
+
+class RunStore(Protocol):
+    """Runs: their status, traces and paused state.
+
+    Status changes are compare-and-set, so several processes sharing a store
+    agree on who owns a run: ``create`` refuses a second unfinished run in a
+    chat, and each way out of a pause (``claim_paused``, ``claim_stale``)
+    succeeds for exactly one caller. Only the owner of a running run calls
+    ``pause`` and ``finish``.
+    """
+
+    async def create(self, run: RunInfo, at_ms: int) -> bool:
+        """Start a running run with an empty trace. False, and nothing
+        stored, if the chat already has an unfinished run."""
         ...
 
     async def append(self, run_id: str, entry: TraceEntry) -> None:
-        """Add one entry, in order."""
+        """Add one trace entry, in order."""
         ...
 
     async def get(self, run_id: str) -> RunTrace | None:
-        """The full trace, or None."""
+        """The run's trace and status, or None."""
+        ...
+
+    async def pause(self, paused: PausedRun) -> bool:
+        """Move a running run to paused and keep ``paused``. False if the run
+        is not running (a sweeper has already ended it)."""
+        ...
+
+    async def claim_paused(self, run_id: str, confirmation_id: str, at_ms: int) -> PausedRun | None:
+        """Move a paused run back to running and return its state, if it is
+        paused on ``confirmation_id`` (any confirmation when empty). None if
+        it is not, including when another caller claimed it first."""
+        ...
+
+    async def claim_stale(self, run_id: str, running_before_ms: int, at_ms: int) -> bool:
+        """Claim a run left running since before ``running_before_ms`` by a
+        process that stopped, so the caller can finish it. Restarts its
+        running clock at ``at_ms`` so no one else claims it too."""
+        ...
+
+    async def stale(self, *, paused_before_ms: int, running_before_ms: int) -> Sequence[str]:
+        """IDs of runs paused or running since before the given times: the
+        candidates for ``claim_paused`` and ``claim_stale``."""
+        ...
+
+    async def finish(self, run_id: str, usage: RunUsage) -> None:
+        """Mark the run finished with its final usage."""
         ...
 
 
@@ -116,6 +189,15 @@ class Chat:
     turns: list[ChatTurn] = field(default_factory=list)
 
 
+TITLE_CHARS = 60
+
+
+def chat_title(turns: Sequence[ChatTurn]) -> str:
+    """A chat's title: the start of its first user message."""
+    first = next((t.text for t in turns if t.role == "user"), "")
+    return first if len(first) <= TITLE_CHARS else first[: TITLE_CHARS - 1] + "…"
+
+
 class ChatStore(Protocol):
     """Chats and their transcripts."""
 
@@ -133,7 +215,8 @@ class ChatStore(Protocol):
         ...
 
     async def append_turns(self, chat_id: str, turns: Sequence[ChatTurn], at_ms: int) -> None:
-        """Add turns and bump updated_at."""
+        """Add turns, bump updated_at, and set the title (``chat_title``) if
+        it is empty."""
         ...
 
 

@@ -368,11 +368,21 @@ summarises the note containing a prompt injection, with `forbidden_tools`.
 Fields: `outcome` (`answer`, `act`, `confirm`, `refuse`), `must_include`
 and `must_not_include` (answer text), `citations` (note, block and code
 point range of an exact quote), `expected_tools`, `forbidden_tools`,
-`confirmation` (tool and target notes) and `why`. Tool vocabulary:
-`search_notes`, `read_note`, `list_notes`, `get_backlinks`, `create_note`,
-`edit_note`, `delete_note`, `add_comment`, `create_share_link`.
+`confirmation` (tool and target notes) and `why`. Tools are the agent
+service's own (`services/agent/src/skein_agent/app/tools/catalogue.py`,
+listed in `anchor.AgentTools`): `search`, `get_note`, `create_note`,
+`apply_edit`, `delete_note`, `create_share_link`, `set_note_role` and
+`blast_radius` appear in the evals. Backlinks are `blast_radius` with
+`direction: BLAST_DIRECTION_CITED_BY` and `max_hops: 1`; there is no comment
+tool, because no contract has a comment RPC. A confirmation names one tool
+and every target note; the agent pauses once per call, so a bulk delete is
+one approved confirmation per note.
 `chats.jsonl` holds one golden transcript per eval (`eval_id`), showing
-the expected behaviour, plus generated chats for UI fixtures.
+the expected behaviour, plus generated chats for UI fixtures. Every tool
+call in it uses the real tool's arguments: `services/agent` parses each one
+with the tool (`tests/test_seed_evals.py`), and the generator's tests check
+each golden transcript calls its expected tools, never a forbidden one, and
+confirms every target.
 
 ## Notification rules
 

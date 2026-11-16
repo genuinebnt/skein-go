@@ -5,10 +5,10 @@ from __future__ import annotations
 import grpc
 import pytest
 from opentelemetry import metrics, trace
+from skein_proto.v1 import ml_pb2, ml_pb2_grpc
 from tests_support import make_app
 
 from skein_ml.adapters.grpc_server import SERVICE_NAME, MLServicer, build_server
-from skein_ml.adapters.grpc_stubs import ml_pb2, ml_pb2_grpc
 from skein_ml.adapters.observability import ServiceMetrics
 from skein_ml.app.events import BlocksChanged, ChangedBlock, Event, LinksChanged, NoteCreated
 

@@ -1053,22 +1053,73 @@ func (a *aggregate) resolveEvals() ([]EvalRecord, error) {
 				return nil, fmt.Errorf("eval %s: targets differ from the notes tagged draft", e.ID)
 			}
 		}
+		if err := a.checkEvalArguments(e, byTitle); err != nil {
+			return nil, err
+		}
 		// Graph evals list backlinks; check they really link.
-		if containsString(e.ExpectedTools, "get_backlinks") {
-			target, _ := byTitle("Raft overview")
+		if containsString(e.ExpectedTools, "blast_radius") {
+			target, _ := byTitle(e.Subject)
 			for _, t := range e.MustInclude {
 				src, err := byTitle(t)
 				if err != nil {
 					return nil, err
 				}
 				if !containsInt(a.targets[src], target) {
-					return nil, fmt.Errorf("eval %s: %q does not link to the Raft overview", e.ID, t)
+					return nil, fmt.Errorf("eval %s: %q does not link to %q", e.ID, t, e.Subject)
 				}
 			}
 		}
 		out = append(out, rec)
 	}
 	return out, nil
+}
+
+// checkEvalArguments fails if an eval's transcript arguments would not work
+// against the real tools: an unknown subject, an edit whose find text is not
+// in the note exactly once, or a new note linking to a missing title.
+func (a *aggregate) checkEvalArguments(e anchor.Eval, byTitle func(string) (int, error)) error {
+	for _, tool := range append(append([]string{}, e.ExpectedTools...), e.ForbiddenTools...) {
+		if !containsString(anchor.AgentTools, tool) {
+			return fmt.Errorf("eval %s: %q is not an agent tool", e.ID, tool)
+		}
+	}
+	if e.Confirmation != nil && !containsString(anchor.AgentTools, e.Confirmation.Tool) {
+		return fmt.Errorf("eval %s: %q is not an agent tool", e.ID, e.Confirmation.Tool)
+	}
+	needsSubject := containsString(e.ExpectedTools, "blast_radius") || containsString(e.ExpectedTools, "apply_edit")
+	if needsSubject != (e.Subject != "") {
+		return fmt.Errorf("eval %s: a subject is needed exactly when blast_radius or apply_edit is expected", e.ID)
+	}
+	if containsString(e.ExpectedTools, "apply_edit") != (e.Edit != nil) {
+		return fmt.Errorf("eval %s: an edit is needed exactly when apply_edit is expected", e.ID)
+	}
+	if containsString(e.ExpectedTools, "create_note") != (e.NewNote != nil) {
+		return fmt.Errorf("eval %s: a new note is needed exactly when create_note is expected", e.ID)
+	}
+	if e.Subject != "" {
+		ni, err := byTitle(e.Subject)
+		if err != nil {
+			return err
+		}
+		if e.Edit != nil {
+			var text strings.Builder
+			for _, b := range a.kept[ni] {
+				text.WriteString(b.Block.Text)
+				text.WriteString("\n")
+			}
+			if n := strings.Count(text.String(), e.Edit.Find); n != 1 {
+				return fmt.Errorf("eval %s: edit text occurs %d times in %q, want once", e.ID, n, e.Subject)
+			}
+		}
+	}
+	if e.NewNote != nil {
+		for _, t := range e.NewNote.Links {
+			if _, err := byTitle(t); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func orEmpty(xs []string) []string {

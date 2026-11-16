@@ -16,6 +16,8 @@ import enum
 from dataclasses import dataclass, field
 from typing import Literal
 
+from .budget import RunUsage
+
 
 class Outcome(enum.IntEnum):
     """How a run ended. Values equal RunFinished.Outcome in agent.proto."""
@@ -150,14 +152,43 @@ class TraceEntry:
     item: RunEvent | TraceRecord
 
 
+class RunStatus(enum.Enum):
+    """Where a run is in its life. A run moves running -> paused -> running
+    any number of times, then to finished once; every move out of paused is a
+    claim that exactly one process wins (see ``RunStore``)."""
+
+    RUNNING = "running"
+    PAUSED = "paused"
+    FINISHED = "finished"
+
+
 @dataclass(slots=True)
 class RunTrace:
-    """Everything recorded for one run, in order."""
+    """Everything recorded for one run, in order.
+
+    ``usage`` is the total recorded when the run finished (None before);
+    ``usage_so_far`` adds up the model calls in the trace, for runs still in
+    progress.
+    """
 
     run_id: str
     chat_id: str
     user_id: str
     entries: list[TraceEntry] = field(default_factory=list)
+    status: RunStatus = RunStatus.RUNNING
+    usage: RunUsage | None = None
+
+    def usage_so_far(self) -> RunUsage:
+        """Usage from the trace's model calls; equals ``usage`` once finished."""
+        if self.usage is not None:
+            return self.usage
+        calls = [r for r in self.records() if isinstance(r, ModelCallRecord)]
+        return RunUsage(
+            steps=max((c.step for c in calls), default=0),
+            input_tokens=sum(c.input_tokens for c in calls),
+            output_tokens=sum(c.output_tokens for c in calls),
+            cost_usd=sum(c.cost_usd for c in calls),
+        )
 
     def events(self) -> list[RunEvent]:
         """The user-visible events, as GetRun returns them."""

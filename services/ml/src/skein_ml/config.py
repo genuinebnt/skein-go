@@ -2,7 +2,8 @@
 
 | Variable | Default | Meaning |
 |---|---|---|
-| ``SKEIN_ML_ADDRESS`` | ``[::]:50051`` | gRPC listen address |
+| ``SKEIN_ML_ADDRESS`` | ``[::]:9090`` | gRPC listen address |
+| ``SKEIN_ML_ADMIN_ADDRESS`` | ``0.0.0.0:8080`` | HTTP ``/healthz``, ``/readyz``; empty: off |
 | ``SKEIN_ML_WORKERS`` | ``8`` | gRPC handler threads |
 | ``SKEIN_ML_EMBEDDER`` | ``hashing`` | ``hashing`` or ``onnx`` |
 | ``SKEIN_ML_HASHING_DIMENSION`` | ``384`` | buckets of the hashing embedder |
@@ -10,8 +11,9 @@
 | ``SKEIN_ML_DATABASE_URL`` | | Postgres; in-memory repositories when empty |
 | ``SKEIN_ML_REDIS_URL`` | | Redis cache; in-memory cache when empty |
 | ``SKEIN_ML_PUBSUB_PROJECT`` | | Pub/Sub project; no consumer when empty |
-| ``SKEIN_ML_PUBSUB_SUBSCRIPTION`` | ``ml.documents.events`` | subscription |
+| ``SKEIN_ML_PUBSUB_SUBSCRIPTION`` | ``ml.documents-events`` | subscription (``pubsub-init.sh``) |
 | ``SKEIN_ML_SUGGEST_THRESHOLD`` | ``0.70`` | cosine for link suggestions |
+| ``SKEIN_ML_CLUSTER_ALGORITHM`` | ``lloyd`` | ListClusters algorithm (``CLUSTER_ALGORITHMS``) |
 | ``SKEIN_ML_SHUTDOWN_GRACE_SECONDS`` | ``20`` | drain time on SIGTERM |
 | ``SKEIN_ML_LOG_LEVEL`` | ``INFO`` | log level |
 | ``SKEIN_ENV``, ``SKEIN_VERSION`` | ``dev``, ``0.0.0`` | attached to logs and telemetry |
@@ -27,7 +29,10 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-__all__ = ["Config", "ConfigError"]
+__all__ = ["CLUSTER_ALGORITHMS", "Config", "ConfigError"]
+
+CLUSTER_ALGORITHMS = ("lloyd", "e_means", "e_means_kmeans++")
+"""ListClusters algorithms; ``app.service.Settings.cluster_algorithm`` documents them."""
 
 
 class ConfigError(ValueError):
@@ -38,7 +43,8 @@ class ConfigError(ValueError):
 class Config:
     """Resolved settings."""
 
-    address: str = "[::]:50051"
+    address: str = "[::]:9090"
+    admin_address: str = "0.0.0.0:8080"
     workers: int = 8
     embedder: str = "hashing"
     hashing_dimension: int = 384
@@ -46,8 +52,9 @@ class Config:
     database_url: str = ""
     redis_url: str = ""
     pubsub_project: str = ""
-    pubsub_subscription: str = "ml.documents.events"
+    pubsub_subscription: str = "ml.documents-events"
     suggest_threshold: float = 0.70
+    cluster_algorithm: str = "lloyd"
     shutdown_grace_seconds: float = 20.0
     log_level: str = "INFO"
     env: str = "dev"
@@ -72,6 +79,7 @@ class Config:
 
         config = cls(
             address=text("SKEIN_ML_ADDRESS", cls.address),
+            admin_address=env.get("SKEIN_ML_ADMIN_ADDRESS", cls.admin_address).strip(),
             workers=number("SKEIN_ML_WORKERS", cls.workers, int),
             embedder=text("SKEIN_ML_EMBEDDER", cls.embedder).lower(),
             hashing_dimension=number("SKEIN_ML_HASHING_DIMENSION", cls.hashing_dimension, int),
@@ -81,6 +89,7 @@ class Config:
             pubsub_project=text("SKEIN_ML_PUBSUB_PROJECT", ""),
             pubsub_subscription=text("SKEIN_ML_PUBSUB_SUBSCRIPTION", cls.pubsub_subscription),
             suggest_threshold=number("SKEIN_ML_SUGGEST_THRESHOLD", cls.suggest_threshold, float),
+            cluster_algorithm=text("SKEIN_ML_CLUSTER_ALGORITHM", cls.cluster_algorithm).lower(),
             shutdown_grace_seconds=number(
                 "SKEIN_ML_SHUTDOWN_GRACE_SECONDS", cls.shutdown_grace_seconds, float
             ),
@@ -92,6 +101,8 @@ class Config:
             raise ConfigError("SKEIN_ML_EMBEDDER must be 'hashing' or 'onnx'")
         if config.embedder == "onnx" and not config.onnx_model_dir:
             raise ConfigError("SKEIN_ML_EMBEDDER=onnx needs SKEIN_ML_ONNX_MODEL_DIR")
+        if config.cluster_algorithm not in CLUSTER_ALGORITHMS:
+            raise ConfigError(f"SKEIN_ML_CLUSTER_ALGORITHM must be one of {CLUSTER_ALGORITHMS}")
         if not 0.0 <= config.suggest_threshold <= 1.0:
             raise ConfigError("SKEIN_ML_SUGGEST_THRESHOLD must be within [0, 1]")
         if config.workers < 1 or config.hashing_dimension < 2:
