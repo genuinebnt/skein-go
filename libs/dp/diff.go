@@ -17,6 +17,7 @@ const (
 	HunkDelete HunkKind = 3
 )
 
+// String returns the lowercase name used in conformance fixtures.
 func (k HunkKind) String() string {
 	switch k {
 	case HunkEqual:

@@ -1,0 +1,16 @@
+{
+  "name": "a block larger than the limit cannot be chunked",
+  "why": "Block 1 has 11 tokens and the limit is 10; blocks are never split, so the caller must split it first.",
+  "kind": "chunk",
+  "input": {
+    "tokens": [
+      3,
+      11,
+      2
+    ],
+    "limit": 10
+  },
+  "expect": {
+    "error": "block_too_large"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "a valuable note is worth taking with its whole prerequisite chain",
+  "why": "Prerequisites form a forest (one prerequisite each), so the tree DP runs. In 20 minutes: traits + futures + async = 20 min, value 52; macros alone = 15 min, value 30; macros + traits = 20 min, value 31. The chain wins and is read root first.",
+  "kind": "reading_plan",
+  "input": {
+    "budget": 20,
+    "notes": [
+      {
+        "id": "async",
+        "minutes": 10,
+        "value": 50,
+        "prerequisites": [
+          "futures"
+        ]
+      },
+      {
+        "id": "futures",
+        "minutes": 5,
+        "value": 1,
+        "prerequisites": [
+          "traits"
+        ]
+      },
+      {
+        "id": "traits",
+        "minutes": 5,
+        "value": 1
+      },
+      {
+        "id": "macros",
+        "minutes": 15,
+        "value": 30
+      }
+    ]
+  },
+  "expect": {
+    "notes": [
+      "traits",
+      "futures",
+      "async"
+    ],
+    "total_minutes": 20,
+    "total_value": 52,
+    "method": "tree-dp",
+    "optimal": true
+  }
+}

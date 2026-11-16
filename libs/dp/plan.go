@@ -62,6 +62,7 @@ const (
 	MethodBestFound PlanMethod = 3
 )
 
+// String returns the name used in conformance fixtures and logs.
 func (m PlanMethod) String() string {
 	switch m {
 	case MethodTreeDP:
@@ -378,8 +379,6 @@ func (p *planProblem) plan(chosen []bool, method PlanMethod, upperBound int64, n
 			planned.RequiredBy = append(planned.RequiredBy, p.id[i])
 		}
 	}
-	// RequiredBy was filled in reading order of the dependents already,
-	// because order is walked front to back.
 	out.UpperBound = max(upperBound, out.TotalValue)
 	if out.Optimal {
 		out.UpperBound = out.TotalValue

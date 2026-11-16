@@ -53,6 +53,7 @@ type CycleError struct {
 	Cycle []string
 }
 
+// Error names the cycle, closing it back to its first note.
 func (e *CycleError) Error() string {
 	return fmt.Sprintf("%v: %s -> %s", ErrCyclicPrerequisites, strings.Join(e.Cycle, " -> "), e.Cycle[0])
 }

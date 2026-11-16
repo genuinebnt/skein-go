@@ -1,0 +1,12 @@
+{
+  "name": "an adjacent transposition of multi-byte characters costs one",
+  "why": "漢字テスト -> 字漢テスト swaps the first two code points (three bytes each). One transposition; Levenshtein would need 2.",
+  "kind": "damerau_levenshtein",
+  "input": {
+    "a": "漢字テスト",
+    "b": "字漢テスト"
+  },
+  "expect": {
+    "distance": 1
+  }
+}
