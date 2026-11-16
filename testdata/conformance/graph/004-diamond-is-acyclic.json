@@ -1,0 +1,30 @@
+{
+  "name": "a diamond has no cycle and orders cited notes first",
+  "why": "a links to b and c, both link to d. A visited-set check would see d twice and report a cycle; three-colour search finds d black (finished), not grey, the second time.",
+  "graph": {
+    "nodes": [{"id": "d"}, {"id": "c"}, {"id": "a", "root": true}, {"id": "b"}],
+    "edges": [{"from": "b", "to": "d"}, {"from": "a", "to": "c"}, {"from": "c", "to": "d"}, {"from": "a", "to": "b"}]
+  },
+  "queries": [
+    {"query": {"op": "cycle"}, "expected": {"cycle": []},
+     "why": "No edge reaches a grey node."},
+    {"query": {"op": "scc"}, "expected": {"of": {"a": 0, "b": 1, "c": 2, "d": 3}, "members": [["a"], ["b"], ["c"], ["d"]]},
+     "why": "An acyclic graph has only singleton components, numbered by smallest member, which for singletons is ID order."},
+    {"query": {"op": "topological_order"}, "expected": {"order": ["d", "b", "c", "a"], "unplaced": [], "layers": [["d"], ["b", "c"], ["a"]]},
+     "why": "Only d links to nothing, so it is placed first. That makes b and c ready; b is the smaller ID. Then a. Layers: d links to nothing (0), b and c link to d (1), a links to layer 1 (2)."},
+    {"query": {"op": "reading_path", "note": "a"}, "expected": {"steps": [
+        {"note": "d", "layer": 0, "hops": 2, "via": "b"},
+        {"note": "b", "layer": 1, "hops": 1, "via": "a"},
+        {"note": "c", "layer": 1, "hops": 1, "via": "a"},
+        {"note": "a", "layer": 2, "hops": 0, "via": ""}], "cycles": []},
+     "why": "a's prerequisites are everything it reaches: b, c, d. They come in topological order with a last. d is reached in two hops through b or c; via is the smaller, b."},
+    {"query": {"op": "components"}, "expected": {"of": {"a": 0, "b": 0, "c": 0, "d": 0}, "members": [["a", "b", "c", "d"]], "orphans": []},
+     "why": "One component, and it holds the root a."},
+    {"query": {"op": "shortest_path", "from": "a", "to": "d"}, "expected": {"found": true, "path": ["a", "b", "d"], "cost": 2},
+     "why": "Two paths of two hops. Walking back from d, the smallest-ID neighbour one hop closer to a is b."},
+    {"query": {"op": "diameter"}, "expected": {"length": 2, "from": "a", "to": "d"},
+     "why": "Undirected this is the 4-cycle a-b-d-c. Opposite corners (a,d) and (b,c) are 2 apart; (a,d) is the lexicographically smaller pair."},
+    {"query": {"op": "betweenness"}, "expected": {"scores": {"a": 0.16666666666666666, "b": 0.16666666666666666, "c": 0.16666666666666666, "d": 0.16666666666666666}},
+     "why": "For a: of the pairs among b, c, d only (b,c) is not adjacent, and one of its two shortest paths passes through a, so a scores 1/2 over 3 pairs = 1/6. The 4-cycle is symmetric."}
+  ]
+}
