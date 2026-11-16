@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chats.schema.json",
+  "title": "One line of chats.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "user_id",
+    "note_id",
+    "title",
+    "eval_id",
+    "created_at",
+    "updated_at",
+    "messages"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eval_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "role",
+          "text",
+          "at",
+          "run_id",
+          "events"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "call_id",
+                "tool",
+                "arguments_json",
+                "summary",
+                "is_error",
+                "text",
+                "location",
+                "outcome",
+                "approved",
+                "steps",
+                "input_tokens",
+                "output_tokens"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "tool_call",
+                    "tool_result",
+                    "text",
+                    "citation",
+                    "confirmation",
+                    "confirmed",
+                    "finished"
+                  ]
+                },
+                "call_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tool": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "arguments_json": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "summary": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_error": {
+                  "type": "boolean"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "$ref": "common.schema.json#/$defs/location"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outcome": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "OUTCOME_COMPLETED",
+                        "OUTCOME_CANCELLED",
+                        "OUTCOME_BUDGET_EXCEEDED",
+                        "OUTCOME_FAILED"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "approved": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "steps": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "input_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "output_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "minItems": 2
+    }
+  }
+}

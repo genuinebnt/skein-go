@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "replicas.schema.json",
+  "title": "One line of replicas.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "replica_id",
+    "user_id",
+    "kind",
+    "device",
+    "agent_run_id",
+    "registered_at"
+  ],
+  "properties": {
+    "replica_id": {
+      "$ref": "common.schema.json#/$defs/replicaId"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "kind": {
+      "enum": [
+        "device",
+        "agent"
+      ]
+    },
+    "device": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agent_run_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registered_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "agent"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "agent_run_id": {
+        "$ref": "common.schema.json#/$defs/uuid"
+      },
+      "device": {
+        "type": "null"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "agent_run_id": {
+        "type": "null"
+      },
+      "device": {
+        "type": "string"
+      }
+    }
+  }
+}

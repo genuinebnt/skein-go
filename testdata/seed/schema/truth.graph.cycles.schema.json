@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.cycles.schema.json",
+  "title": "One line of truth/graph/cycles.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "kind",
+    "label",
+    "cycle"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "kind": {
+      "enum": [
+        "planted",
+        "shortest-through-min"
+      ]
+    },
+    "label": {
+      "type": "string"
+    },
+    "cycle": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/uuid"
+      },
+      "minItems": 2
+    }
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "blocks.schema.json",
+  "title": "One line of blocks.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "note_id",
+    "block_id",
+    "position",
+    "type",
+    "indent",
+    "checked",
+    "language",
+    "text",
+    "author_id",
+    "created_at"
+  ],
+  "properties": {
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "block_id": {
+      "$ref": "common.schema.json#/$defs/blockId"
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/blockType"
+    },
+    "indent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "checked": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "language": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "pattern": "^[^\u001e]*$"
+    },
+    "author_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "todo"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "checked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "checked": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "code"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "language": {
+            "enum": [
+              "go",
+              "rust",
+              "python",
+              "sql",
+              "typescript",
+              "yaml",
+              "ts",
+              ""
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "language": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

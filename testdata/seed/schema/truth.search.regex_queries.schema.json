@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.search.regex_queries.schema.json",
+  "title": "One line of truth/search/regex_queries.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "pattern",
+    "case_sensitive",
+    "code_only",
+    "languages",
+    "match_count",
+    "matches"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "pattern": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_sensitive": {
+      "type": "boolean"
+    },
+    "code_only": {
+      "type": "boolean"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "match_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_id",
+          "start",
+          "end",
+          "text",
+          "note_id"
+        ],
+        "properties": {
+          "block_id": {
+            "$ref": "common.schema.json#/$defs/blockId"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "note_id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.clustering.block_embeddings.schema.json",
+  "title": "One line of truth/clustering/block_embeddings.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "block_id",
+    "note_id",
+    "workspace_id",
+    "topic",
+    "vector"
+  ],
+  "properties": {
+    "block_id": {
+      "$ref": "common.schema.json#/$defs/blockId"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "topic": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/topic"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vector": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1,
+        "maximum": 1
+      },
+      "minItems": 64,
+      "maxItems": 64
+    }
+  }
+}

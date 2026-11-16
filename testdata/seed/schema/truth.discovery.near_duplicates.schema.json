@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.discovery.near_duplicates.schema.json",
+  "title": "One line of truth/discovery/near_duplicates.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "original_note_id",
+    "duplicate_note_id",
+    "jaccard_3_shingles",
+    "hash_cosine",
+    "edits"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "original_note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "duplicate_note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "jaccard_3_shingles": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "hash_cosine": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "edits": {
+      "type": "string"
+    }
+  }
+}
