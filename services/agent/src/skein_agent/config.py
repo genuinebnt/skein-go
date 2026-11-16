@@ -2,7 +2,8 @@
 
 | Variable | Default | Meaning |
 |---|---|---|
-| ``SKEIN_AGENT_ADDR`` | ``0.0.0.0:50057`` | gRPC listen address |
+| ``SKEIN_AGENT_ADDR`` | ``0.0.0.0:9090`` | gRPC listen address |
+| ``SKEIN_AGENT_ADMIN_ADDR`` | ``0.0.0.0:8080`` | HTTP ``/healthz`` and ``/readyz``; empty turns it off |
 | ``ANTHROPIC_API_KEY`` | (none) | required unless ``SKEIN_AGENT_MODEL_BACKEND=scripted`` |
 | ``SKEIN_AGENT_MODEL`` | ``claude-sonnet-5-5`` | Anthropic model ID |
 | ``SKEIN_AGENT_MODEL_BACKEND`` | ``anthropic`` | ``anthropic`` or ``scripted`` (a model that only says it is offline; for smoke tests) |
@@ -13,8 +14,10 @@
 | ``SKEIN_AGENT_RUNS_PER_MINUTE`` / ``_RUN_BURST`` | ``6`` / ``3`` | per-user run rate limit |
 | ``SKEIN_AGENT_CACHE_TTL_SECONDS`` | ``30`` | tool-result cache TTL |
 | ``SKEIN_AGENT_REDIS_URL`` | (none) | Redis for cache and limits; in memory if unset |
-| ``SKEIN_AGENT_CHECKPOINTER`` | ``memory`` | ``memory`` or ``postgres`` |
-| ``SKEIN_AGENT_POSTGRES_DSN`` | (none) | for the Postgres checkpointer |
+| ``SKEIN_AGENT_STORAGE`` | ``postgres`` | ``postgres`` or ``memory``, for chats, runs and graph checkpoints together; paused runs survive restarts only with ``postgres`` |
+| ``SKEIN_AGENT_POSTGRES_DSN`` | (none) | required for ``postgres`` storage (schema ``agent``, migrated at startup) |
+| ``SKEIN_AGENT_MIGRATIONS_DIR`` | the source tree's ``migrations/`` | where the SQL migrations are |
+| ``SKEIN_AGENT_SWEEP_SECONDS`` | ``30`` | how often expired pauses and abandoned runs are ended |
 | ``SKEIN_{IDENTITY,DOCUMENTS,SEARCH,ML,NOTIFICATIONS}_ADDR`` | ``localhost:5005x`` | downstream services (graph is served by search) |
 | ``SKEIN_LOG_LEVEL`` | ``INFO`` | |
 | ``OTEL_*`` | | see ``adapters/telemetry.py`` |
@@ -40,7 +43,8 @@ class ConfigError(ValueError):
 class Settings:
     """Everything ``main`` needs."""
 
-    addr: str = "0.0.0.0:50057"
+    addr: str = "0.0.0.0:9090"
+    admin_addr: str = "0.0.0.0:8080"
     model_backend: str = "anthropic"
     anthropic_api_key: str = ""
     model: str = "claude-sonnet-5-5"
@@ -51,8 +55,9 @@ class Settings:
     rate_limit: RateLimit = field(default_factory=lambda: RateLimit(6, 60.0, 3))
     cache_ttl_s: float = 30.0
     redis_url: str = ""
-    checkpointer: str = "memory"
+    storage: str = "postgres"
     postgres_dsn: str = ""
+    sweep_interval_s: float = 30.0
     service_addrs: dict[str, str] = field(default_factory=dict)
     log_level: str = "INFO"
 
@@ -101,9 +106,12 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         )
     except ValueError as err:
         raise ConfigError(str(err)) from err
-    checkpointer = env.get("SKEIN_AGENT_CHECKPOINTER", "memory")
-    if checkpointer not in ("memory", "postgres"):
-        raise ConfigError("SKEIN_AGENT_CHECKPOINTER must be memory or postgres")
+    storage = env.get("SKEIN_AGENT_STORAGE", "postgres")
+    if storage not in ("memory", "postgres"):
+        raise ConfigError("SKEIN_AGENT_STORAGE must be postgres or memory")
+    postgres_dsn = env.get("SKEIN_AGENT_POSTGRES_DSN", "")
+    if storage == "postgres" and not postgres_dsn:
+        raise ConfigError("SKEIN_AGENT_POSTGRES_DSN is required (or set SKEIN_AGENT_STORAGE=memory)")
     defaults = {
         "identity": "localhost:50051",
         "documents": "localhost:50052",
@@ -113,7 +121,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     }
     addrs = {name: env.get(f"SKEIN_{name.upper()}_ADDR", default) for name, default in defaults.items()}
     return Settings(
-        addr=env.get("SKEIN_AGENT_ADDR", "0.0.0.0:50057"),
+        addr=env.get("SKEIN_AGENT_ADDR", "0.0.0.0:9090"),
+        admin_addr=env.get("SKEIN_AGENT_ADMIN_ADDR", "0.0.0.0:8080").strip(),
         model_backend=backend,
         anthropic_api_key=api_key,
         model=model,
@@ -124,8 +133,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         rate_limit=rate,
         cache_ttl_s=_num(env, "SKEIN_AGENT_CACHE_TTL_SECONDS", 30.0),
         redis_url=env.get("SKEIN_AGENT_REDIS_URL", ""),
-        checkpointer=checkpointer,
-        postgres_dsn=env.get("SKEIN_AGENT_POSTGRES_DSN", ""),
+        storage=storage,
+        postgres_dsn=postgres_dsn,
+        sweep_interval_s=_num(env, "SKEIN_AGENT_SWEEP_SECONDS", 30.0),
         service_addrs=addrs,
         log_level=env.get("SKEIN_LOG_LEVEL", "INFO"),
     )

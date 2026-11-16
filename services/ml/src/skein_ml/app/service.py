@@ -37,7 +37,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ..domain.clustering import Lloyd
+from ..domain.clustering import EMeans, Lloyd
+from ..domain.clustering.common import assign_nearest
 from ..domain.discovery import DEFAULT_SUGGEST_THRESHOLD, RelatedNote, related_notes
 from ..domain.notes import Note
 from ..domain.search import normalize, recall_at_k
@@ -74,6 +75,10 @@ class Settings:
     search_cache_seconds: float = 60.0
     embedding_cache_seconds: float = 7 * 24 * 3600.0
     max_clusters: int = 50
+    cluster_algorithm: str = "lloyd"
+    """ListClusters: ``lloyd`` (k-means++ seeding, converged), ``e_means``
+    (random seeding, as the reference) or ``e_means_kmeans++`` (e-means seeded
+    by k-means++). See docs/ml-benchmarks.md for how they compare."""
     benchmark_max_runs: int = 10
     index: IndexSettings = field(default_factory=IndexSettings)
 
@@ -374,12 +379,14 @@ class MLApp:
         """Topic clusters of the workspace's notes, labelled by distinctive terms.
 
         ``k = round(sqrt(n / 2))`` (a common rule of thumb), capped by
-        ``max_clusters``; Lloyd with k-means++ seeding, which is the most
-        reliable choice at the small sizes a workspace has.
+        ``max_clusters``. ``Settings.cluster_algorithm`` picks the algorithm;
+        the default, Lloyd with k-means++ seeding, is the most reliable at
+        the small sizes a workspace has.
         """
         if not workspace_id:
             raise InvalidArgument("workspace_id is required")
-        key = f"clusters:{workspace_id}:{self.embedder.model_id}"
+        algorithm = self.settings.cluster_algorithm
+        key = f"clusters:{workspace_id}:{self.embedder.model_id}:{algorithm}"
         cached = self.cache.get(key)
         if cached is not None:
             return [Cluster(**c) for c in json.loads(cached)]
@@ -389,7 +396,7 @@ class MLApp:
         ids = list(embeddings)
         matrix = np.stack([embeddings[i] for i in ids]).astype(np.float64)
         k = max(1, min(self.settings.max_clusters, round(math.sqrt(len(ids) / 2))))
-        labels = Lloyd(k, seed=self.settings.index.seed).fit(matrix).labels
+        labels = _cluster_labels(matrix, k, algorithm, self.settings.index.seed)
         members = [sorted(ids[i] for i in np.flatnonzero(labels == c)) for c in range(k)]
         members = sorted((m for m in members if m), key=lambda m: (-len(m), m[0]))
         texts = {n.note_id: n.text() for n in self.notes.in_workspace(workspace_id)}
@@ -444,7 +451,7 @@ class MLApp:
             )
         results = []
         for algorithm in algorithms or harness.ALGORITHMS:
-            implementations = ["scratch"]
+            implementations = harness.scratch_implementations(algorithm)
             if include_references:
                 implementations += harness.reference_implementations(algorithm)
             for implementation in implementations:
@@ -458,6 +465,21 @@ class MLApp:
                 if measured:
                     results.append(harness.mean_run(measured))
         return results
+
+
+def _cluster_labels(matrix: np.ndarray, k: int, algorithm: str, seed: int) -> np.ndarray:
+    """Nearest-centroid labels from the configured clustering algorithm.
+
+    e-means labels come from its last epoch only; labelling every note by
+    its nearest final centroid keeps a cluster's members the notes closest
+    to it, whatever the algorithm."""
+    if algorithm == "lloyd":
+        return Lloyd(k, seed=seed).fit(matrix).labels
+    if algorithm not in ("e_means", "e_means_kmeans++"):
+        raise ValueError(f"unknown cluster algorithm {algorithm!r}")
+    init = "kmeans++" if algorithm == "e_means_kmeans++" else "random"
+    centroids = EMeans(k, seed=seed, init=init).fit(matrix).centroids
+    return assign_nearest(matrix, centroids.astype(np.float64))[0]
 
 
 def _workspace_tag(workspace_id: str) -> str:

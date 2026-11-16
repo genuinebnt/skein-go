@@ -1,0 +1,60 @@
+# agent service (services/agent): the AI agent that acts as its user.
+# Included by deploy/compose/docker-compose.yml; paths here are relative to
+# this file.
+#
+# Keeps chats, runs and graph checkpoints in its own Postgres schema (role
+# agent, deploy/compose/postgres/init.sql) and its cache and rate limits in
+# Redis database 2. The model backend defaults to "scripted" (answers that it
+# is offline) so the stack starts without a key; set
+# SKEIN_AGENT_MODEL_BACKEND=anthropic and ANTHROPIC_API_KEY in the
+# environment or an .env file for the real model.
+#
+# Downstream services are reached lazily per call, so the agent starts
+# without them and they are not in depends_on (compose rejects a dependency
+# on a service the stack does not define, even an optional one). Every
+# backend serves gRPC on 9090 under its service name; a call
+# to one that is not running fails with UNAVAILABLE, which the agent reports
+# to the model as a tool error.
+services:
+  agent:
+    build:
+      context: ../../..
+      dockerfile: services/agent/Dockerfile
+    image: skein/agent:local
+    environment:
+      SKEIN_AGENT_ADDR: 0.0.0.0:9090
+      SKEIN_AGENT_ADMIN_ADDR: 0.0.0.0:8080
+      SKEIN_AGENT_MODEL_BACKEND: ${SKEIN_AGENT_MODEL_BACKEND:-scripted}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SKEIN_AGENT_STORAGE: postgres
+      SKEIN_AGENT_POSTGRES_DSN: postgresql://agent:agent@postgres:5432/skein
+      SKEIN_AGENT_REDIS_URL: redis://redis:6379/2
+      SKEIN_IDENTITY_ADDR: identity:9090
+      SKEIN_DOCUMENTS_ADDR: documents:9090
+      SKEIN_SEARCH_ADDR: search:9090
+      SKEIN_ML_ADDR: ml:9090
+      SKEIN_NOTIFICATIONS_ADDR: notifications:9090
+      OTEL_SERVICE_NAME: agent
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
+    # Backends serve gRPC on 9090 and admin HTTP (/healthz, /readyz) on 8080.
+    ports:
+      - "127.0.0.1:9107:9090"
+      - "127.0.0.1:8107:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "skein_agent.healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    stop_grace_period: 20s # the server's 10 s drain plus cancelling working runs
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 1g}

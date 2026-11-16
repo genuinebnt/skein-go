@@ -9,8 +9,9 @@ that can never parse would block the subscription forever.
 
 from __future__ import annotations
 
+from skein_proto.v1 import events_pb2
+
 from ..app import events
-from .grpc_stubs import events_pb2
 
 __all__ = ["MalformedEvent", "decode_event", "encode_event"]
 

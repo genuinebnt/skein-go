@@ -72,9 +72,9 @@
     },
     {
       "path": "chats.jsonl",
-      "bytes": 107263,
+      "bytes": 110192,
       "records": 40,
-      "sha256": "8772afd5d9a25babd45623f4686c27f269aeadd69d8473660f240051e79d4dcf"
+      "sha256": "95a306a6dd2fe1c570312d234bd905f7215503667a10707a4e120f4dbfed50b8"
     },
     {
       "path": "comments.jsonl",
@@ -104,7 +104,7 @@
       "path": "notifications.jsonl",
       "bytes": 484462,
       "records": 930,
-      "sha256": "2b1ad0ecca5bee895eb47045e5b57ddb17835548ed60b4b3d405a4a57036e067"
+      "sha256": "e7f9a910ad5432d34d2db45379500d2c3af2687f06296da7d63f9828afcf2f51"
     },
     {
       "path": "rejected_ops.jsonl",
@@ -132,9 +132,9 @@
     },
     {
       "path": "truth/agent/evals.jsonl",
-      "bytes": 17199,
+      "bytes": 17360,
       "records": 29,
-      "sha256": "5e8d96cda7236d3b7ef1b46caafd86b2dab8d4a7c063d5060848dc5fd5a2423a"
+      "sha256": "39e337e0395329c01d77058f618c600c47b65bcaabcb709134d261c72eb8e7ab"
     },
     {
       "path": "truth/clustering/block_embeddings.jsonl",

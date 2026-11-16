@@ -132,24 +132,64 @@ async def test_rate_limited_runs_get_resource_exhausted_with_retry_after(make_ha
         await server.stop(0)
 
 
+async def _wait_finished(h, run_id: str):
+    for _ in range(200):
+        trace = await h.run_store.get(run_id)
+        if trace.events() and trace.events()[-1].kind == "finished":
+            return trace.events()[-1]
+        await asyncio.sleep(0.02)
+    raise AssertionError("the run never finished")
+
+
 @pytest.mark.parametrize("agent", [[call("delete_note", {"note_id": NOTES["scratch"]}), say("done")]], indirect=True)
-async def test_client_disconnect_cancels_the_run(agent):
+async def test_client_disconnect_leaves_a_paused_run_answerable_by_confirm_and_get_run(agent):
     h, stub = agent
     chat = await stub.CreateChat(a.CreateChatRequest(workspace_id=WORKSPACE), metadata=md(h))
     stream = stub.SendMessage(a.SendMessageRequest(chat_id=chat.chat_id, text="delete scratch"), metadata=md(h))
-    run_id = ""
     async for msg in stream:
-        run_id = msg.run_id
         if msg.WhichOneof("event") == "confirmation":
+            run_id, confirmation_id = msg.run_id, msg.confirmation.confirmation_id
             break
     stream.cancel()
-    for _ in range(100):
-        trace = await h.run_store.get(run_id)
-        if trace.events() and trace.events()[-1].kind == "finished":
-            break
-        await asyncio.sleep(0.02)
-    assert trace.events()[-1].outcome.name == "CANCELLED"
-    assert not h.workspace.notes[NOTES["scratch"]].trashed
+    await asyncio.sleep(0.1)
+    assert (await h.run_store.get(run_id)).status.value == "paused", "a disconnect does not cancel a pause"
+    request = a.ConfirmRequest(run_id=run_id, confirmation_id=confirmation_id, approved=True)
+    await stub.Confirm(request, metadata=md(h))
+    assert (await _wait_finished(h, run_id)).outcome.name == "COMPLETED"
+    assert h.workspace.notes[NOTES["scratch"]].trashed
+    call_ = stub.GetRun(a.GetRunRequest(run_id=run_id), metadata=md(h))
+    got = await call_
+    usage = json.loads(dict(await call_.initial_metadata())["x-skein-run-usage"])
+    finished = got.events[-1].finished
+    assert usage["status"] == "finished" and usage["steps"] == finished.steps == 2
+    assert usage["input_tokens"] == finished.input_tokens and usage["output_tokens"] == finished.output_tokens
+    assert usage["cost_usd"] > 0 and [c["step"] for c in usage["model_calls"]] == [1, 2]
+    assert usage["cost_usd"] == pytest.approx(sum(c["cost_usd"] for c in usage["model_calls"]))
+
+
+@pytest.mark.parametrize(
+    "agent", [[call("search", {"query": "Fugue interleaving"}), say("Fugue avoids interleaving [S1].")]], indirect=True
+)
+async def test_client_disconnect_mid_tool_call_leaves_the_run_going_to_completion(agent, fx):
+    h, stub = agent
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def slow(request):
+        entered.set()
+        await release.wait()
+
+    fx.workspace.hooks[("search", "Search")] = slow
+    chat = await stub.CreateChat(a.CreateChatRequest(workspace_id=WORKSPACE), metadata=md(h))
+    stream = stub.SendMessage(a.SendMessageRequest(chat_id=chat.chat_id, text="what does fugue avoid"), metadata=md(h))
+    run_id = (await stream.read()).run_id
+    await asyncio.wait_for(entered.wait(), 5)
+    stream.cancel()
+    await asyncio.sleep(0.1)
+    release.set()  # the tool call finishes after the client has gone
+    assert (await _wait_finished(h, run_id)).outcome.name == "COMPLETED", "only CancelRun cancels"
+    got = await stub.GetRun(a.GetRunRequest(run_id=run_id), metadata=md(h))
+    kinds = [e.WhichOneof("event") for e in got.events]
+    assert {"tool_call", "tool_result", "text_delta", "citation"} <= set(kinds) and kinds[-1] == "finished"
 
 
 class _Docs(pb.documents_pb2_grpc.DocumentServiceServicer):
@@ -207,3 +247,28 @@ async def test_op_log_reader_collects_batches_until_the_version_is_covered():
     finally:
         await channel.close()
         await server.stop(0)
+
+
+async def test_admin_endpoints_report_health_and_readiness_until_draining():
+    from skein_agent.adapters.admin import start_admin
+
+    draining = asyncio.Event()
+    server = await start_admin("127.0.0.1:0", lambda: not draining.is_set())
+    port = server.sockets[0].getsockname()[1]
+
+    async def get(path: str, method: str = "GET") -> int:
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(f"{method} {path} HTTP/1.1\r\nHost: x\r\n\r\n".encode())
+        await writer.drain()
+        status = int((await reader.readline()).split()[1])
+        writer.close()
+        return status
+
+    try:
+        assert [await get("/healthz"), await get("/readyz"), await get("/metrics")] == [200, 200, 404]
+        assert await get("/readyz", "POST") == 405
+        draining.set()
+        assert [await get("/healthz"), await get("/readyz")] == [200, 503], "draining: alive, not ready"
+    finally:
+        server.close()
+        await server.wait_closed()

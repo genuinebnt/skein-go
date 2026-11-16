@@ -8,6 +8,10 @@
 #   skein_proto/protoc_gen_openapiv2/   the vendored openapiv2 options, which
 #                                       our protos import and which have no
 #                                       maintained PyPI package
+#   skein_proto/v1/descriptor_set.binpb a FileDescriptorSet of skein/v1 with
+#                                       source info: the generated modules
+#                                       drop comments, and the agent builds
+#                                       its tool descriptions from them
 # google/api/* is not generated: it comes from googleapis-common-protos.
 #
 # protoc's Python generator writes absolute imports that mirror the proto
@@ -42,6 +46,7 @@ cd "$root/proto"
 # (google/api/..., protoc-gen-openapiv2/...) rather than third_party/....
 "$python" -m grpc_tools.protoc -Ithird_party -I. \
   --python_out="$tmp" --pyi_out="$tmp" --grpc_python_out="$tmp" \
+  --descriptor_set_out="$tmp/descriptor_set.binpb" --include_source_info \
   skein/v1/*.proto
 "$python" -m grpc_tools.protoc -Ithird_party -I. \
   --python_out="$tmp" --pyi_out="$tmp" \
@@ -50,6 +55,7 @@ cd "$root/proto"
 rm -rf "$out/v1" "$out/protoc_gen_openapiv2"
 mkdir -p "$out"
 mv "$tmp/skein/v1" "$out/v1"
+mv "$tmp/descriptor_set.binpb" "$out/v1/descriptor_set.binpb"
 mv "$tmp/protoc_gen_openapiv2" "$out/protoc_gen_openapiv2"
 
 find "$out/v1" "$out/protoc_gen_openapiv2" -name '*.py' -o -name '*.pyi' | sort | while read -r f; do

@@ -16,6 +16,11 @@ algorithm reports about itself:
 Gaussian mixtures are scored the same way with their means as centroids,
 and also report their negative mean log-likelihood.
 
+Scratch implementations are ``scratch`` plus, for e-means, ``scratch-kmeans++``:
+the same algorithm seeded with greedy k-means++ instead of the reference's
+random points (``scratch_implementations``). Its seeding distances count
+towards its total.
+
 References (scikit-learn, FAISS) are optional: a missing library yields no
 row rather than an error. If the installed FAISS lacks ``contrib.e_means``
 (it shipped in 1.16.0), the reference is loaded from a source checkout named
@@ -54,6 +59,7 @@ __all__ = [
     "reference_implementations",
     "run",
     "score",
+    "scratch_implementations",
 ]
 
 ALGORITHMS = (
@@ -187,11 +193,17 @@ def mean_run(runs: list[AlgorithmRun]) -> AlgorithmRun:
     )
 
 
+def scratch_implementations(algorithm: str) -> list[str]:
+    """This repository's implementations of ``algorithm``: always ``scratch``,
+    plus variants such as ``scratch-kmeans++`` for e-means."""
+    return [i for (name, i) in _RUNNERS if name == algorithm and i.startswith("scratch")]
+
+
 def reference_implementations(algorithm: str) -> list[str]:
     """Reference implementations of ``algorithm`` whose libraries are importable."""
     available = []
     for (name, implementation), _ in _RUNNERS.items():
-        if name != algorithm or implementation == "scratch":
+        if name != algorithm or implementation.startswith("scratch"):
             continue
         library = "sklearn" if implementation == "sklearn" else "faiss"
         if importlib.util.find_spec(library) is not None:
@@ -256,21 +268,26 @@ def _scratch_mini_batch(x, x_test, k, seed, options):
     )
 
 
-def _scratch_e_means(x, x_test, k, seed, options):
-    model = EMeans(k, epochs=options.e_means_epochs, seed=seed)
-    result, seconds = _timed(lambda: model.fit(x))
-    notes = [
-        f"B={model.recipe.batch_size}, alpha0={model.recipe.alpha0:.3g}, "
-        f"{model.recipe.batch_law} law, {model.splits} splits"
-    ]
-    return (
-        result.centroids,
-        seconds,
-        result.iterations,
-        result.epochs,
-        result.distance_computations,
-        {"notes": notes},
-    )
+def _scratch_e_means(init):
+    def runner(x, x_test, k, seed, options):
+        model = EMeans(k, epochs=options.e_means_epochs, seed=seed, init=init)
+        result, seconds = _timed(lambda: model.fit(x))
+        notes = [
+            f"B={model.recipe.batch_size}, alpha0={model.recipe.alpha0:.3g}, "
+            f"{model.recipe.batch_law} law, {model.splits} splits"
+        ]
+        if init == "kmeans++":
+            notes.append("k-means++ seeding, counted in its distance computations")
+        return (
+            result.centroids,
+            seconds,
+            result.iterations,
+            result.epochs,
+            result.distance_computations,
+            {"notes": notes},
+        )
+
+    return runner
 
 
 def _scratch_gmm(x, x_test, k, seed, options):
@@ -431,6 +448,7 @@ _RUNNERS = {
     ("kmeans_mini_batch", "sklearn"): _sklearn_mini_batch,
     ("gmm_em", "scratch"): _scratch_gmm,
     ("gmm_em", "sklearn"): _sklearn_gmm,
-    ("e_means", "scratch"): _scratch_e_means,
+    ("e_means", "scratch"): _scratch_e_means("random"),
+    ("e_means", "scratch-kmeans++"): _scratch_e_means("kmeans++"),
     ("e_means", "faiss"): _faiss_e_means,
 }

@@ -186,8 +186,9 @@ def test_discover_on_an_unknown_note_is_not_found(app):
         app.discover("missing")
 
 
-def test_clusters_group_notes_by_topic_with_distinctive_labels():
-    app = make_app()
+@pytest.mark.parametrize("algorithm", ["lloyd", "e_means_kmeans++"])
+def test_clusters_group_notes_by_topic_with_distinctive_labels(algorithm):
+    app = make_app(cluster_algorithm=algorithm)
     feed = Feed(app)
     for i in range(6):
         feed.note(f"db{i}", "Storage", f"btree index pages and write ahead log {i}")
@@ -201,6 +202,18 @@ def test_clusters_group_notes_by_topic_with_distinctive_labels():
     assert app.list_clusters(WS) == clusters  # cached
 
 
+@pytest.mark.parametrize("algorithm", ["lloyd", "e_means", "e_means_kmeans++"])
+def test_every_cluster_algorithm_partitions_the_workspaces_notes(algorithm, seed):
+    app = make_app(cluster_algorithm=algorithm)
+    feed = Feed(app)
+    rng = np.random.default_rng(seed)
+    words = ["raft", "paxos", "btree", "bread", "garlic", "onion", "index", "log", "wal"]
+    for i in range(40):
+        feed.note(f"n{i:02}", "t", " ".join(rng.choice(words, size=5)))
+    members = [n for c in app.list_clusters(WS) for n in c.note_ids]
+    assert sorted(members) == [f"n{i:02}" for i in range(40)], "every note in exactly one cluster"
+
+
 def test_benchmark_runs_every_algorithm_on_workspace_vectors():
     app = make_app()
     feed = Feed(app)
@@ -211,8 +224,14 @@ def test_benchmark_runs_every_algorithm_on_workspace_vectors():
     results = app.benchmark_clustering(
         WS, ["kmeans_plus_plus", "e_means", "gmm_em"], k=4, runs=2, seed=1, include_references=False
     )
-    assert [r.algorithm for r in results] == ["kmeans_plus_plus", "e_means", "gmm_em"]
-    assert all(r.implementation == "scratch" and r.train_points == 48 for r in results)
+    rows = [(r.algorithm, r.implementation) for r in results]
+    assert rows == [
+        ("kmeans_plus_plus", "scratch"),
+        ("e_means", "scratch"),
+        ("e_means", "scratch-kmeans++"),
+        ("gmm_em", "scratch"),
+    ]
+    assert all(r.train_points == 48 for r in results)
 
 
 def test_workspace_vectors_stay_consistent_under_random_edits(seed):

@@ -402,7 +402,11 @@ async def test_get_run_returns_the_streamed_events_and_trace_has_costs_and_timin
     h = make_harness([call("search", {"query": "Fugue interleaving"}), say("Fugue avoids interleaving [S1].")])
     run = await start(h, "alice", "what does fugue avoid")
     events = await collect(h, run)
-    assert await h.runs.get_run(h.principal("alice"), run.run_id) == events
+    stored = await h.runs.get_run(h.principal("alice"), run.run_id)
+    assert stored.events() == events
+    done = finished(events)
+    assert stored.usage.steps == done.steps and stored.usage.input_tokens == done.input_tokens
+    assert stored.usage.cost_usd > 0, "cost is recorded with the run"
     with pytest.raises(AgentError):
         await h.runs.get_run(h.principal("bob"), run.run_id)
     trace = await h.run_store.get(run.run_id)
@@ -473,16 +477,26 @@ async def test_unknown_tool_and_bad_arguments_come_back_as_errors_the_model_can_
     assert contents[2].startswith("ERROR invalid_argument")
 
 
-async def test_shutdown_cancels_active_runs_and_each_records_its_end(make_harness):
-    h = make_harness([DELETE_SCRATCH, say("done")])
-    run = await start(h, "alice", "delete scratch")
-    stream = run.stream()
-    async for event in stream:
+async def test_shutdown_leaves_paused_runs_paused_and_cancels_working_ones(make_harness, fx):
+    entered = asyncio.Event()
+
+    async def blocking(request):
+        entered.set()
+        await asyncio.sleep(60)
+
+    fx.workspace.hooks[("search", "Search")] = blocking  # not GetNote: the delete's description reads the note
+    h = make_harness([DELETE_SCRATCH, call("search", {"query": "raft"}), say("never")])
+    paused = await start(h, "alice", "delete scratch")
+    paused_stream = paused.stream()
+    async for event in paused_stream:
         if isinstance(event, ConfirmationRequested):
             break
+    working = await start(h, "bob", "search raft")
+    await asyncio.wait_for(entered.wait(), 5)
     await h.runs.shutdown()
-    rest = [e async for e in stream]
-    assert finished(rest).outcome is Outcome.CANCELLED
+    assert not any(e.kind == "finished" for e in [e async for e in paused_stream]), "the stream just ends"
+    assert (await h.run_store.get(paused.run_id)).status.value == "paused"
+    assert finished(await collect(h, working)).outcome is Outcome.CANCELLED
 
 
 async def test_finished_runs_leave_no_checkpoints_behind(make_harness):

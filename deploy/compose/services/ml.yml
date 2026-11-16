@@ -1,0 +1,48 @@
+# ml service (services/ml): embeddings, semantic search, discovery and
+# clustering. Included by deploy/compose/docker-compose.yml; paths here are
+# relative to this file.
+#
+# Uses the infrastructure services of the main file: its own role and schema
+# in Postgres (deploy/compose/postgres/init.sql), Redis database 1 for its
+# cache, and the ml.documents-events subscription (pubsub-init.sh).
+services:
+  ml:
+    build:
+      context: ../../..
+      dockerfile: services/ml/Dockerfile
+    image: skein/ml:local
+    environment:
+      SKEIN_ML_ADDRESS: "[::]:9090"
+      SKEIN_ML_ADMIN_ADDRESS: 0.0.0.0:8080
+      SKEIN_ML_DATABASE_URL: postgresql://ml:ml@postgres:5432/skein
+      SKEIN_ML_REDIS_URL: redis://redis:6379/1
+      SKEIN_ML_PUBSUB_PROJECT: skein-local
+      SKEIN_ML_PUBSUB_SUBSCRIPTION: ml.documents-events
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      SKEIN_ENV: local
+      OTEL_SERVICE_NAME: ml
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
+    # Backends serve gRPC on 9090 and admin HTTP (/healthz, /readyz) on 8080.
+    ports:
+      - "127.0.0.1:9105:9090"
+      - "127.0.0.1:8105:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-m", "skein_ml.healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    stop_grace_period: 30s # SKEIN_ML_SHUTDOWN_GRACE_SECONDS (20) plus the consumer drain
+    deploy:
+      resources:
+        limits: {cpus: "2", memory: 1g}

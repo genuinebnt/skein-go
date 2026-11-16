@@ -10,14 +10,28 @@ too, once identity publishes its key format, is a follow-up.
 
 Each method sets request and user IDs for logs, continues the caller's
 trace from ``traceparent``, and maps errors to status codes at this edge
-only. A client that disconnects from SendMessage cancels its run: the
-contract has no way to reattach to a stream, so nobody could confirm or
-read the rest.
+only.
+
+A client that disconnects from SendMessage does not cancel its run
+(docs/api/websocket.md: only CancelRun does). The run goes on to completion
+or to a confirmation pause, its events are kept in the RunStore, and the
+client reads them with GetRun and answers a pause with Confirm, after a
+disconnect as after a restart.
+
+**Run usage in GetRun.** ``GetRunResponse`` has no field for cost, so GetRun
+sends the run's usage as response header metadata ``x-skein-run-usage``:
+JSON ``{"status", "steps", "input_tokens", "output_tokens", "cost_usd",
+"model_calls": [{"step", "input_tokens", "output_tokens", "cost_usd",
+"latency_ms"}]}``. grpc-gateway forwards it as the HTTP header
+``Grpc-Metadata-X-Skein-Run-Usage``. Token totals are also in the events'
+``RunFinished``. A ``RunUsage`` message in ``GetRunResponse`` would replace
+the header (see the README's contract gaps).
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -34,8 +48,10 @@ from ..domain.errors import AgentError, AgentErrorKind, ErrorCode, ServiceError
 from ..domain.events import (
     CitationAdded,
     ConfirmationRequested,
+    ModelCallRecord,
     RunEvent,
     RunFinished,
+    RunTrace,
     TextDelta,
     ToolCallFinished,
     ToolCallStarted,
@@ -100,6 +116,34 @@ def event_to_proto(run_id: str, event: RunEvent) -> a.SendMessageResponse:
                 )
             )
     return out
+
+
+RUN_USAGE_HEADER = "x-skein-run-usage"
+
+
+def run_usage_json(trace: RunTrace) -> str:
+    """The ``x-skein-run-usage`` value for a trace (see the module docs)."""
+    usage = trace.usage_so_far()
+    calls = [
+        {
+            "step": r.step,
+            "input_tokens": r.input_tokens,
+            "output_tokens": r.output_tokens,
+            "cost_usd": round(r.cost_usd, 8),
+            "latency_ms": round(r.latency_ms, 1),
+        }
+        for r in trace.records()
+        if isinstance(r, ModelCallRecord)
+    ]
+    body = {
+        "status": trace.status.value,
+        "steps": usage.steps,
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cost_usd": round(usage.cost_usd, 8),
+        "model_calls": calls,
+    }
+    return json.dumps(body, separators=(",", ":"))
 
 
 @dataclass(frozen=True)
@@ -204,8 +248,7 @@ class AgentServicer(pb.agent_pb2_grpc.AgentServiceServicer):
                     async for event in run.stream():
                         yield event_to_proto(run.run_id, event)
                 except asyncio.CancelledError:
-                    log.info("client disconnected; cancelling run", extra={"run_id": run.run_id})
-                    run.request_cancel()
+                    log.info("client disconnected; the run continues", extra={"run_id": run.run_id})
                     raise
         except (AgentError, ServiceError) as err:
             await _abort(context, err)
@@ -235,9 +278,10 @@ class AgentServicer(pb.agent_pb2_grpc.AgentServiceServicer):
         """The GetRun RPC."""
         try:
             with _Call(self, context, "GetRun") as principal:
-                events = await self.runs.get_run(principal, request.run_id)
+                trace = await self.runs.get_run(principal, request.run_id)
+                await context.send_initial_metadata(((RUN_USAGE_HEADER, run_usage_json(trace)),))
                 return a.GetRunResponse(
-                    run_id=request.run_id, events=[event_to_proto(request.run_id, e) for e in events]
+                    run_id=request.run_id, events=[event_to_proto(request.run_id, e) for e in trace.events()]
                 )
         except (AgentError, ServiceError) as err:
             await _abort(context, err)

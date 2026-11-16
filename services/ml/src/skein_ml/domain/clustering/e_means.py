@@ -24,8 +24,11 @@ which is ``S <- gamma S + alpha s, N <- gamma N + alpha n``. When
 ``N_j = n_j`` (their exact batch mean) and empty clusters keep their mass; with
 ``B = n`` and ``alpha = 1`` one update is exactly one Lloyd iteration.
 
-Run: ``k`` distinct initial points from a seeded permutation; every
-``N_j = 2^-16``. Each epoch walks a fresh seeded permutation in batches of
+Run: ``k`` distinct initial points from a seeded permutation (``init =
+"random"``, the reference's only option), or greedy k-means++ seeding
+(``init = "kmeans++"``, an addition of ours, from ``init.py`` with
+``numpy.random.default_rng(seed)``; its distance computations are counted);
+every ``N_j = 2^-16``. Each epoch walks a fresh seeded permutation in batches of
 ``B``, keeping the remainder batch; fractional budgets add a partial pass
 before a full closing pass. ``alpha`` follows a cosine schedule from
 ``alpha0`` to ``0.1 alpha0`` over all updates. Every 5 updates, clusters with
@@ -78,12 +81,14 @@ from .common import (
     squared_distances,
     validate_input,
 )
+from .init import kmeans_plus_plus
 
 __all__ = [
     "ALPHA_MIN_FACTOR",
     "BATCH_LAWS",
     "CHECK_UNUSED_EVERY",
     "INITIAL_MASS",
+    "INITS",
     "NO_REVIVAL_MAX_D",
     "SPLIT_EPSILON",
     "UNUSED_THRESHOLD",
@@ -104,6 +109,8 @@ CHECK_UNUSED_EVERY = 5
 """Updates between revival checks."""
 INITIAL_MASS = 2.0**-16
 """Starting ``N_j``; the paper uses 1e-10."""
+INITS = ("random", "kmeans++")
+"""``random`` follows the reference; ``kmeans++`` is greedy k-means++ seeding."""
 SPLIT_EPSILON = 1e-4
 """Relative coordinate offset ``delta`` applied when splitting a donor."""
 UNUSED_THRESHOLD = 0.1
@@ -258,8 +265,12 @@ class EMeans:
         batch_law: str = "auto",
         seed: int = 1234,
         unused_threshold: float | None = None,
+        init: str = "random",
     ):
+        if init not in INITS:
+            raise ValueError(f"unknown init {init!r}; use one of {INITS}")
         self.k = int(k)
+        self.init = init
         self.epochs = float(epochs)
         self.batch_size = batch_size
         self.alpha0 = alpha0
@@ -339,6 +350,7 @@ class EMeans:
 
     def _begin(self, x: np.ndarray, init: np.ndarray | None) -> None:
         n, d = x.shape
+        self.counter = DistanceCounter()
         if init is not None:
             init = np.asarray(init, dtype=np.float32)
             if init.shape != (self.k, d):
@@ -346,12 +358,17 @@ class EMeans:
             self.centroids = init.copy()
         elif n == self.k:
             self.centroids = x.copy()
+        elif self.init == "kmeans++":
+            # Seeded on float64 with the same generator as Lloyd, so both
+            # start from the same centres for a seed.
+            rng = np.random.default_rng(self.seed)
+            seeds = kmeans_plus_plus(x.astype(np.float64), self.k, rng, self.counter)
+            self.centroids = seeds.astype(np.float32)
         else:
             self.centroids = x[np.random.RandomState(self.seed).permutation(n)[: self.k]].copy()
         self.mass = np.full(self.k, INITIAL_MASS, dtype=np.float32)
         self._expected_mass = float(self.mass.sum(dtype=np.float64))
         self._split_rng = np.random.RandomState(self.seed)
-        self.counter = DistanceCounter()
         self.step = 0
         self.splits = 0
         self.epoch_objectives = []

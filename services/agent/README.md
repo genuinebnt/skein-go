@@ -11,23 +11,33 @@ permissions and nothing more ([ADR-0009](../../docs/adr/0009-agent-acts-as-the-u
 ```
 cd services/agent
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,postgres]"   # or: uv sync --extra dev --extra postgres
-.venv/bin/python scripts/gen_proto.py      # stubs into gen/ (git-ignored)
 .venv/bin/python -m pytest                 # no network, no Docker, no API key
 .venv/bin/python -m skein_agent.evals      # eval harness with the scripted model
 ANTHROPIC_API_KEY=... .venv/bin/python -m skein_agent.evals --model anthropic --json eval-report.json
-ANTHROPIC_API_KEY=... .venv/bin/python -m skein_agent          # serve on :50057
+ANTHROPIC_API_KEY=... SKEIN_AGENT_POSTGRES_DSN=postgresql://... .venv/bin/python -m skein_agent   # gRPC :9090, /healthz /readyz :8080
+SKEIN_AGENT_STORAGE=memory SKEIN_AGENT_MODEL_BACKEND=scripted .venv/bin/python -m skein_agent      # no database
 docker build -f services/agent/Dockerfile -t skein-agent .     # from the repo root
 ```
 
-`pytest -m integration` runs the Postgres checkpointer test (needs Docker and
-`testcontainers`); `pytest -m live_model` runs the evals against the real
-model (needs a key). Both are skipped by default.
+Compose: [`deploy/compose/services/agent.yml`](../../deploy/compose/services/agent.yml)
+publishes gRPC on `127.0.0.1:9107` and the admin endpoints on
+`127.0.0.1:8107` (container ports 9090 and 8080), with Postgres (role and schema `agent`) and
+Redis database 2, and the scripted model unless `SKEIN_AGENT_MODEL_BACKEND`
+and `ANTHROPIC_API_KEY` are set.
 
-**Generated stubs.** `scripts/gen_proto.py` writes `skein.v1` stubs and a
-descriptor set with source info into `gen/`. A parallel change adds generated
-Python under the repository's `gen/python`; when it lands, install that and
-delete the script and the path fallback in `src/skein_agent/pb.py`. Imports
-elsewhere do not change.
+`pytest -m integration` runs the store contract and restart tests on
+Postgres: against `SKEIN_AGENT_TEST_DATABASE_URL` if set (a disposable
+database; the tests truncate the `agent` tables), otherwise on a
+Testcontainers Postgres (needs Docker and `testcontainers`).
+`pytest -m live_model` runs the evals against the real model (needs a key).
+Both are skipped by default.
+
+**Generated stubs.** Messages, stubs and a descriptor set with source info
+(for tool descriptions) come from the shared package in
+[`gen/python`](../../gen/python) (`skein_proto.v1`), a path dependency in
+`pyproject.toml` and `uv.lock`. Everything imports them through
+`src/skein_agent/pb.py`. After `make proto` changes them, reinstall (pip)
+or `uv sync`.
 
 ## Layout
 
@@ -37,12 +47,14 @@ src/skein_agent/
                GCRA, tool effects, edit planning, the sequence CRDT (Python port)
   app/         use cases (runs.py, chats.py), the LangGraph graph (graph.py),
                the system prompt, ports.py, and tools/ (schema, catalogue, executor)
-  adapters/    gRPC server and clients, Anthropic, Redis, Postgres checkpointer,
-               in-memory stores, JSON logging, OpenTelemetry, wiring for main
+  adapters/    gRPC server and clients, Anthropic, Redis, Postgres stores and
+               checkpointer, in-memory stores, JSON codec, JSON logging,
+               OpenTelemetry, wiring for main
   fakes/       in-memory workspace for all six services, scripted chat model,
                cache, rate limiter, clock, and a harness that wires them
   evals/       fixture workspace, 12 tasks, runner, CLI
-tests/         pytest; every port is faked
+tests/         pytest; every port is faked (Postgres only under -m integration)
+migrations/    SQL for the agent schema, applied at startup
 ```
 
 ## How it works
@@ -104,13 +116,44 @@ Waiting for a confirmation does not count. Exhaustion ends the run with
 `OUTCOME_BUDGET_EXCEEDED`.
 
 **Cancellation.** Each graph segment runs in its own task; `CancelRun`
-cancels it, which cancels the in-flight gRPC call. A client that disconnects
-from `SendMessage` cancels its run.
+cancels it, which cancels the in-flight gRPC call. Only `CancelRun` cancels:
+a client that disconnects from `SendMessage` leaves the run going to
+completion or to a confirmation pause, with every event kept in the
+RunStore, so `GetRun` returns them and `Confirm` answers the pause
+(`docs/api/websocket.md`).
 
-**Traces.** Every event plus model calls (tokens, cost, latency), tool calls
-(latency, error code, cached, the result the model saw, with share-link
-tokens redacted) and messages go to a `RunStore` (in memory for now).
-`GetRun` returns the user-visible events.
+**Storage.** Chats, runs (status, traces, paused state, usage) and LangGraph
+checkpoints are in Postgres, schema `agent` (`migrations/`, applied at
+startup under an advisory lock; the checkpointer's tables are created there
+too). `SKEIN_AGENT_STORAGE=memory` keeps all three in memory for local runs;
+the tests use the in-memory stores and check both against one contract
+(`tests/test_stores.py`).
+
+**Durable pauses.** A run paused on a confirmation stores what it needs to
+resume (workspace, untrusted-data nonce, citation sources, CRDT replica,
+budget and wall time used, the pending confirmation), and its graph state is
+in the checkpointer. Shutdown leaves it paused (a client disconnect never
+cancels anything).
+Confirm on any process resumes it there, with a new delegated token obtained
+with the confirming user's own token (no token is stored). Every way out of
+a pause (Confirm, CancelRun, the timeout) first claims it with a
+compare-and-set in the RunStore, so exactly one process acts, whether the
+pause is live here, was left by a restart, or is live on another replica.
+A sweeper on every replica (`SKEIN_AGENT_SWEEP_SECONDS`) ends pauses past
+the confirmation timeout as CANCELLED, and runs left running by a stopped
+process (running longer than the wall-time budget plus a minute) as FAILED,
+which also frees their chat. Tests: `tests/test_restart.py`.
+
+**Traces and usage.** Every event plus model calls (tokens, cost, latency),
+tool calls (latency, error code, cached, the result the model saw, with
+share-link tokens redacted) and messages go to the `RunStore`; a finished
+run also records its totals (steps, tokens, cost). `GetRun` returns the
+user-visible events, whose `RunFinished` carries steps and tokens. Cost has
+no field in `GetRunResponse`, so GetRun also sends header metadata
+`x-skein-run-usage` (HTTP `Grpc-Metadata-X-Skein-Run-Usage` through the
+gateway) with JSON: `status`, `steps`, `input_tokens`, `output_tokens`,
+`cost_usd` and `model_calls` (step, tokens, cost, latency per call). For a
+run in progress the totals are summed from the model calls so far.
 
 **Observability.** JSON logs with `trace_id`, `span_id`, `request_id`,
 `user_id`, `run_id`; only allow-listed fields are logged, never note text or
@@ -132,9 +175,14 @@ Configuration: every variable is listed in `src/skein_agent/config.py`.
   documents treating change groups from agent-run replicas as suggestions;
   rejecting one is `Undo(note_id, replica_id)`. An explicit field (or a
   `SuggestOps` RPC) in `documents.proto` would make this visible.
-- **`GetRunResponse` carries only stream events.** The richer trace (tokens,
-  cost and latency per call) is stored but has no proto field; a `RunTrace`
-  message would expose it to the UI and evals.
+- **`GetRunResponse` has no usage field.** Tokens reach clients through
+  `RunFinished`; cost and per-call figures only through the
+  `x-skein-run-usage` header. Proposed contract change:
+  `message RunUsage { uint32 steps = 1; uint64 input_tokens = 2; uint64
+  output_tokens = 3; double cost_usd = 4; repeated ModelCall model_calls = 5; }`
+  with `message ModelCall { uint32 step = 1; uint64 input_tokens = 2; uint64
+  output_tokens = 3; double cost_usd = 4; double latency_ms = 5; }`, and
+  `RunUsage usage = 3;` in `GetRunResponse`; the header then goes.
 - **No email RPC exists** in `notifications.proto`, so there is no
   `send_email` tool yet; when one is added it is `Effect.OUTWARD` and gated.
 - **Declining a confirmation ends the run** as `OUTCOME_CANCELLED`
@@ -148,7 +196,13 @@ Configuration: every variable is listed in `src/skein_agent/config.py`.
   asked (after confirming); they are redacted from traces and never logged.
 - **Each run is its own LangGraph thread**; earlier turns come from the chat
   transcript, so no run inherits half-finished state from another.
-- **Chats, traces and runs are in memory** and runs are driven in-process;
-  the Postgres checkpointer keeps paused graph state, but resuming a paused
-  run on another replica after a restart is a follow-up (with an `agent`
-  schema for chats and traces).
+- **CancelRun for a run *working* on another replica** cannot reach it (the
+  contract has no fan-out); it stops at its wall-time deadline. A paused run
+  is cancelled from any replica.
+- **A client disconnect never cancels a run** (it used to), matching
+  `docs/api/websocket.md`: the run finishes or pauses, and the client reads
+  it with GetRun. A run nobody follows still ends at its budgets or its
+  confirmation timeout.
+- **When two replicas race for one pause and the original driver loses**,
+  its SendMessage stream ends without `RunFinished`; the client reads the
+  outcome with GetRun.

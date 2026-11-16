@@ -5,14 +5,15 @@ from __future__ import annotations
 import io
 import json
 import logging
+import threading
 import time
 
 import pytest
+from skein_proto.v1 import events_pb2
 from tests_support import make_app
 
 from skein_ml.adapters.consumer import decode_or_skip, observed_handler
 from skein_ml.adapters.events_codec import MalformedEvent, decode_event, encode_event
-from skein_ml.adapters.grpc_stubs import events_pb2
 from skein_ml.adapters.memory import InMemoryCache, InMemoryEventSource
 from skein_ml.adapters.observability import (
     REDACTED,
@@ -230,10 +231,50 @@ def test_unsupported_otel_exporters_fail_fast():
 
 
 def test_config_reads_defaults_and_validates():
-    assert Config.from_env({}).address == "[::]:50051"
+    assert Config.from_env({}).address == "[::]:9090"
+    assert Config.from_env({}).admin_address == "0.0.0.0:8080"
+    assert Config.from_env({"SKEIN_ML_ADMIN_ADDRESS": ""}).admin_address == "", "empty turns it off"
     config = Config.from_env({"SKEIN_ML_SUGGEST_THRESHOLD": "0.8", "SKEIN_ML_WORKERS": "2"})
     assert (config.suggest_threshold, config.workers) == (0.8, 2)
     with pytest.raises(ConfigError, match="SKEIN_ML_WORKERS"):
         Config.from_env({"SKEIN_ML_WORKERS": "many"})
     with pytest.raises(ConfigError, match="ONNX_MODEL_DIR"):
         Config.from_env({"SKEIN_ML_EMBEDDER": "onnx"})
+
+
+def test_config_defaults_match_the_local_stack_and_check_the_cluster_algorithm():
+    defaults = Config.from_env({})
+    assert defaults.pubsub_subscription == "ml.documents-events", "the name pubsub-init.sh creates"
+    assert defaults.cluster_algorithm == "lloyd"
+    chosen = Config.from_env({"SKEIN_ML_CLUSTER_ALGORITHM": "E_MEANS_KMEANS++"})
+    assert chosen.cluster_algorithm == "e_means_kmeans++"
+    with pytest.raises(ConfigError, match="SKEIN_ML_CLUSTER_ALGORITHM"):
+        Config.from_env({"SKEIN_ML_CLUSTER_ALGORITHM": "dbscan"})
+
+
+@pytest.mark.loopback
+def test_admin_endpoints_report_health_and_readiness_until_draining():
+    import urllib.error
+    import urllib.request
+
+    from skein_ml.adapters.admin import AdminServer
+
+    serving = threading.Event()
+    serving.set()
+    admin = AdminServer("127.0.0.1:0", serving.is_set)
+    admin.start()
+    base = f"http://127.0.0.1:{admin.port}"
+
+    def status(path: str) -> int:
+        try:
+            with urllib.request.urlopen(base + path, timeout=2) as response:
+                return response.status
+        except urllib.error.HTTPError as error:
+            return error.code
+
+    try:
+        assert (status("/healthz"), status("/readyz"), status("/metrics")) == (200, 200, 404)
+        serving.clear()
+        assert (status("/healthz"), status("/readyz")) == (200, 503), "draining: alive, not ready"
+    finally:
+        admin.stop()

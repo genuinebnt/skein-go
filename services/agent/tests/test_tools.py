@@ -86,7 +86,11 @@ def test_schema_maps_enums_timestamps_and_nested_messages() -> None:
         "type": "string",
         "enum": ["NOTE_ROLE_UNSPECIFIED", "NOTE_ROLE_VIEWER", "NOTE_ROLE_COMMENTER", "NOTE_ROLE_EDITOR"],
     }
-    assert share["expires_at"] == {"type": "string", "format": "date-time"}
+    assert share["expires_at"] == {
+        "type": "string",
+        "format": "date-time",
+        "description": "When the link stops working. Unset means it never expires.",
+    }
     search = message_schema(pb.search_pb2.SearchRequest.DESCRIPTOR)["properties"]
     assert search["languages"]["type"] == "array" and search["languages"]["items"] == {"type": "string"}
     assert search["page"]["properties"]["page_size"]["minimum"] == 0
@@ -104,7 +108,9 @@ def test_schema_maps_enums_timestamps_and_nested_messages() -> None:
 def test_proto_comments_cover_rpcs() -> None:
     comments = proto_comments()
     assert "trash" in comments["skein.v1.DocumentService.DeleteNote"]
-    assert comments["skein.v1.GraphService.BlastRadius"].startswith("Everything reachable")
+    blast = comments["skein.v1.GraphService.BlastRadius"]
+    assert blast.startswith("Get a note's blast radius. The notes within reach"), "summary joined as a sentence"
+    assert "BLAST_DIRECTION_CITED_BY" in blast
 
 
 def test_confirmation_policy_covers_every_destructive_and_outward_tool() -> None:
