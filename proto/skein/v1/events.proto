@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+// Domain events published through each service's transactional outbox
+// (ADR-0006). Consumers must be idempotent: deduplicate on Event.id.
+package skein.v1;
+
+import "google/protobuf/timestamp.proto";
+import "skein/v1/common.proto";
+import "skein/v1/identity.proto";
+import "skein/v1/notifications.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+// The envelope every event is published in.
+message Event {
+  // UUIDv7, unique per event, the deduplication key.
+  string id = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  // The service that published it, for example "documents".
+  string source = 3;
+  // Pub/Sub ordering key, usually the note ID.
+  string ordering_key = 4;
+  // W3C trace context, so a trace continues across the queue.
+  string traceparent = 5;
+  Subject actor = 6;
+  oneof payload {
+    NoteCreated note_created = 10;
+    NoteRenamed note_renamed = 11;
+    NoteTrashed note_trashed = 12;
+    NoteRestored note_restored = 13;
+    NotePurged note_purged = 14;
+    BlocksChanged blocks_changed = 15;
+    LinksChanged links_changed = 16;
+    AccessChanged access_changed = 17;
+    NotificationRequested notification_requested = 18;
+  }
+}
+
+message NoteCreated {
+  string note_id = 1;
+  string workspace_id = 2;
+  string title = 3;
+}
+message NoteRenamed {
+  string note_id = 1;
+  string title = 2;
+}
+message NoteTrashed {
+  string note_id = 1;
+}
+message NoteRestored {
+  string note_id = 1;
+}
+// Every projection must erase what it holds about the note.
+message NotePurged {
+  string note_id = 1;
+}
+// The current text of blocks that changed, so projections can re-index
+// without calling back into documents.
+message BlocksChanged {
+  string note_id = 1;
+  repeated ChangedBlock blocks = 2;
+  repeated string removed_block_ids = 3;
+}
+message ChangedBlock {
+  string block_id = 1;
+  string kind = 2; // "paragraph", "heading", "code", ...
+  string language = 3; // for code blocks
+  string text = 4;
+}
+message LinksChanged {
+  string note_id = 1;
+  repeated string targets = 2; // the note's complete outbound link set
+}
+message AccessChanged {
+  string workspace_id = 1;
+  string note_id = 2; // empty for workspace-level changes
+  string user_id = 3;
+  bool revoked = 4;
+}
+message NotificationRequested {
+  string recipient_id = 1;
+  NotificationKind kind = 2;
+  string title = 3;
+  string body = 4;
+  BlockRef location = 5;
+}

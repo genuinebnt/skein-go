@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+// Inbox, live push and notification preferences.
+package skein.v1;
+
+import "google/protobuf/timestamp.proto";
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service NotificationService {
+  rpc ListInbox(ListInboxRequest) returns (ListInboxResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  // Live notifications for the caller, relayed to the browser by the gateway.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
+}
+
+enum NotificationKind {
+  NOTIFICATION_KIND_UNSPECIFIED = 0;
+  NOTIFICATION_KIND_MENTION = 1;
+  NOTIFICATION_KIND_COMMENT = 2;
+  NOTIFICATION_KIND_SHARE = 3;
+  NOTIFICATION_KIND_AGENT_RUN_FINISHED = 4;
+  NOTIFICATION_KIND_ACCESS_CHANGED = 5;
+}
+
+message Notification {
+  string id = 1;
+  NotificationKind kind = 2;
+  string title = 3;
+  string body = 4;
+  BlockRef location = 5;
+  string actor_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  bool read = 8;
+}
+message ListInboxRequest {
+  PageRequest page = 1;
+  bool unread_only = 2;
+}
+message ListInboxResponse {
+  repeated Notification notifications = 1;
+  PageResponse page = 2;
+  uint32 unread = 3;
+}
+message MarkReadRequest {
+  repeated string ids = 1;
+}
+message MarkReadResponse {}
+message SubscribeRequest {}
+message SubscribeResponse {
+  Notification notification = 1;
+}
+message Preference {
+  NotificationKind kind = 1;
+  bool in_app = 2;
+  bool email = 3;
+}
+message GetPreferencesRequest {}
+message GetPreferencesResponse {
+  repeated Preference preferences = 1;
+}
+message UpdatePreferencesRequest {
+  repeated Preference preferences = 1;
+}
+message UpdatePreferencesResponse {}

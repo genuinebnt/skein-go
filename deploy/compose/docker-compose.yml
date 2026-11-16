@@ -1,0 +1,58 @@
+# Local infrastructure for Skein. `make up` starts it; services are added here
+# as their milestones land. Every cloud dependency has a local stand-in, so
+# nothing here needs a GCP account (ADR-0014).
+name: skein
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: skein
+      POSTGRES_PASSWORD: skein
+      POSTGRES_DB: skein
+    ports: ["5432:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # One schema and one login role per service (ADR-0001).
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skein"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  # Google's Pub/Sub emulator: the same client libraries as production, with
+  # PUBSUB_EMULATOR_HOST=localhost:8085 set.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=skein-local
+    ports: ["8085:8085"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8085 || exit 1"]
+      interval: 3s
+      retries: 30
+
+  # Creates the topics and subscriptions the services expect, then exits.
+  pubsub-init:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      pubsub:
+        condition: service_healthy
+    volumes:
+      - ./pubsub-init.sh:/pubsub-init.sh:ro
+    entrypoint: ["/bin/sh", "/pubsub-init.sh"]
+
+  # Catches every email the services send; web UI on http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports: ["8025:8025", "1025:1025"]
+
+volumes:
+  postgres-data:

@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+// The agent: chat sessions and runs that act as the user (ADR-0009).
+package skein.v1;
+
+import "google/protobuf/timestamp.proto";
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service AgentService {
+  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse);
+  rpc ListChats(ListChatsRequest) returns (ListChatsResponse);
+  // Sends a user message and streams the run: steps, tool calls, text,
+  // confirmation requests and the final answer.
+  rpc SendMessage(SendMessageRequest) returns (stream SendMessageResponse);
+  // Answers a confirmation request; the paused run continues or stops.
+  rpc Confirm(ConfirmRequest) returns (ConfirmResponse);
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+}
+
+message CreateChatRequest {
+  string workspace_id = 1;
+  // Optional note the chat is about.
+  string note_id = 2;
+}
+message CreateChatResponse {
+  string chat_id = 1;
+}
+message ListChatsRequest {
+  string workspace_id = 1;
+  PageRequest page = 2;
+}
+message ListChatsResponse {
+  repeated ChatSummary chats = 1;
+  PageResponse page = 2;
+}
+message ChatSummary {
+  string chat_id = 1;
+  string title = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+message SendMessageRequest {
+  string chat_id = 1;
+  string text = 2;
+}
+message SendMessageResponse {
+  string run_id = 1;
+  oneof event {
+    string text_delta = 2;
+    ToolCall tool_call = 3;
+    ToolResult tool_result = 4;
+    ConfirmationRequest confirmation = 5;
+    Citation citation = 6;
+    RunFinished finished = 7;
+  }
+}
+message ToolCall {
+  string call_id = 1;
+  string tool = 2;
+  // Arguments as JSON, matching the tool's schema.
+  string arguments_json = 3;
+}
+message ToolResult {
+  string call_id = 1;
+  // Short human summary, for example "Read 3 notes".
+  string summary = 2;
+  bool is_error = 3;
+}
+// Sent before a destructive or outward-facing action. The run is paused
+// until Confirm is called.
+message ConfirmationRequest {
+  string confirmation_id = 1;
+  string description = 2;
+  string tool = 3;
+  string arguments_json = 4;
+}
+message Citation {
+  BlockRef location = 1;
+  string quote = 2;
+}
+message RunFinished {
+  enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    OUTCOME_COMPLETED = 1;
+    OUTCOME_CANCELLED = 2;
+    OUTCOME_BUDGET_EXCEEDED = 3;
+    OUTCOME_FAILED = 4;
+  }
+  Outcome outcome = 1;
+  uint32 steps = 2;
+  uint64 input_tokens = 3;
+  uint64 output_tokens = 4;
+}
+message ConfirmRequest {
+  string run_id = 1;
+  string confirmation_id = 2;
+  bool approved = 3;
+}
+message ConfirmResponse {}
+message CancelRunRequest {
+  string run_id = 1;
+}
+message CancelRunResponse {}
+message GetRunRequest {
+  string run_id = 1;
+}
+message GetRunResponse {
+  string run_id = 1;
+  repeated SendMessageResponse events = 2;
+}

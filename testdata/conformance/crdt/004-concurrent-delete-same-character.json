@@ -1,0 +1,13 @@
+{
+  "name": "two replicas delete the same character",
+  "why": "Deleting an already deleted character is a no-op for the text, so the character disappears once.",
+  "replicas": {"A": 1, "B": 2},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "abc"}},
+    {"sync": "all"},
+    {"replica": "A", "delete": {"index": 1, "count": 1}},
+    {"replica": "B", "delete": {"index": 1, "count": 1}},
+    {"sync": "all"}
+  ],
+  "expect": {"all": "ac"}
+}

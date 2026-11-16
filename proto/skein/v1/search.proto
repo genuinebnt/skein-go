@@ -1,0 +1,181 @@
+syntax = "proto3";
+
+// Text and code search, the link graph and its algorithms, and reading plans
+// (ADR-0010, ADR-0011). Every result is limited to notes the subject can read.
+package skein.v1;
+
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service SearchService {
+  rpc Search(SearchRequest) returns (SearchResponse);
+  // Typo-tolerant title completion for the command palette and [[links]].
+  rpc SuggestTitles(SuggestTitlesRequest) returns (SuggestTitlesResponse);
+}
+
+service GraphService {
+  rpc GetLinkGraph(GetLinkGraphRequest) returns (GetLinkGraphResponse);
+  // Algorithms that need no parameter, over the whole readable graph.
+  rpc AnalyzeGraph(AnalyzeGraphRequest) returns (AnalyzeGraphResponse);
+  // Everything reachable from a note by following outbound links, by hop.
+  rpc BlastRadius(BlastRadiusRequest) returns (BlastRadiusResponse);
+  rpc ShortestPath(ShortestPathRequest) returns (ShortestPathResponse);
+  // What to read before a note, in order.
+  rpc ReadingPath(ReadingPathRequest) returns (ReadingPathResponse);
+  // The best set of notes on a topic for a time budget, respecting
+  // prerequisites (a knapsack solved by dynamic programming).
+  rpc ReadingPlan(ReadingPlanRequest) returns (ReadingPlanResponse);
+}
+
+enum SearchMode {
+  SEARCH_MODE_UNSPECIFIED = 0;
+  // Words and phrases, typo-tolerant.
+  SEARCH_MODE_TEXT = 1;
+  // Regular expression over block text, accelerated by the trigram index.
+  SEARCH_MODE_REGEX = 2;
+}
+
+message SearchRequest {
+  string workspace_id = 1;
+  string query = 2;
+  SearchMode mode = 3;
+  bool case_sensitive = 4;
+  bool whole_word = 5;
+  // Only code blocks in these languages, for example "go" or "rust".
+  repeated string languages = 6;
+  bool code_only = 7;
+  PageRequest page = 8;
+}
+message SearchResponse {
+  repeated SearchHit hits = 1;
+  PageResponse page = 2;
+  // How many blocks the trigram index proposed and how many matched, so the
+  // index's selectivity is visible.
+  uint32 candidates = 3;
+  uint32 matched = 4;
+}
+message SearchHit {
+  BlockRef location = 1;
+  string note_title = 2;
+  string snippet = 3;
+  // Match ranges inside snippet, in code points.
+  repeated Range highlights = 4;
+  double score = 5;
+  string language = 6;
+}
+message Range {
+  uint32 start = 1;
+  uint32 end = 2;
+}
+message SuggestTitlesRequest {
+  string workspace_id = 1;
+  string prefix = 2;
+  uint32 limit = 3;
+}
+message SuggestTitlesResponse {
+  repeated TitleSuggestion suggestions = 1;
+}
+message TitleSuggestion {
+  string note_id = 1;
+  string title = 2;
+  uint32 edit_distance = 3;
+}
+
+message GraphNode {
+  string note_id = 1;
+  string title = 2;
+  bool is_root = 3;
+}
+message GraphEdge {
+  string from = 1;
+  string to = 2;
+}
+message GetLinkGraphRequest {
+  string workspace_id = 1;
+}
+message GetLinkGraphResponse {
+  repeated GraphNode nodes = 1;
+  repeated GraphEdge edges = 2;
+}
+message AnalyzeGraphRequest {
+  string workspace_id = 1;
+}
+message AnalyzeGraphResponse {
+  // Connected component of each note, ignoring link direction.
+  map<string, uint32> component_of = 1;
+  // Components that contain no root note.
+  repeated uint32 orphan_components = 2;
+  // Strongly connected component of each note, following link direction.
+  // Numbered so the component holding the smallest note ID is 0.
+  map<string, uint32> scc_of = 3;
+  repeated uint32 scc_sizes = 4;
+  // One example cycle, first equals last; empty if the graph is acyclic.
+  repeated string cycle = 5;
+  // A reading order where no note comes before one it links to. Partial when
+  // the graph has cycles; the rest is in unplaced.
+  repeated string topological_order = 6;
+  repeated string unplaced = 7;
+  map<string, double> betweenness = 8;
+  map<string, double> pagerank = 9;
+  // Louvain communities and the modularity of that partition.
+  map<string, uint32> community_of = 10;
+  double modularity = 11;
+  uint32 diameter = 12;
+}
+message BlastRadiusRequest {
+  string note_id = 1;
+  // 0 means no limit.
+  uint32 max_hops = 2;
+}
+message BlastRadiusResponse {
+  // Notes reached, with their hop distance from the source.
+  map<string, uint32> hops = 1;
+  // Number of notes at each distance; ring_sizes[0] is the source itself.
+  repeated uint32 ring_sizes = 2;
+}
+enum PathMetric {
+  PATH_METRIC_UNSPECIFIED = 0;
+  // Link hops, ignoring direction.
+  PATH_METRIC_HOPS = 1;
+  // Sum of (1 - cosine similarity) along links.
+  PATH_METRIC_SEMANTIC = 2;
+}
+message ShortestPathRequest {
+  string from = 1;
+  string to = 2;
+  PathMetric metric = 3;
+}
+message ShortestPathResponse {
+  bool found = 1;
+  repeated string path = 2;
+  double cost = 3;
+}
+message ReadingPathRequest {
+  string note_id = 1;
+}
+message ReadingPathResponse {
+  repeated ReadingStep steps = 1;
+}
+message ReadingStep {
+  string note_id = 1;
+  // Why this note is in the path, for example "linked from X".
+  string reason = 2;
+  uint32 depth = 3;
+}
+message ReadingPlanRequest {
+  string workspace_id = 1;
+  string topic = 2;
+  uint32 minutes = 3;
+}
+message ReadingPlanResponse {
+  repeated PlannedNote notes = 1;
+  uint32 total_minutes = 2;
+  double total_value = 3;
+}
+message PlannedNote {
+  string note_id = 1;
+  uint32 minutes = 2;
+  double value = 3;
+  string reason = 4;
+}

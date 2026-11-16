@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+// Types shared by every Skein service.
+package skein.v1;
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+// Cursor-based pagination. Page tokens are opaque to clients.
+message PageRequest {
+  // Maximum items to return. The server may return fewer. 0 means the default.
+  uint32 page_size = 1;
+  // Token from a previous response's next_page_token; empty for the first page.
+  string page_token = 2;
+}
+
+message PageResponse {
+  // Empty when there are no more pages.
+  string next_page_token = 1;
+}
+
+// A location inside a note: the block and, optionally, a character range in
+// code points within the block's text.
+message BlockRef {
+  string note_id = 1; // UUIDv7
+  string block_id = 2; // "replica:counter" of the block marker
+  uint32 start = 3;
+  uint32 end = 4;
+}

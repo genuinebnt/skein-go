@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+// Users, sessions, workspaces, roles and authorization (ADR-0008).
+package skein.v1;
+
+import "google/protobuf/timestamp.proto";
+import "skein/v1/common.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+
+service IdentityService {
+  rpc SignUp(SignUpRequest) returns (SignUpResponse);
+  rpc SignIn(SignInRequest) returns (SignInResponse);
+  // Exchanges an OAuth authorization code (Google, GitHub) for a session.
+  rpc SignInWithOAuth(SignInWithOAuthRequest) returns (SignInWithOAuthResponse);
+  // Rotates the refresh token and issues a new access token.
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc SignOut(SignOutRequest) returns (SignOutResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc SetWorkspaceRole(SetWorkspaceRoleRequest) returns (SetWorkspaceRoleResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+  rpc SetNoteRole(SetNoteRoleRequest) returns (SetNoteRoleResponse);
+  rpc CreateShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse);
+  rpc RevokeShareLink(RevokeShareLinkRequest) returns (RevokeShareLinkResponse);
+
+  // Checks many (action, resource) pairs for one subject in one call. Every
+  // service calls this, with a short cache, before acting.
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  // Lists the notes a subject can read in a workspace, for permission-aware
+  // search (ADR-0010).
+  rpc ListReadableNotes(ListReadableNotesRequest) returns (ListReadableNotesResponse);
+  // Issues a short-lived token for an agent run acting as the user (ADR-0009).
+  rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse);
+  // Records that a CRDT replica ID belongs to the calling user (ADR-0004).
+  rpc RegisterReplica(RegisterReplicaRequest) returns (RegisterReplicaResponse);
+}
+
+enum WorkspaceRole {
+  WORKSPACE_ROLE_UNSPECIFIED = 0;
+  WORKSPACE_ROLE_GUEST = 1;
+  WORKSPACE_ROLE_MEMBER = 2;
+  WORKSPACE_ROLE_ADMIN = 3;
+  WORKSPACE_ROLE_OWNER = 4;
+}
+
+enum NoteRole {
+  NOTE_ROLE_UNSPECIFIED = 0;
+  NOTE_ROLE_VIEWER = 1;
+  NOTE_ROLE_COMMENTER = 2;
+  NOTE_ROLE_EDITOR = 3;
+}
+
+// Every action a subject can attempt. Services authorize with these values,
+// never with free-form strings.
+enum Action {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_NOTE_READ = 1;
+  ACTION_NOTE_COMMENT = 2;
+  ACTION_NOTE_EDIT = 3;
+  ACTION_NOTE_CREATE = 4;
+  ACTION_NOTE_DELETE = 5;
+  ACTION_NOTE_SHARE = 6;
+  ACTION_WORKSPACE_MANAGE_MEMBERS = 7;
+  ACTION_WORKSPACE_MANAGE_SETTINGS = 8;
+  ACTION_AGENT_RUN = 9;
+}
+
+enum OAuthProvider {
+  O_AUTH_PROVIDER_UNSPECIFIED = 0;
+  O_AUTH_PROVIDER_GOOGLE = 1;
+  O_AUTH_PROVIDER_GITHUB = 2;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message Session {
+  string access_token = 1;
+  google.protobuf.Timestamp access_expires_at = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp refresh_expires_at = 4;
+}
+
+// Who is acting: a user, or an agent run acting for a user.
+message Subject {
+  string user_id = 1;
+  // Set when an agent run acts for user_id.
+  string agent_run_id = 2;
+}
+
+message Member {
+  User user = 1;
+  WorkspaceRole role = 2;
+}
+
+message SignUpRequest {
+  string email = 1;
+  string password = 2;
+  string display_name = 3;
+}
+message SignUpResponse {
+  User user = 1;
+  Session session = 2;
+}
+message SignInRequest {
+  string email = 1;
+  string password = 2;
+}
+message SignInResponse {
+  User user = 1;
+  Session session = 2;
+}
+message SignInWithOAuthRequest {
+  OAuthProvider provider = 1;
+  string code = 2;
+  string code_verifier = 3; // PKCE
+  string redirect_uri = 4;
+}
+message SignInWithOAuthResponse {
+  User user = 1;
+  Session session = 2;
+  bool created = 3;
+}
+message RefreshRequest {
+  string refresh_token = 1;
+}
+message RefreshResponse {
+  Session session = 1;
+}
+message SignOutRequest {
+  string refresh_token = 1;
+}
+message SignOutResponse {}
+message GetUserRequest {
+  string user_id = 1;
+}
+message GetUserResponse {
+  User user = 1;
+}
+message CreateWorkspaceRequest {
+  string name = 1;
+}
+message CreateWorkspaceResponse {
+  string workspace_id = 1;
+}
+message ListMembersRequest {
+  string workspace_id = 1;
+  PageRequest page = 2;
+}
+message ListMembersResponse {
+  repeated Member members = 1;
+  PageResponse page = 2;
+}
+message SetWorkspaceRoleRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+  WorkspaceRole role = 3;
+}
+message SetWorkspaceRoleResponse {}
+message RemoveMemberRequest {
+  string workspace_id = 1;
+  string user_id = 2;
+}
+message RemoveMemberResponse {}
+message SetNoteRoleRequest {
+  string note_id = 1;
+  string user_id = 2;
+  // NOTE_ROLE_UNSPECIFIED removes the override and falls back to the
+  // workspace role.
+  NoteRole role = 3;
+}
+message SetNoteRoleResponse {}
+message CreateShareLinkRequest {
+  string note_id = 1;
+  NoteRole role = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+message CreateShareLinkResponse {
+  string link_id = 1;
+  // Returned once; only a hash is stored.
+  string token = 2;
+}
+message RevokeShareLinkRequest {
+  string link_id = 1;
+}
+message RevokeShareLinkResponse {}
+
+message AuthorizeRequest {
+  Subject subject = 1;
+  repeated Check checks = 2;
+}
+message Check {
+  Action action = 1;
+  // A note ID or a workspace ID, depending on the action.
+  string resource_id = 2;
+}
+message AuthorizeResponse {
+  // One entry per check, in the same order.
+  repeated bool allowed = 1;
+}
+message ListReadableNotesRequest {
+  Subject subject = 1;
+  string workspace_id = 2;
+}
+message ListReadableNotesResponse {
+  repeated string note_ids = 1;
+}
+message IssueDelegatedTokenRequest {
+  string user_id = 1;
+  string agent_run_id = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+message IssueDelegatedTokenResponse {
+  string access_token = 1;
+}
+message RegisterReplicaRequest {
+  uint64 replica_id = 1;
+}
+message RegisterReplicaResponse {}

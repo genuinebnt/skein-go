@@ -1,0 +1,13 @@
+{
+  "name": "concurrent inserts between the same two characters",
+  "why": "After syncing 'ac', both replicas insert after 'a'. 'a' already has a right child ('c'), so both new characters become left children of 'c', ordered by id: A3 (replica 1) before B1 (replica 2).",
+  "replicas": {"A": 1, "B": 2},
+  "steps": [
+    {"replica": "A", "insert": {"index": 0, "text": "ac"}},
+    {"sync": "all"},
+    {"replica": "A", "insert": {"index": 1, "text": "b"}},
+    {"replica": "B", "insert": {"index": 1, "text": "X"}},
+    {"sync": "all"}
+  ],
+  "expect": {"all": "abXc"}
+}
