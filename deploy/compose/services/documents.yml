@@ -1,0 +1,60 @@
+# documents (services/documents/README.md). Included by the integration step
+# from deploy/compose/docker-compose.yml; paths are relative to this file.
+# gRPC on 127.0.0.1:9102, admin HTTP (probes) on 127.0.0.1:8102.
+services:
+  documents:
+    build:
+      context: ../../..
+      dockerfile: services/documents/Dockerfile
+    image: skein/documents:dev
+    environment:
+      SKEIN_ENV: dev
+      DATABASE_URL: postgres://documents:documents@postgres:5432/skein?sslmode=disable
+      REDIS_URL: redis://redis:6379/1
+      PUBSUB_PROJECT: skein-local
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      OTEL_SERVICE_NAME: documents
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
+      DOCUMENTS_GRPC_ADDR: ":9090"
+      DOCUMENTS_ADMIN_ADDR: ":8080"
+      IDENTITY_GRPC_TARGET: dns:///identity:9090
+      IDENTITY_JWKS_URL: http://identity:8080/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:9102:9090"
+      - "127.0.0.1:8102:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/documents", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    deploy:
+      resources:
+        # Each open note's actor holds its CRDT in memory.
+        limits: {cpus: "1", memory: 768m}
+
+  # Loads documents' share of testdata/seed/small and verifies it against
+  # the CRDT truth, then exits:
+  #   docker compose run --rm documents-seed
+  documents-seed:
+    image: skein/documents:dev
+    profiles: ["seed"]
+    entrypoint: ["/usr/local/bin/documents-seed", "-dir", "/seed"]
+    environment:
+      DATABASE_URL: postgres://documents:documents@postgres:5432/skein?sslmode=disable
+    volumes:
+      - ../../../testdata/seed/small:/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy

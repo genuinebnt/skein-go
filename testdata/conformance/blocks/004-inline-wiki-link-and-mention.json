@@ -1,0 +1,59 @@
+{
+  "name": "inline wiki link and mention",
+  "why": "[[...]] with no brackets or newline inside is a wiki link to that exact title (the search link pattern). @ after a space starts a mention; the handle's trailing '.' is sentence punctuation and stays text.",
+  "kind": "inline",
+  "input": {
+    "text": "See [[Raft overview]], ask @mira."
+  },
+  "expect": {
+    "nodes": [
+      {
+        "kind": "text",
+        "start": 0,
+        "end": 4,
+        "content_start": 0,
+        "content_end": 4,
+        "value": "See "
+      },
+      {
+        "kind": "wikilink",
+        "start": 4,
+        "end": 21,
+        "content_start": 6,
+        "content_end": 19,
+        "value": "Raft overview"
+      },
+      {
+        "kind": "text",
+        "start": 21,
+        "end": 27,
+        "content_start": 21,
+        "content_end": 27,
+        "value": ", ask "
+      },
+      {
+        "kind": "mention",
+        "start": 27,
+        "end": 32,
+        "content_start": 28,
+        "content_end": 32,
+        "value": "mira"
+      },
+      {
+        "kind": "text",
+        "start": 32,
+        "end": 33,
+        "content_start": 32,
+        "content_end": 33,
+        "value": "."
+      }
+    ],
+    "plain": "See Raft overview, ask @mira.",
+    "links": [
+      "Raft overview"
+    ],
+    "mentions": [
+      "mira"
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "attrs last writer wins",
+  "why": "Each (block, key) is an independent register. Block 7:1's type: lamport 4 beats lamport 3 whatever the replicas; its indent is untouched by type writes. The leading block (0:0): equal lamport 2, so replica 6 beats replica 5. The result is the same in either delivery order. Encoding per spec section 4.",
+  "kind": "attrs",
+  "input": {
+    "writes": [
+      {
+        "block": "7:1",
+        "key": "type",
+        "lamport": 3,
+        "replica": 9,
+        "value": "heading1"
+      },
+      {
+        "block": "7:1",
+        "key": "type",
+        "lamport": 4,
+        "replica": 2,
+        "value": "quote"
+      },
+      {
+        "block": "7:1",
+        "key": "indent",
+        "lamport": 1,
+        "replica": 2,
+        "value": 2
+      },
+      {
+        "block": "0:0",
+        "key": "checked",
+        "lamport": 2,
+        "replica": 5,
+        "value": false
+      },
+      {
+        "block": "0:0",
+        "key": "checked",
+        "lamport": 2,
+        "replica": 6,
+        "value": true
+      }
+    ]
+  },
+  "expect": {
+    "blocks": {
+      "7:1": {
+        "type": "quote",
+        "indent": 2,
+        "checked": false,
+        "language": "",
+        "text": ""
+      },
+      "0:0": {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": true,
+        "language": "",
+        "text": ""
+      }
+    },
+    "encoded_hex": "53410105010701030902010701040208020701010202030000020500030000020601"
+  }
+}

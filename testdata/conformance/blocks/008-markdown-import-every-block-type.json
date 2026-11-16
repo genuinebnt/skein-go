@@ -1,0 +1,83 @@
+{
+  "name": "markdown import every block type",
+  "why": "A heading ends at its line; following paragraph lines join with a space; '- [x]' is a checked to-do; two spaces of indent are one level; '3)' is a numbered item (the number is not kept); '***' is a divider; '&nbsp;' is an empty paragraph; consecutive '>' lines form one quote ('>' alone is an empty line); '|' starts a table. Export writes the canonical form: blank lines between blocks except between list items, lists renumbered from 1, '---' for dividers.",
+  "kind": "markdown_import",
+  "input": {
+    "markdown": "# Title\nPara one\ncontinued\n\n- [x] done\n  - nested\n3) third\n\n```rust\nfn main() {}\n```\n***\n&nbsp;\n> q1\n>\n| a |"
+  },
+  "expect": {
+    "blocks": [
+      {
+        "type": "heading1",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "Title"
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "Para one continued"
+      },
+      {
+        "type": "todo",
+        "indent": 0,
+        "checked": true,
+        "language": "",
+        "text": "done"
+      },
+      {
+        "type": "bulleted",
+        "indent": 1,
+        "checked": false,
+        "language": "",
+        "text": "nested"
+      },
+      {
+        "type": "numbered",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "third"
+      },
+      {
+        "type": "code",
+        "indent": 0,
+        "checked": false,
+        "language": "rust",
+        "text": "fn main() {}"
+      },
+      {
+        "type": "divider",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": ""
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": ""
+      },
+      {
+        "type": "quote",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "q1\n"
+      },
+      {
+        "type": "table",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "| a |"
+      }
+    ],
+    "export": "# Title\n\nPara one continued\n\n- [x] done\n  - nested\n1. third\n\n```rust\nfn main() {}\n```\n\n---\n\n&nbsp;\n\n> q1\n>\n\n| a |"
+  }
+}

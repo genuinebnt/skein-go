@@ -1,0 +1,61 @@
+{
+  "name": "layout enter and backspace",
+  "why": "Enter inserts a marker (7:17) before ' text', starting a paragraph with default attributes. Backspace at the start of 'body' deletes its marker (7:7), so 'body' joins the heading, which keeps the heading attribute of its own marker 7:1.",
+  "kind": "layout",
+  "input": {
+    "replica": 7,
+    "edits": [
+      {
+        "insert": {
+          "index": 0,
+          "text": "\u001eTitle\u001ebody text"
+        }
+      },
+      {
+        "set_attrs": {
+          "block": 0,
+          "attrs": {
+            "type": "heading1",
+            "indent": 0,
+            "checked": false,
+            "language": "",
+            "text": ""
+          }
+        }
+      },
+      {
+        "insert": {
+          "index": 11,
+          "text": "\u001e"
+        }
+      },
+      {
+        "delete": {
+          "index": 6,
+          "count": 1
+        }
+      }
+    ]
+  },
+  "expect": {
+    "blocks": [
+      {
+        "id": "7:1",
+        "type": "heading1",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "Titlebody"
+      },
+      {
+        "id": "7:17",
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": " text"
+      }
+    ],
+    "markdown": "# Titlebody\n\n text"
+  }
+}

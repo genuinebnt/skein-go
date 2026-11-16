@@ -87,6 +87,29 @@ operation per element before grouping, so memory is about 450 bytes per code
 point at this size. The documents service should diff by line first and
 refine changed lines by word or character, which keeps D and N small.
 
+### libs/blocks and services/documents (2026-11-17)
+
+Go 1.24.7, linux/amd64, 2 vCPUs (cloud development container). `go test
+-run='^$' -bench=. -benchmem` in `libs/blocks`.
+
+| Benchmark | Work per op | Time per op | Memory per op |
+|---|---|---|---|
+| `BenchmarkElements10k` | order 10,100 inserts (100 blocks typed mid-text) by relabelled replay | 13.5 ms | 12.2 MB |
+| `BenchmarkParseInlineParagraph` | inline parse of a 1,500-code-point paragraph with every construct | 96 µs | 132 KB |
+| `BenchmarkExportImport100Blocks` | Markdown export then import of 100 blocks | 76 µs | 47 KB |
+
+`Elements` is a second replay of the whole log, so the documents service
+caches the layout per note state and recomputes it only after a change (for
+GetNote, debounced BlocksChanged and history reads, never per sync batch). A
+CRDT iterator over elements with IDs would remove the replay (follow-up).
+
+Loading `testdata/seed/small` (300 notes, 1,276 batches, 432,002 ops)
+through `ApplyOps`, with permission checks, the op log and the outbox:
+2.2 s against the in-memory store (`internal/seed` test), 3.1 s into a local
+Postgres 16 including verification against the CRDT truth
+(`documents-seed`), and 1.3 s for an idempotent second run that reloads
+every note from Postgres.
+
 ### services/ml algorithms (2026-11-16)
 
 Python 3.13, NumPy 2.5, 2 vCPUs (cloud development container). Clustering
