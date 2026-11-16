@@ -3,18 +3,64 @@ syntax = "proto3";
 // Inbox, live push and notification preferences.
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes are listed in docs/api/notifications.md. Every route acts on
+// the caller's own inbox and preferences, so none takes a user ID. Subscribe
+// streams, so the gateway serves it as the WebSocket /v1/notifications/live
+// (docs/api/websocket.md) and it has no HTTP mapping here.
 service NotificationService {
-  rpc ListInbox(ListInboxRequest) returns (ListInboxResponse);
-  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Notifications"
+    description: "The caller's inbox and notification preferences."
+  };
+
+  rpc ListInbox(ListInboxRequest) returns (ListInboxResponse) {
+    option (google.api.http) = {get: "/v1/notifications"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List the inbox"
+      tags: "Notifications"
+    };
+  }
+  // Marks notifications as read. IDs that are already read, or unknown, are
+  // ignored, so the call is idempotent.
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
+    option (google.api.http) = {
+      post: "/v1/notifications:markRead"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Mark notifications as read"
+      tags: "Notifications"
+    };
+  }
   // Live notifications for the caller, relayed to the browser by the gateway.
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
-  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
-  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse) {
+    option (google.api.http) = {get: "/v1/notification-preferences"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get notification preferences"
+      tags: "Notifications"
+    };
+  }
+  // Replaces the preferences for the kinds listed; kinds not listed keep
+  // their current setting.
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse) {
+    option (google.api.http) = {
+      put: "/v1/notification-preferences"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update notification preferences"
+      tags: "Notifications"
+    };
+  }
 }
 
 enum NotificationKind {
@@ -38,15 +84,20 @@ message Notification {
 }
 message ListInboxRequest {
   PageRequest page = 1;
+  // Only notifications not yet marked read.
   bool unread_only = 2;
 }
 message ListInboxResponse {
   repeated Notification notifications = 1;
   PageResponse page = 2;
+  // Total unread notifications in the inbox, for the badge.
   uint32 unread = 3;
 }
 message MarkReadRequest {
-  repeated string ids = 1;
+  repeated string ids = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "[\"01936f60-5e6f-7a80-9b92-0d1e2f304152\"]"}
+  ];
 }
 message MarkReadResponse {}
 message SubscribeRequest {}
@@ -55,7 +106,9 @@ message SubscribeResponse {
 }
 message Preference {
   NotificationKind kind = 1;
+  // Show in the inbox and push live.
   bool in_app = 2;
+  // Also send an email.
   bool email = 3;
 }
 message GetPreferencesRequest {}

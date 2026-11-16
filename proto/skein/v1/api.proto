@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+// API-wide metadata for the public REST/JSON API served by the gateway.
+//
+// This file holds no messages. It carries the OpenAPI document header (title,
+// version, security) that protoc-gen-openapiv2 uses when it merges every
+// contract into gen/openapi/skein.swagger.json: the merge takes its header
+// from the one file with an openapiv2_swagger option, so that option lives
+// here and nowhere else. See docs/api/README.md for the conventions the
+// description summarises.
+package skein.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Skein API"
+    version: "v1"
+    description:
+      "REST/JSON API of Skein, a collaborative, offline-capable notes "
+      "workspace. The gateway translates each route to a gRPC call on a "
+      "backend service; the gRPC contracts in proto/skein/v1 are the source "
+      "of truth.\n\n"
+      "Conventions (docs/api/README.md): JSON field names are lowerCamelCase; "
+      "64-bit integers and bytes are JSON strings (decimal and base64); enums "
+      "are their names; timestamps are RFC 3339. Errors are google.rpc.Status "
+      "objects. Every request needs `Authorization: Bearer <access token>` "
+      "except sign-up, sign-in and token refresh. POST requests accept an "
+      "`Idempotency-Key` header. Responses carry `X-Request-Id` and the "
+      "rate-limit headers `RateLimit-Limit`, `RateLimit-Remaining`, "
+      "`RateLimit-Reset`, plus `Retry-After` on 429.\n\n"
+      "Live sync, the agent's streamed output and live notifications are "
+      "WebSocket endpoints, described in docs/api/websocket.md and not in "
+      "this document."
+    license: {
+      name: "See the repository licence"
+      url: "https://github.com/genuinebnt/skein-go"
+    }
+  }
+  schemes: HTTPS
+  consumes: "application/json"
+  produces: "application/json"
+  security_definitions: {
+    security: {
+      key: "bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description:
+          "An access token from sign-in, sign-up or refresh, sent as "
+          "`Authorization: Bearer <token>`. Tokens are short-lived; refresh "
+          "with POST /v1/sessions:refresh."
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "bearer"
+      value: {}
+    }
+  }
+  responses: {
+    key: "401"
+    value: {
+      description: "Missing, malformed or expired access token (UNAUTHENTICATED)."
+      schema: {
+        json_schema: {ref: ".google.rpc.Status"}
+      }
+    }
+  }
+  responses: {
+    key: "403"
+    value: {
+      description: "The caller may not perform this action (PERMISSION_DENIED)."
+      schema: {
+        json_schema: {ref: ".google.rpc.Status"}
+      }
+    }
+  }
+  responses: {
+    key: "429"
+    value: {
+      description:
+        "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of "
+        "seconds in the Retry-After header."
+      schema: {
+        json_schema: {ref: ".google.rpc.Status"}
+      }
+    }
+  }
+  external_docs: {
+    description: "REST conventions, error model and WebSocket endpoints"
+    url: "https://github.com/genuinebnt/skein-go/tree/main/docs/api"
+  }
+};

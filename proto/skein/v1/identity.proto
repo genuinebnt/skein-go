@@ -3,39 +3,190 @@ syntax = "proto3";
 // Users, sessions, workspaces, roles and authorization (ADR-0008).
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes: every user-facing RPC has a google.api.http mapping served by
+// the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
+// IssueDelegatedToken are internal: only other services call them, so they
+// have no HTTP mapping and the gateway never routes to them.
 service IdentityService {
-  rpc SignUp(SignUpRequest) returns (SignUpResponse);
-  rpc SignIn(SignInRequest) returns (SignInResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Identity"
+    description: "Accounts, sessions, workspaces, members, note roles and share links."
+  };
+
+  // Creates an account with email and password and signs it in.
+  rpc SignUp(SignUpRequest) returns (SignUpResponse) {
+    option (google.api.http) = {
+      post: "/v1/users"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign up"
+      tags: "Identity"
+      security: {}
+    };
+  }
+  // Signs in with email and password.
+  rpc SignIn(SignInRequest) returns (SignInResponse) {
+    option (google.api.http) = {
+      post: "/v1/sessions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign in with a password"
+      tags: "Identity"
+      security: {}
+    };
+  }
   // Exchanges an OAuth authorization code (Google, GitHub) for a session.
-  rpc SignInWithOAuth(SignInWithOAuthRequest) returns (SignInWithOAuthResponse);
+  rpc SignInWithOAuth(SignInWithOAuthRequest) returns (SignInWithOAuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/sessions:oauth"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign in with OAuth"
+      tags: "Identity"
+      security: {}
+    };
+  }
   // Rotates the refresh token and issues a new access token.
-  rpc Refresh(RefreshRequest) returns (RefreshResponse);
-  rpc SignOut(SignOutRequest) returns (SignOutResponse);
-  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {
+    option (google.api.http) = {
+      post: "/v1/sessions:refresh"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Refresh a session"
+      description:
+        "Rotates the refresh token: the old one stops working and the "
+        "response carries a new pair. Presenting an already-rotated refresh "
+        "token revokes the whole session family."
+      tags: "Identity"
+      security: {}
+    };
+  }
+  // Revokes the session that owns the refresh token.
+  rpc SignOut(SignOutRequest) returns (SignOutResponse) {
+    option (google.api.http) = {
+      post: "/v1/sessions:signOut"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign out"
+      description: "The refresh token is the credential, so an expired access token does not prevent signing out."
+      tags: "Identity"
+      security: {}
+    };
+  }
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {get: "/v1/users/{user_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a user"
+      tags: "Identity"
+    };
+  }
 
-  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
-  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
-  rpc SetWorkspaceRole(SetWorkspaceRoleRequest) returns (SetWorkspaceRoleResponse);
-  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
-  rpc SetNoteRole(SetNoteRoleRequest) returns (SetNoteRoleResponse);
-  rpc CreateShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse);
-  rpc RevokeShareLink(RevokeShareLinkRequest) returns (RevokeShareLinkResponse);
+  // Creates a workspace owned by the caller.
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse) {
+    option (google.api.http) = {
+      post: "/v1/workspaces"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create a workspace"
+      tags: "Identity"
+    };
+  }
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/members"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List workspace members"
+      tags: "Identity"
+    };
+  }
+  // Adds a member with a role, or changes an existing member's role.
+  rpc SetWorkspaceRole(SetWorkspaceRoleRequest) returns (SetWorkspaceRoleResponse) {
+    option (google.api.http) = {
+      put: "/v1/workspaces/{workspace_id}/members/{user_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Set a member's workspace role"
+      tags: "Identity"
+    };
+  }
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
+    option (google.api.http) = {delete: "/v1/workspaces/{workspace_id}/members/{user_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Remove a workspace member"
+      tags: "Identity"
+    };
+  }
+  // Sets or clears a per-note role override for one user.
+  rpc SetNoteRole(SetNoteRoleRequest) returns (SetNoteRoleResponse) {
+    option (google.api.http) = {
+      put: "/v1/notes/{note_id}/roles/{user_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Set a user's role on a note"
+      tags: "Identity"
+    };
+  }
+  rpc CreateShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}/share-links"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create a share link"
+      tags: "Identity"
+    };
+  }
+  rpc RevokeShareLink(RevokeShareLinkRequest) returns (RevokeShareLinkResponse) {
+    option (google.api.http) = {delete: "/v1/share-links/{link_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Revoke a share link"
+      tags: "Identity"
+    };
+  }
 
-  // Checks many (action, resource) pairs for one subject in one call. Every
-  // service calls this, with a short cache, before acting.
+  // Internal. Checks many (action, resource) pairs for one subject in one
+  // call. Every service calls this, with a short cache, before acting.
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
-  // Lists the notes a subject can read in a workspace, for permission-aware
-  // search (ADR-0010).
+  // Internal. Lists the notes a subject can read in a workspace, for
+  // permission-aware search (ADR-0010).
   rpc ListReadableNotes(ListReadableNotesRequest) returns (ListReadableNotesResponse);
-  // Issues a short-lived token for an agent run acting as the user (ADR-0009).
+  // Internal. Issues a short-lived token for an agent run acting as the user
+  // (ADR-0009). Only the agent service may call it.
   rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse);
   // Records that a CRDT replica ID belongs to the calling user (ADR-0004).
-  rpc RegisterReplica(RegisterReplicaRequest) returns (RegisterReplicaResponse);
+  // Browser-facing: each device mints its replica ID in IndexedDB and
+  // registers it before its first sync.
+  rpc RegisterReplica(RegisterReplicaRequest) returns (RegisterReplicaResponse) {
+    option (google.api.http) = {
+      post: "/v1/replicas"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Register a CRDT replica"
+      description:
+        "Binds a replica ID to the caller. The documents service accepts "
+        "operations from a replica only on connections authenticated as the "
+        "user who registered it, so blame cannot be forged. Registering an "
+        "ID already owned by the caller succeeds; one owned by someone else "
+        "fails with ALREADY_EXISTS and the client must mint a new ID."
+      tags: "Identity"
+    };
+  }
 }
 
 enum WorkspaceRole {
@@ -75,16 +226,24 @@ enum OAuthProvider {
 }
 
 message User {
-  string id = 1;
-  string email = 2;
-  string display_name = 3;
-  google.protobuf.Timestamp created_at = 4;
+  // UUIDv7.
+  string id = 1 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f3e-8c4a-7b2e-9f10-3d5a6b7c8d90\""}
+  ];
+  string email = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"ada@example.com\""}];
+  string display_name = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Ada Lovelace\""}];
+  google.protobuf.Timestamp created_at = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
+// A signed-in session. Send access_token as `Authorization: Bearer <token>`;
+// keep refresh_token secret and use it only with Refresh and SignOut.
 message Session {
-  string access_token = 1;
+  // Short-lived signed token (minutes).
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl\""}];
   google.protobuf.Timestamp access_expires_at = 2;
-  string refresh_token = 3;
+  // Opaque rotating token (days). Each refresh returns a new one.
+  string refresh_token = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"rt_9mQ2xV7kLp3sT8wZ\""}];
   google.protobuf.Timestamp refresh_expires_at = 4;
 }
 
@@ -101,57 +260,85 @@ message Member {
 }
 
 message SignUpRequest {
-  string email = 1;
-  string password = 2;
-  string display_name = 3;
+  string email = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"ada@example.com\""}
+  ];
+  // Stored only as an Argon2id hash and never logged (ADR-0008). Identity
+  // rejects weak passwords with INVALID_ARGUMENT.
+  string password = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+  string display_name = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Ada Lovelace\""}
+  ];
 }
 message SignUpResponse {
   User user = 1;
   Session session = 2;
 }
 message SignInRequest {
-  string email = 1;
-  string password = 2;
+  string email = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"ada@example.com\""}
+  ];
+  string password = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
 }
 message SignInResponse {
   User user = 1;
   Session session = 2;
 }
 message SignInWithOAuthRequest {
-  OAuthProvider provider = 1;
-  string code = 2;
-  string code_verifier = 3; // PKCE
-  string redirect_uri = 4;
+  OAuthProvider provider = 1 [(google.api.field_behavior) = REQUIRED];
+  // The authorization code the provider returned to redirect_uri.
+  string code = 2 [(google.api.field_behavior) = REQUIRED];
+  // The PKCE verifier whose challenge started the flow.
+  string code_verifier = 3 [(google.api.field_behavior) = REQUIRED];
+  // Must equal the redirect URI used to start the flow.
+  string redirect_uri = 4 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"https://skein.example.com/auth/callback\""}
+  ];
 }
 message SignInWithOAuthResponse {
   User user = 1;
   Session session = 2;
+  // True when this sign-in created the account.
   bool created = 3;
 }
 message RefreshRequest {
-  string refresh_token = 1;
+  string refresh_token = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message RefreshResponse {
   Session session = 1;
 }
 message SignOutRequest {
-  string refresh_token = 1;
+  string refresh_token = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message SignOutResponse {}
 message GetUserRequest {
-  string user_id = 1;
+  string user_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message GetUserResponse {
   User user = 1;
 }
 message CreateWorkspaceRequest {
-  string name = 1;
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Research\""}
+  ];
 }
 message CreateWorkspaceResponse {
-  string workspace_id = 1;
+  // UUIDv7.
+  string workspace_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f3e-1a2b-7c3d-8e4f-5a6b7c8d9e0f\""}];
 }
 message ListMembersRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
   PageRequest page = 2;
 }
 message ListMembersResponse {
@@ -159,36 +346,38 @@ message ListMembersResponse {
   PageResponse page = 2;
 }
 message SetWorkspaceRoleRequest {
-  string workspace_id = 1;
-  string user_id = 2;
-  WorkspaceRole role = 3;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string user_id = 2 [(google.api.field_behavior) = REQUIRED];
+  // WORKSPACE_ROLE_UNSPECIFIED is rejected; use RemoveMember to remove.
+  WorkspaceRole role = 3 [(google.api.field_behavior) = REQUIRED];
 }
 message SetWorkspaceRoleResponse {}
 message RemoveMemberRequest {
-  string workspace_id = 1;
-  string user_id = 2;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string user_id = 2 [(google.api.field_behavior) = REQUIRED];
 }
 message RemoveMemberResponse {}
 message SetNoteRoleRequest {
-  string note_id = 1;
-  string user_id = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string user_id = 2 [(google.api.field_behavior) = REQUIRED];
   // NOTE_ROLE_UNSPECIFIED removes the override and falls back to the
   // workspace role.
   NoteRole role = 3;
 }
 message SetNoteRoleResponse {}
 message CreateShareLinkRequest {
-  string note_id = 1;
-  NoteRole role = 2;
-  google.protobuf.Timestamp expires_at = 3;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  NoteRole role = 2 [(google.api.field_behavior) = REQUIRED];
+  // When the link stops working. Unset means it never expires.
+  google.protobuf.Timestamp expires_at = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"2026-12-01T00:00:00Z\""}];
 }
 message CreateShareLinkResponse {
-  string link_id = 1;
+  string link_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f70-4d5e-7f60-8a71-8c9d0e1f2031\""}];
   // Returned once; only a hash is stored.
-  string token = 2;
+  string token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"sl_Vb4nR8tYq2Kd6Hj1\""}];
 }
 message RevokeShareLinkRequest {
-  string link_id = 1;
+  string link_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message RevokeShareLinkResponse {}
 
@@ -221,6 +410,11 @@ message IssueDelegatedTokenResponse {
   string access_token = 1;
 }
 message RegisterReplicaRequest {
-  uint64 replica_id = 1;
+  // Random 64-bit ID minted by the device. A JSON string, because uint64
+  // does not fit a JavaScript number.
+  uint64 replica_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107\""}
+  ];
 }
 message RegisterReplicaResponse {}
