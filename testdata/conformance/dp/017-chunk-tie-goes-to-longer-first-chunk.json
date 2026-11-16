@@ -1,0 +1,20 @@
+{
+  "name": "equal cost and chunk count are decided by the longer first chunk",
+  "why": "Limit 5, blocks [5, 0, 5]. [5] [0 5] and [5 0] [5] both cost 0 with 2 chunks; [5] [0] [5] costs 25. Of the tied pair, the one whose first chunk ends later wins: ends [2, 3], so the empty block joins the first chunk.",
+  "kind": "chunk",
+  "input": {
+    "tokens": [
+      5,
+      0,
+      5
+    ],
+    "limit": 5
+  },
+  "expect": {
+    "ends": [
+      2,
+      3
+    ],
+    "cost": 0
+  }
+}

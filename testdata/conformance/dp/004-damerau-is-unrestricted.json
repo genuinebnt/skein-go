@@ -1,0 +1,12 @@
+{
+  "name": "Damerau-Levenshtein is the unrestricted variant, not optimal string alignment",
+  "why": "ca -> ac (swap) -> abc (insert b between a and c) costs 2. Optimal string alignment forbids editing a transposed pair again and gives 3; that variant breaks the triangle inequality, which is why Skein uses the unrestricted one.",
+  "kind": "damerau_levenshtein",
+  "input": {
+    "a": "ca",
+    "b": "abc"
+  },
+  "expect": {
+    "distance": 2
+  }
+}

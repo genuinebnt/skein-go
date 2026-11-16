@@ -1,0 +1,43 @@
+{
+  "name": "a window with two different terms beats a window with the same term three times",
+  "why": "Window 40. Term 0 appears at 0, 5, 10 (one distinct term); term 0 at 100..104 and term 1 at 120..125 fit together in 25 code points (two distinct terms). The tight span is 100..125.",
+  "kind": "snippet",
+  "input": {
+    "window": 40,
+    "matches": [
+      {
+        "term": 0,
+        "start": 0,
+        "end": 4
+      },
+      {
+        "term": 0,
+        "start": 5,
+        "end": 9
+      },
+      {
+        "term": 0,
+        "start": 10,
+        "end": 14
+      },
+      {
+        "term": 0,
+        "start": 100,
+        "end": 104
+      },
+      {
+        "term": 1,
+        "start": 120,
+        "end": 125
+      }
+    ]
+  },
+  "expect": {
+    "found": true,
+    "span": {
+      "start": 100,
+      "end": 125
+    },
+    "terms": 2
+  }
+}
