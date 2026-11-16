@@ -124,6 +124,25 @@ embeddings, and agent frameworks are young; check the current options first.
   results agree to the last bit where they can; fixtures still allow `1e-9`.
 - `docs/spec/graph.md` is normative, including the Louvain label rule.
 
+### `libs/blocks` (`skein-blocks`)
+
+- `docs/spec/blocks.md` is normative; the fixtures in
+  `testdata/conformance/blocks` cover inline parsing, Markdown import and
+  export, attribute registers (with golden bytes) and layout.
+- `Node` becomes an enum with one variant per `NodeKind`, each holding its
+  span; `AttrWrite` becomes a struct with `value: AttrValue`
+  (`Type(Type) | Indent(u32) | Checked(bool) | Language(String)`), which
+  deletes `Validate`'s "fields of another key" checks.
+- Parse over `Vec<char>`; spans are char indexes. `matchEmphasis` keeps its
+  per-character linked lists as `Vec<Delim>` with `prev`/`next: Option<usize>`.
+- `Elements` relabels inserts with `char::from_u32(k)` for `k < 0xD800`,
+  else `k + 0x800`; port it exactly, or drop it once the Rust CRDT exposes an
+  element iterator (then compare its output with the relabelled replay in a
+  test).
+- `Attributes` keeps `writes: Vec<AttrWrite>`, `seen: HashSet<AttrWrite>`
+  and `winners: HashMap<(Id, AttrKey), AttrWrite>`; `Wins` compares
+  `(lamport, replica)` then the encoded value bytes.
+
 ## 6. Cross-language checks
 
 - **Fixtures:** each Rust crate's tests load `testdata/conformance/<name>`

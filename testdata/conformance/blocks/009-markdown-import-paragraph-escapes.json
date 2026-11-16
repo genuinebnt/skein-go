@@ -1,0 +1,34 @@
+{
+  "name": "markdown import paragraph escapes",
+  "why": "A line of backslashes then r is an escaped paragraph exactly when r on its own is not a plain paragraph; one backslash is removed. '\\\\# literal' hides a heading; '\\\\\\\\- also' keeps one backslash before a list marker (still needing escape on export); '\\\\plain' protects nothing and is kept as is.",
+  "kind": "markdown_import",
+  "input": {
+    "markdown": "\\# literal\n\n\\\\- also\n\n\\plain"
+  },
+  "expect": {
+    "blocks": [
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "# literal"
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "\\- also"
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "\\plain"
+      }
+    ],
+    "export": "\\# literal\n\n\\\\- also\n\n\\plain"
+  }
+}

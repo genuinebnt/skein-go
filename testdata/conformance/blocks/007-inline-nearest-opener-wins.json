@@ -1,0 +1,66 @@
+{
+  "name": "inline nearest opener wins",
+  "why": "CommonMark's rule without the rule of three: the '**' closer after b pairs with the nearest opener, the single '*' before b (emphasis, one character each); its second '*' then pairs with one '*' of the leading '**'; the final '*' pairs with the remaining leading '*'. Three nested emphasis nodes, no strong.",
+  "kind": "inline",
+  "input": {
+    "text": "**a *b** c*"
+  },
+  "expect": {
+    "nodes": [
+      {
+        "kind": "emphasis",
+        "start": 0,
+        "end": 11,
+        "content_start": 1,
+        "content_end": 10,
+        "children": [
+          {
+            "kind": "emphasis",
+            "start": 1,
+            "end": 8,
+            "content_start": 2,
+            "content_end": 7,
+            "children": [
+              {
+                "kind": "text",
+                "start": 2,
+                "end": 4,
+                "content_start": 2,
+                "content_end": 4,
+                "value": "a "
+              },
+              {
+                "kind": "emphasis",
+                "start": 4,
+                "end": 7,
+                "content_start": 5,
+                "content_end": 6,
+                "children": [
+                  {
+                    "kind": "text",
+                    "start": 5,
+                    "end": 6,
+                    "content_start": 5,
+                    "content_end": 6,
+                    "value": "b"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "text",
+            "start": 8,
+            "end": 10,
+            "content_start": 8,
+            "content_end": 10,
+            "value": " c"
+          }
+        ]
+      }
+    ],
+    "plain": "a b c",
+    "links": [],
+    "mentions": []
+  }
+}

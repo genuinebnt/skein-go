@@ -1,0 +1,20 @@
+{
+  "name": "markdown export fence outgrows code",
+  "why": "The code has a line of three backticks, which would close a three-backtick fence, so the fence is one longer.",
+  "kind": "markdown_export",
+  "input": {
+    "blocks": [
+      {
+        "type": "code",
+        "indent": 0,
+        "checked": false,
+        "language": "md",
+        "text": "```\nx"
+      }
+    ]
+  },
+  "expect": {
+    "markdown": "````md\n```\nx\n````",
+    "lossless": true
+  }
+}

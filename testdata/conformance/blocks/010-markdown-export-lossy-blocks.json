@@ -1,0 +1,27 @@
+{
+  "name": "markdown export lossy blocks",
+  "why": "Markdown cannot indent a paragraph, and bulleted text that starts with a check box reads back as a to-do, so these blocks are outside the lossless subset; export still writes something sensible.",
+  "kind": "markdown_export",
+  "input": {
+    "blocks": [
+      {
+        "type": "paragraph",
+        "indent": 2,
+        "checked": false,
+        "language": "",
+        "text": "x"
+      },
+      {
+        "type": "bulleted",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "[ ] not a box"
+      }
+    ]
+  },
+  "expect": {
+    "markdown": "x\n\n- [ ] not a box",
+    "lossless": false
+  }
+}

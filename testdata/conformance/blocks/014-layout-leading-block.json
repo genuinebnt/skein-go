@@ -1,0 +1,55 @@
+{
+  "name": "layout leading block",
+  "why": "Text inserted before the first marker belongs to no marker: it forms a leading block with ID 0:0 (the root) and default attributes.",
+  "kind": "layout",
+  "input": {
+    "replica": 3,
+    "edits": [
+      {
+        "insert": {
+          "index": 0,
+          "text": "\u001eq"
+        }
+      },
+      {
+        "set_attrs": {
+          "block": 0,
+          "attrs": {
+            "type": "quote",
+            "indent": 0,
+            "checked": false,
+            "language": "",
+            "text": ""
+          }
+        }
+      },
+      {
+        "insert": {
+          "index": 0,
+          "text": "lead"
+        }
+      }
+    ]
+  },
+  "expect": {
+    "blocks": [
+      {
+        "id": "0:0",
+        "type": "paragraph",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "lead"
+      },
+      {
+        "id": "3:1",
+        "type": "quote",
+        "indent": 0,
+        "checked": false,
+        "language": "",
+        "text": "q"
+      }
+    ],
+    "markdown": "lead\n\n> q"
+  }
+}

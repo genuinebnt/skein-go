@@ -6,12 +6,12 @@ They are added one milestone at a time; see `docs/architecture.md` section 8.
 | Service | Language | Status |
 |---|---|---|
 | `gateway` | Go | phase 2: REST and WebSocket edge (`services/gateway/README.md`) |
-| `identity` | Go | planned |
-| `documents` | Go | planned |
+| `identity` | Go | phase 2: accounts, OAuth, sessions, JWKS, workspaces, roles, share links, Authorize (`services/identity/README.md`) |
+| `documents` | Go | phase 2: notes, sync, history, undo, outbox, seed loader (`services/documents/README.md`) |
 | `search` | Go | phase 2: text, regex and code search, title completion, graph algorithms, projections (`services/search/README.md`) |
 | `ml` | Python | phase 1: algorithms, benchmark, gRPC service (`services/ml/README.md`) |
-| `agent` | Python (LangGraph) | planned |
-| `notifications` | Go | planned |
+| `agent` | Python (LangGraph) | phase 2: tool-calling agent, confirmations, budgets, Postgres persistence, evals (`services/agent/README.md`) |
+| `notifications` | Go | phase 2: inbox, preferences, live push, email with digests (`services/notifications/README.md`) |
 
 ## Layout of a Go service
 

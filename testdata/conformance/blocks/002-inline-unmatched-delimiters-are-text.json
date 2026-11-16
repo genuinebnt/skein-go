@@ -1,0 +1,23 @@
+{
+  "name": "inline unmatched delimiters are text",
+  "why": "Nothing closes the two openers ('**' and '*' before letters), and '_' inside a word neither opens nor closes (snake_case stays plain), so the whole text is one text node and renders unchanged.",
+  "kind": "inline",
+  "input": {
+    "text": "**open *and_snake_case"
+  },
+  "expect": {
+    "nodes": [
+      {
+        "kind": "text",
+        "start": 0,
+        "end": 22,
+        "content_start": 0,
+        "content_end": 22,
+        "value": "**open *and_snake_case"
+      }
+    ],
+    "plain": "**open *and_snake_case",
+    "links": [],
+    "mentions": []
+  }
+}

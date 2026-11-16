@@ -2,11 +2,13 @@ go 1.24.0
 
 use (
 	./gen/go
+	./libs/blocks
 	./libs/crdt
 	./libs/dp
 	./libs/graph
 	./libs/trigram
 	./platform
+	./services/documents
 	./services/gateway
 	./services/identity
 	./services/notifications
