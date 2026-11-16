@@ -6,5 +6,6 @@ use (
 	./libs/dp
 	./libs/graph
 	./platform
+	./services/gateway
 	./tools/seed
 )
