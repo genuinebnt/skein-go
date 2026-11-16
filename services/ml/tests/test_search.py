@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import itertools
 
 import numpy as np
 import pytest
@@ -94,7 +95,7 @@ def test_hnsw_invariants_hold_after_every_insert(rng):
         index.check_invariants()
     sizes = index.layer_sizes()
     assert sizes[0] == 300
-    assert all(a >= b for a, b in zip(sizes, sizes[1:], strict=False))
+    assert all(a >= b for a, b in itertools.pairwise(sizes))
 
 
 @pytest.fixture(scope="module")

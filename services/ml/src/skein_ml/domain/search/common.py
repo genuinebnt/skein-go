@@ -60,6 +60,11 @@ class VectorIndex(Protocol):
         """Raise InvariantViolation if the index's structure is inconsistent."""
         ...
 
+    @property
+    def count(self) -> int:
+        """Ids ever assigned, tombstones included (the next id to be assigned)."""
+        ...
+
     def __len__(self) -> int: ...
 
 

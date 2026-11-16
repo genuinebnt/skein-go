@@ -87,6 +87,7 @@ class OnnxSentenceEmbedder:
             feed = {"input_ids": ids, "attention_mask": mask}
             if "token_type_ids" in self._inputs:
                 feed["token_type_ids"] = np.zeros_like(ids)
-            hidden = self._session.run(None, {k: v for k, v in feed.items() if k in self._inputs})[0]
+            feed = {name: value for name, value in feed.items() if name in self._inputs}
+            hidden = self._session.run(None, feed)[0]
             parts.append(mean_pool(hidden, mask))
         return np.concatenate(parts)

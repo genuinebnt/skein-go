@@ -58,7 +58,7 @@ class IVFIndex:
 
     def set_nprobe(self, nprobe: int) -> None:
         """Change how many cells a query scans."""
-        if not 1 <= nprobe:
+        if nprobe < 1:
             raise ValueError("nprobe must be at least 1")
         self.nprobe = min(nprobe, self.nlist)
 
@@ -97,6 +97,11 @@ class IVFIndex:
     def list_sizes(self) -> np.ndarray:
         """Number of stored ids (including tombstones) per cell."""
         return np.array([len(cell) for cell in self._lists])
+
+    @property
+    def count(self) -> int:
+        """Ids stored, including tombstones."""
+        return self._store.count
 
     def __len__(self) -> int:
         return len(self._store)

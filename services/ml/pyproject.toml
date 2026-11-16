@@ -40,10 +40,11 @@ packages = ["src/skein_ml"]
 testpaths = ["tests"]
 # _gen holds the generated gRPC stubs until gen/python lands (scripts/gen_proto.sh).
 pythonpath = ["src", "_gen"]
-addopts = "-ra -m 'not integration and not onnx'"
+addopts = "-ra -m 'not integration and not onnx and not loopback'"
 markers = [
     "integration: needs Docker or a running Postgres/Redis/Pub/Sub; skipped by default",
     "onnx: needs a local ONNX sentence-transformer model in SKEIN_ONNX_MODEL_DIR; skipped by default",
+    "loopback: opens a 127.0.0.1 socket (docs/testing.md keeps sockets out of unit tests); run with -m loopback",
 ]
 
 [tool.ruff]
@@ -54,4 +55,6 @@ extend-exclude = ["_gen"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
 # N803/N806: single capital letters (X, B, N) follow the papers' notation.
-ignore = ["N803", "N806", "RUF001", "RUF002", "RUF003"]
+# SIM905: a split string literal keeps the stop-word list readable.
+# N818: error classes mirror gRPC status names (NotFound, InvalidArgument), sentinel style.
+ignore = ["N803", "N806", "N818", "RUF001", "RUF002", "RUF003", "SIM905"]

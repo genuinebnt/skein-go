@@ -24,6 +24,7 @@ value modulo the dimension and the sign is the top bit.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import math
 from collections import Counter
 from collections.abc import Sequence
@@ -105,7 +106,7 @@ class HashingEmbedder:
 
 def _features(text: str) -> list[str]:
     words = tokens(text)
-    return words + [f"{a} {b}" for a, b in zip(words, words[1:], strict=False)]
+    return words + [f"{a} {b}" for a, b in itertools.pairwise(words)]
 
 
 def _bucket_and_sign(feature: str) -> tuple[int, float]:
