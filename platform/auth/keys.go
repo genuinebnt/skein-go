@@ -99,10 +99,10 @@ type JWK struct {
 	Algorithm string `json:"alg"`
 }
 
-// JWKS is the body of the public key set endpoint, served by identity at
-// GET /.well-known/jwks.json (through the gateway) and by its
-// IdentityService for internal callers. Cache it for at most C, the cache
-// period in the rotation procedure.
+// JWKS is the body of the public key set endpoint, which identity serves
+// at GET /.well-known/jwks.json through the gateway. Internal callers fetch
+// the same document through whatever RPC the contracts give identity for
+// it. Cache it for at most C, the cache period in the rotation procedure.
 type JWKS struct {
 	Keys []JWK `json:"keys"`
 }

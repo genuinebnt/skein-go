@@ -40,7 +40,10 @@ func IsSensitiveKey(key string) bool {
 
 // normaliseKey lowercases key and turns separators and camelCase boundaries
 // into '_', so "accessToken", "access-token" and "ACCESS_TOKEN" all become
-// "access_token".
+// "access_token". Word boundaries are found only between ASCII letters and
+// digits: attribute keys are ASCII identifiers, and some Unicode letters
+// count as upper case yet have no lower-case form, which would make the
+// normalisation of a normalised key differ (found by FuzzIsSensitiveKey).
 func normaliseKey(key string) string {
 	var b strings.Builder
 	b.Grow(len(key) + 4)
@@ -49,13 +52,13 @@ func normaliseKey(key string) string {
 		switch {
 		case r == '-' || r == '.' || r == ' ' || r == '_':
 			b.WriteByte('_')
-		case unicode.IsUpper(r):
-			if i > 0 && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+		case r >= 'A' && r <= 'Z':
+			if i > 0 && ((prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9')) {
 				b.WriteByte('_')
 			}
-			b.WriteRune(unicode.ToLower(r))
+			b.WriteRune(r + ('a' - 'A'))
 		default:
-			b.WriteRune(r)
+			b.WriteRune(unicode.ToLower(r))
 		}
 		prev = r
 	}

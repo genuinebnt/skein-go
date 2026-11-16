@@ -514,9 +514,14 @@ func TestServerSpansAreRecorded(t *testing.T) {
 	if _, err := f.call(context.Background(), "Public", ""); err != nil {
 		t.Fatal(err)
 	}
+	// The server span ends after the response is sent, so the client can
+	// return before it is exported.
 	var names []string
-	for _, s := range spans.GetSpans() {
-		names = append(names, s.Name)
+	for deadline := time.Now().Add(2 * time.Second); len(names) == 0 && time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		names = names[:0]
+		for _, s := range spans.GetSpans() {
+			names = append(names, s.Name)
+		}
 	}
 	if len(names) != 1 || names[0] != "skein.test.Echo/Public" {
 		t.Fatalf("server spans %v", names)

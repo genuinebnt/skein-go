@@ -163,10 +163,13 @@ func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
 	case <-timer.C:
 		s.logger.Warn("grpc graceful stop timed out; closing remaining calls",
 			slog.Duration("timeout", s.shutdownTimeout))
-		// Stop cancels every call's context but does not wait for
-		// handlers that ignore cancellation; waiting for them here would
-		// make the timeout meaningless. They end with the process.
-		s.Stop()
+		// Stop closes every connection, which cancels the calls, but then
+		// waits for handlers to return, and so does the inner Serve. A
+		// handler that ignores cancellation would make the timeout
+		// meaningless, so neither is waited for: such handlers end with
+		// the process.
+		go s.Stop()
+		return nil
 	}
 	if err := <-served; err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 		return err
