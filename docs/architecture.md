@@ -36,7 +36,7 @@ identity  documents   search       ml         agent      notifications
 | `identity` | Go | `identity` schema | Users, Argon2id passwords, Google and GitHub OAuth, sessions and refresh tokens, workspaces, memberships, note roles, share links, the `Authorize` check, delegated tokens for the agent |
 | `documents` | Go | `documents` schema, snapshot store | Notes, the CRDT op log and snapshots, live sync streams, version history, diff, blame, undo, comments; publishes document events through its outbox |
 | `search` | Go | `search` schema | Trigram index and regex code search, the link graph projection, graph analysis (blast radius, strongly connected components, shortest paths, centrality, PageRank, reading paths), dynamic programming features (reading plans, fuzzy ranking, snippets) |
-| `ml` | Python | `ml` schema, vector files | Embeddings, vector indexes (brute force, IVF, HNSW, with library baselines), clustering (K-means++, Elkan, mini-batch, Gaussian mixtures by EM), discovery signals, the benchmark harness |
+| `ml` | Python | `ml` schema, vector files | Embeddings, vector indexes (brute force, IVF, HNSW, with library baselines), clustering (K-means++, Elkan, mini-batch, e-means, Gaussian mixtures by EM), discovery signals, the benchmark harness |
 | `agent` | Python | `agent` schema | Chat sessions, the LangGraph agent, tools that call the other services on the user's behalf, confirmation gates, run traces and evaluations |
 | `notifications` | Go | `notifications` schema | Inbox, email, live push through the gateway, user notification preferences |
 

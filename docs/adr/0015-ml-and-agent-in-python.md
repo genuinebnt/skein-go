@@ -13,8 +13,10 @@ those references.
   `grpcio` servers, `pytest`).
 - In `ml`, each algorithm has a from-scratch NumPy implementation and a
   library baseline, run side by side in a benchmark harness: K-means++
-  initialisation, Lloyd, Elkan and mini-batch K-means, Gaussian mixtures by
-  EM, brute-force, IVF and HNSW search. Benchmarks report time, iterations,
+  initialisation, Lloyd, Elkan and mini-batch K-means, e-means (Meta FAIR,
+  2026; reference in `faiss.contrib.e_means`, notes in
+  `docs/research/e-means.md`), Gaussian mixtures by EM, and brute-force, IVF
+  and HNSW search. Benchmarks report time, iterations,
   inertia or log-likelihood, recall and memory.
 - The Rust port does not port these services; equivalent Rust crates
   (`linfa`, `candle`) are noted in the porting guide for anyone who wants to.

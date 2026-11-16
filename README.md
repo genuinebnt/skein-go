@@ -54,4 +54,5 @@ docs/            architecture, decisions, specs, guides
 - [Testing guide](docs/testing.md)
 - [Porting guide](docs/porting-to-rust.md)
 - [Performance log](docs/PERF.md)
+- [e-means research notes](docs/research/e-means.md)
 - [Contributor and agent rules](AGENTS.md)

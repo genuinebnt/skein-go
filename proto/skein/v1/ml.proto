@@ -34,6 +34,11 @@ enum ClusteringAlgorithm {
   CLUSTERING_ALGORITHM_KMEANS_MINI_BATCH = 4;
   // Gaussian mixture fitted by expectation maximisation.
   CLUSTERING_ALGORITHM_GMM_EM = 5;
+  // e-means (Meta FAIR, 2026): mini-batch k-means with exponential moving
+  // average updates, scaling-law batch and step sizes, a cosine step
+  // schedule, dead-cluster revival and an exact closing pass. See
+  // docs/research/e-means.md.
+  CLUSTERING_ALGORITHM_E_MEANS = 6;
 }
 
 message SemanticSearchRequest {
@@ -95,8 +100,8 @@ message BenchmarkClusteringResponse {
 }
 message ClusteringResult {
   ClusteringAlgorithm algorithm = 1;
-  // Implementation that produced it: "scratch" (this repository) or
-  // "sklearn" (the reference).
+  // Implementation that produced it: "scratch" (this repository), or a
+  // reference: "sklearn", or "faiss" for e-means.
   string implementation = 2;
   double mean_seconds = 3;
   double mean_iterations = 4;
@@ -106,4 +111,10 @@ message ClusteringResult {
   double silhouette = 6;
   // Distance computations, to show what Elkan's pruning saves.
   uint64 distance_computations = 7;
+  // Passes over the data; e-means aims for 1.2 to 3 where Lloyd needs 20+.
+  double epochs = 8;
+  // Objective on held-out points, the fair comparison between algorithms.
+  double test_objective = 9;
+  // Clusters left with fewer than ten points.
+  uint32 dead_clusters = 10;
 }
