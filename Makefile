@@ -1,7 +1,7 @@
 # Skein developer commands. Every target works without the cloud; only `up`,
 # `down` and `logs` need Docker.
 
-GO_MODULES := $(shell find libs services -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null | sort)
+GO_MODULES := $(shell find libs services platform -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null | sort)
 FUZZTIME   ?= 30s
 COMPOSE    := docker compose -f deploy/compose/docker-compose.yml
 # Libraries that must stay buildable for the browser (ADR-0007).
@@ -26,8 +26,10 @@ fmt-check: ## Fail if any Go file is not gofmt-formatted
 
 fuzz: ## Run every fuzz target for FUZZTIME (default 30s)
 	@for m in $(GO_MODULES); do \
-	  for t in $$(cd $$m && go test -list '^Fuzz' ./... | grep '^Fuzz'); do \
-	    echo "== $$m $$t"; (cd $$m && go test -run='^$$' -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) .) || exit 1; \
+	  for p in $$(cd $$m && go list ./...); do \
+	    for t in $$(cd $$m && go test -list '^Fuzz' $$p | grep '^Fuzz'); do \
+	      echo "== $$p $$t"; (cd $$m && go test -run='^$$' -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) $$p) || exit 1; \
+	    done; \
 	  done; \
 	done
 
