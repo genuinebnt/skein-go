@@ -182,8 +182,10 @@ class ObservabilityInterceptor(grpc.ServerInterceptor):
                     labels = {"rpc.method": method, "rpc.grpc.status_code": code.name}
                     service_metrics.rpc_requests.add(1, labels)
                     service_metrics.rpc_duration.record(elapsed, labels)
-                    log.info("rpc finished", extra={"method": method, "code": code.name,
-                                                    "duration_ms": round(elapsed, 3)})
+                    # Health probes arrive every few seconds; keep them out of INFO.
+                    level = logging.DEBUG if method.startswith("/grpc.health.") else logging.INFO
+                    log.log(level, "rpc finished", extra={"method": method, "code": code.name,
+                                                          "duration_ms": round(elapsed, 3)})
 
         return grpc.unary_unary_rpc_method_handler(
             observed, request_deserializer=handler.request_deserializer,

@@ -71,6 +71,8 @@ class BenchOptions:
     mini_batch_epochs: float = 3.0
     e_means_epochs: float = 3.0
     gmm_max_iter: int = 100
+    gmm_tol: float = 1e-3
+    """Stop when the mean log-likelihood gains less than this (scikit-learn's default)."""
     silhouette_sample: int = 2000
 
 
@@ -209,7 +211,7 @@ def _scratch_e_means(x, x_test, k, seed, options):
 
 
 def _scratch_gmm(x, x_test, k, seed, options):
-    model = GaussianMixture(k, max_iter=options.gmm_max_iter, seed=seed)
+    model = GaussianMixture(k, max_iter=options.gmm_max_iter, tol=options.gmm_tol, seed=seed)
     result, seconds = _timed(lambda: model.fit(x))
     extra = {"nll": result.objective, "test_nll": -model.score(x_test) if len(x_test) else None}
     return (result.means, seconds, result.iterations, float(result.iterations),
@@ -250,7 +252,7 @@ def _sklearn_mini_batch(x, x_test, k, seed, options):
 def _sklearn_gmm(x, x_test, k, seed, options):
     _, mixture = _sklearn()
     model = mixture.GaussianMixture(k, covariance_type="diag", max_iter=options.gmm_max_iter,
-                                    random_state=seed % 2**32)
+                                    tol=options.gmm_tol, random_state=seed % 2**32)
     _, seconds = _timed(lambda: model.fit(x))
     extra = {"nll": -model.score(x), "test_nll": -model.score(x_test) if len(x_test) else None}
     return model.means_, seconds, model.n_iter_, float(model.n_iter_), None, extra

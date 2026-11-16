@@ -13,6 +13,7 @@ Integration tests (``-m integration``) need ``SKEIN_ML_TEST_DATABASE_URL``.
 
 from __future__ import annotations
 
+import os
 import threading
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -23,7 +24,9 @@ from ..domain.notes import Note
 
 __all__ = ["PostgresStore", "migrate"]
 
-MIGRATIONS = Path(__file__).resolve().parents[3] / "migrations"
+# The source tree's migrations/; installed images point SKEIN_ML_MIGRATIONS_DIR at a copy.
+MIGRATIONS = Path(os.environ.get("SKEIN_ML_MIGRATIONS_DIR")
+                  or Path(__file__).resolve().parents[3] / "migrations")
 
 
 def _connect(url: str):
