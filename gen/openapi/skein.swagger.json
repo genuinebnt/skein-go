@@ -1,0 +1,4742 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Skein API",
+    "description": "REST/JSON API of Skein, a collaborative, offline-capable notes workspace. The gateway translates each route to a gRPC call on a backend service; the gRPC contracts in proto/skein/v1 are the source of truth.\n\nConventions (docs/api/README.md): JSON field names are lowerCamelCase; 64-bit integers and bytes are JSON strings (decimal and base64); enums are their names; timestamps are RFC 3339. Errors are google.rpc.Status objects. Every request needs `Authorization: Bearer \u003caccess token\u003e` except sign-up, sign-in and token refresh. POST requests accept an `Idempotency-Key` header. Responses carry `X-Request-Id` and the rate-limit headers `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, plus `Retry-After` on 429.\n\nLive sync, the agent's streamed output and live notifications are WebSocket endpoints, described in docs/api/websocket.md and not in this document.",
+    "version": "v1",
+    "license": {
+      "name": "See the repository licence",
+      "url": "https://github.com/genuinebnt/skein-go"
+    }
+  },
+  "tags": [
+    {
+      "name": "Agent",
+      "description": "Chats with the agent, its runs and confirmations (ADR-0009)."
+    },
+    {
+      "name": "Documents",
+      "description": "Notes, their history, diff, blame, undo and redo."
+    },
+    {
+      "name": "Identity",
+      "description": "Accounts, sessions, workspaces, members, note roles and share links."
+    },
+    {
+      "name": "Notifications",
+      "description": "The caller's inbox and notification preferences."
+    },
+    {
+      "name": "ML",
+      "description": "Semantic search, related-note discovery and clustering."
+    },
+    {
+      "name": "Search",
+      "description": "Text, regular-expression and code search; title completion."
+    },
+    {
+      "name": "Graph",
+      "description": "The note link graph, graph algorithms and reading plans."
+    }
+  ],
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/notes/{from}/shortest-path/{to}": {
+      "get": {
+        "summary": "Find the shortest path between two notes",
+        "description": "The cheapest path between two notes under a metric.",
+        "operationId": "GraphService_ShortestPath",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ShortestPathResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "description": "Note ID where the path starts.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "to",
+            "description": "Note ID where the path ends.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "metric",
+            "description": "Unspecified means PATH_METRIC_HOPS.\n\n - PATH_METRIC_HOPS: Link hops, ignoring direction.\n - PATH_METRIC_SEMANTIC: Sum of (1 - cosine similarity) along links.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "PATH_METRIC_UNSPECIFIED",
+              "PATH_METRIC_HOPS",
+              "PATH_METRIC_SEMANTIC"
+            ],
+            "default": "PATH_METRIC_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}": {
+      "get": {
+        "summary": "Get a note",
+        "operationId": "DocumentService_GetNote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetNoteResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "includeMarkdown",
+            "description": "When true, the response includes the current text as Markdown.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      },
+      "delete": {
+        "summary": "Move a note to the trash",
+        "description": "Moves a note to the trash. Restorable until purged.",
+        "operationId": "DocumentService_DeleteNote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteNoteResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/blame": {
+      "get": {
+        "summary": "Blame a note",
+        "description": "Who wrote each span of the current text.",
+        "operationId": "DocumentService_Blame",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/BlameResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/blast-radius": {
+      "get": {
+        "summary": "Get a note's blast radius",
+        "description": "The notes within reach of a note, by hop, in the requested direction. By\ndefault the direction is BLAST_DIRECTION_CITED_BY: the notes that link to\nthis one, directly or transitively, which are the notes affected if this\none changes.",
+        "operationId": "GraphService_BlastRadius",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/BlastRadiusResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "maxHops",
+            "description": "0 means no limit.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "direction",
+            "description": "Unspecified means BLAST_DIRECTION_CITED_BY.\n\n - BLAST_DIRECTION_UNSPECIFIED: Treated as BLAST_DIRECTION_CITED_BY.\n - BLAST_DIRECTION_CITED_BY: Follow links backwards, to the notes that link to the source: \"if this\nnote changes, these notes are affected\".\n - BLAST_DIRECTION_CITES: Follow links forwards, to the notes the source links to: \"this note\ndepends on these\".",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "BLAST_DIRECTION_UNSPECIFIED",
+              "BLAST_DIRECTION_CITED_BY",
+              "BLAST_DIRECTION_CITES"
+            ],
+            "default": "BLAST_DIRECTION_UNSPECIFIED"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/ops": {
+      "post": {
+        "summary": "Apply a batch of CRDT operations",
+        "description": "Applies a batch of CRDT operations from a client that is not streaming\n(the agent, imports, tests). Operations are idempotent: re-sending a\nbatch already applied changes nothing, so a retry is always safe. The\nwhole batch is refused with PERMISSION_DENIED if the caller may not edit\nthe note.",
+        "operationId": "DocumentService_ApplyOps",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ApplyOpsResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ApplyOpsBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/reading-path": {
+      "get": {
+        "summary": "Get the reading path to a note",
+        "description": "What to read before a note, in order.",
+        "operationId": "GraphService_ReadingPath",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ReadingPathResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/related": {
+      "get": {
+        "summary": "Discover related notes",
+        "description": "Related notes with three separate signals, never one blended score.",
+        "operationId": "MLService_Discover",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DiscoverResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "k",
+            "description": "Number of related notes. 0 means the server default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "ML"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/roles/{userId}": {
+      "put": {
+        "summary": "Set a user's role on a note",
+        "description": "Sets or clears a per-note role override for one user.",
+        "operationId": "IdentityService_SetNoteRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SetNoteRoleResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetNoteRoleBody"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/share-links": {
+      "post": {
+        "summary": "Create a share link",
+        "operationId": "IdentityService_CreateShareLink",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateShareLinkResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateShareLinkBody"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}/versions": {
+      "get": {
+        "summary": "List a note's versions",
+        "operationId": "DocumentService_ListVersions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListVersionsResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:diff": {
+      "post": {
+        "summary": "Diff two versions of a note",
+        "description": "Text differences between two versions of a note.",
+        "operationId": "DocumentService_Diff",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DiffResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DiffBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:redo": {
+      "post": {
+        "summary": "Redo the caller's last undone change",
+        "description": "Re-applies the change group most recently undone by Undo.",
+        "operationId": "DocumentService_Redo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RedoResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RedoBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:rename": {
+      "post": {
+        "summary": "Rename a note",
+        "operationId": "DocumentService_RenameNote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RenameNoteResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RenameNoteBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:restore": {
+      "post": {
+        "summary": "Restore a note from the trash",
+        "description": "Takes a note out of the trash.",
+        "operationId": "DocumentService_RestoreNote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RestoreNoteResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RestoreNoteBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:textAt": {
+      "post": {
+        "summary": "Get a note's text at a version",
+        "description": "The note's Markdown as it was at a version.",
+        "operationId": "DocumentService_GetTextAt",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetTextAtResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetTextAtBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notes/{noteId}:undo": {
+      "post": {
+        "summary": "Undo the caller's last change",
+        "description": "Generates operations that undo the caller's last change group in a note,\nleaving other people's edits alone, applies them and returns them. Not\nidempotent: each call undoes one more change group, so send an\nIdempotency-Key when retrying.",
+        "operationId": "DocumentService_Undo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UndoResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UndoBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/notification-preferences": {
+      "get": {
+        "summary": "Get notification preferences",
+        "operationId": "NotificationService_GetPreferences",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetPreferencesResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "put": {
+        "summary": "Update notification preferences",
+        "description": "Replaces the preferences for the kinds listed; kinds not listed keep their\ncurrent setting.",
+        "operationId": "NotificationService_UpdatePreferences",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdatePreferencesResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdatePreferencesRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "summary": "List the inbox",
+        "operationId": "NotificationService_ListInbox",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListInboxResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "unreadOnly",
+            "description": "Only notifications not yet marked read.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v1/notifications:markRead": {
+      "post": {
+        "summary": "Mark notifications as read",
+        "description": "Marks notifications as read. IDs that are already read, or unknown, are\nignored, so the call is idempotent.",
+        "operationId": "NotificationService_MarkRead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/MarkReadResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/MarkReadRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v1/replicas": {
+      "post": {
+        "summary": "Register a CRDT replica",
+        "description": "Records that a CRDT replica ID belongs to the calling user (ADR-0004).\nBrowser-facing: each device mints its replica ID in IndexedDB and\nregisters it before its first sync. Documents accepts operations from a\nreplica only on connections authenticated as the user who registered it,\nso blame cannot be forged. Registering an ID the caller already owns\nsucceeds; one owned by someone else fails with ALREADY_EXISTS and the\nclient must mint a new ID.",
+        "operationId": "IdentityService_RegisterReplica",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RegisterReplicaResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegisterReplicaRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/runs/{runId}": {
+      "get": {
+        "summary": "Get a run's trace",
+        "description": "The stored trace of a run: every event it streamed, in order.",
+        "operationId": "AgentService_GetRun",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetRunResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Agent"
+        ]
+      }
+    },
+    "/v1/runs/{runId}:cancel": {
+      "post": {
+        "summary": "Cancel a run",
+        "description": "Stops a run at its next step. Cancelling a finished run does nothing.",
+        "operationId": "AgentService_CancelRun",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CancelRunResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CancelRunBody"
+            }
+          }
+        ],
+        "tags": [
+          "Agent"
+        ]
+      }
+    },
+    "/v1/runs/{runId}:confirm": {
+      "post": {
+        "summary": "Answer a confirmation request",
+        "description": "Answers a confirmation request; the paused run continues or stops.\nAnswering the same confirmation twice returns FAILED_PRECONDITION.",
+        "operationId": "AgentService_Confirm",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ConfirmResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ConfirmBody"
+            }
+          }
+        ],
+        "tags": [
+          "Agent"
+        ]
+      }
+    },
+    "/v1/sessions": {
+      "post": {
+        "summary": "Sign in with a password",
+        "description": "Signs in with email and password.",
+        "operationId": "IdentityService_SignIn",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SignInResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SignInRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ],
+        "security": []
+      }
+    },
+    "/v1/sessions:oauth": {
+      "post": {
+        "summary": "Sign in with OAuth",
+        "description": "Exchanges an OAuth authorization code (Google, GitHub) for a session.",
+        "operationId": "IdentityService_SignInWithOAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SignInWithOAuthResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SignInWithOAuthRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ],
+        "security": []
+      }
+    },
+    "/v1/sessions:refresh": {
+      "post": {
+        "summary": "Refresh a session",
+        "description": "Rotates the refresh token and issues a new access token. The old refresh\ntoken stops working; presenting an already-rotated one is treated as\ntheft and revokes the session.",
+        "operationId": "IdentityService_Refresh",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RefreshResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RefreshRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ],
+        "security": []
+      }
+    },
+    "/v1/sessions:signOut": {
+      "post": {
+        "summary": "Sign out",
+        "description": "Revokes the session that owns the refresh token. The refresh token is\nthe credential, so an expired access token does not prevent signing out.",
+        "operationId": "IdentityService_SignOut",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SignOutResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SignOutRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ],
+        "security": []
+      }
+    },
+    "/v1/share-links/{linkId}": {
+      "delete": {
+        "summary": "Revoke a share link",
+        "operationId": "IdentityService_RevokeShareLink",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RevokeShareLinkResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/users": {
+      "post": {
+        "summary": "Sign up",
+        "description": "Creates an account with email and password and signs it in.",
+        "operationId": "IdentityService_SignUp",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SignUpResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SignUpRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ],
+        "security": []
+      }
+    },
+    "/v1/users/{userId}": {
+      "get": {
+        "summary": "Get a user",
+        "operationId": "IdentityService_GetUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetUserResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/workspaces": {
+      "post": {
+        "summary": "Create a workspace",
+        "description": "Creates a workspace owned by the caller.",
+        "operationId": "IdentityService_CreateWorkspace",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateWorkspaceResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateWorkspaceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/chats": {
+      "get": {
+        "summary": "List chats",
+        "operationId": "AgentService_ListChats",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListChatsResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Agent"
+        ]
+      },
+      "post": {
+        "summary": "Start a chat",
+        "operationId": "AgentService_CreateChat",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateChatResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateChatBody"
+            }
+          }
+        ],
+        "tags": [
+          "Agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/clusters": {
+      "get": {
+        "summary": "List topic clusters",
+        "operationId": "MLService_ListClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListClustersResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ML"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/clusters:benchmark": {
+      "post": {
+        "summary": "Benchmark clustering algorithms",
+        "description": "Runs clustering algorithms side by side on the workspace's embeddings.\nExpensive (every algorithm runs `runs` times), so it counts against the\nagent rate-limit budget.",
+        "operationId": "MLService_BenchmarkClustering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/BenchmarkClusteringResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BenchmarkClusteringBody"
+            }
+          }
+        ],
+        "tags": [
+          "ML"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/graph": {
+      "get": {
+        "summary": "Get the link graph",
+        "operationId": "GraphService_GetLinkGraph",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetLinkGraphResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/graph/analysis": {
+      "get": {
+        "summary": "Analyze the link graph",
+        "description": "Algorithms that need no parameter, over the whole readable graph.",
+        "operationId": "GraphService_AnalyzeGraph",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AnalyzeGraphResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/members": {
+      "get": {
+        "summary": "List workspace members",
+        "operationId": "IdentityService_ListMembers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListMembersResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/members/{userId}": {
+      "delete": {
+        "summary": "Remove a workspace member",
+        "operationId": "IdentityService_RemoveMember",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RemoveMemberResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      },
+      "put": {
+        "summary": "Set a member's workspace role",
+        "description": "Adds a member with a role, or changes an existing member's role.",
+        "operationId": "IdentityService_SetWorkspaceRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SetWorkspaceRoleResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetWorkspaceRoleBody"
+            }
+          }
+        ],
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/notes": {
+      "get": {
+        "summary": "List notes in a workspace",
+        "operationId": "DocumentService_ListNotes",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListNotesResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "includeTrashed",
+            "description": "Also list notes in the trash.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      },
+      "post": {
+        "summary": "Create a note",
+        "operationId": "DocumentService_CreateNote",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateNoteResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateNoteBody"
+            }
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/reading-plan": {
+      "get": {
+        "summary": "Plan reading on a topic within a time budget",
+        "description": "The best set of notes on a topic for a time budget, respecting\nprerequisites (a knapsack solved by dynamic programming).",
+        "operationId": "GraphService_ReadingPlan",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ReadingPlanResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "topic",
+            "description": "Free text matched semantically against notes.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "minutes",
+            "description": "The time budget, in minutes of estimated reading time.",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "Graph"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/search": {
+      "get": {
+        "summary": "Search a workspace",
+        "description": "Searches block text in one workspace. Text mode is typo-tolerant word\nand phrase search. Regex mode runs an RE2 regular expression over block\ntext, using the trigram index to pick candidate blocks; candidates and\nmatched in the response show how selective the index was.",
+        "operationId": "SearchService_Search",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SearchResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "query",
+            "description": "Words in text mode; an RE2 expression in regex mode.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "mode",
+            "description": "Unspecified means SEARCH_MODE_TEXT.\n\n - SEARCH_MODE_TEXT: Words and phrases, typo-tolerant.\n - SEARCH_MODE_REGEX: Regular expression over block text, accelerated by the trigram index.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "SEARCH_MODE_UNSPECIFIED",
+              "SEARCH_MODE_TEXT",
+              "SEARCH_MODE_REGEX"
+            ],
+            "default": "SEARCH_MODE_UNSPECIFIED"
+          },
+          {
+            "name": "caseSensitive",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "wholeWord",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "languages",
+            "description": "Only code blocks in these languages, for example \"go\" or \"rust\".",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "codeOnly",
+            "description": "Only code blocks, in any language.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "page.pageSize",
+            "description": "Maximum items to return. The server may return fewer. 0 means the default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "page.pageToken",
+            "description": "Token from a previous response's next_page_token; empty for the first page.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/semantic-search": {
+      "get": {
+        "summary": "Semantic search",
+        "description": "Nearest blocks by embedding, using the requested vector index.",
+        "operationId": "MLService_SemanticSearch",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SemanticSearchResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "query",
+            "description": "Natural-language query, embedded with the same model as the notes.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "k",
+            "description": "Number of hits. 0 means the server default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "index",
+            "description": "Unspecified means the server's default index.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "INDEX_KIND_UNSPECIFIED",
+              "INDEX_KIND_BRUTE_FORCE",
+              "INDEX_KIND_IVF",
+              "INDEX_KIND_HNSW"
+            ],
+            "default": "INDEX_KIND_UNSPECIFIED"
+          },
+          {
+            "name": "tags",
+            "description": "Only blocks of notes carrying all of these tags.",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "measureRecall",
+            "description": "Also run an exact scan and report recall against it.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "ML"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspaceId}/title-suggestions": {
+      "get": {
+        "summary": "Suggest note titles",
+        "description": "Typo-tolerant title completion for the command palette and [[links]].",
+        "operationId": "SearchService_SuggestTitles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SuggestTitlesResponse"
+            }
+          },
+          "401": {
+            "description": "Missing, malformed or expired access token (UNAUTHENTICATED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "403": {
+            "description": "The caller may not perform this action (PERMISSION_DENIED).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RESOURCE_EXHAUSTED). Retry after the number of seconds in the Retry-After header.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "prefix",
+            "description": "What the user has typed so far; may contain typos.",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "description": "Maximum suggestions. 0 means the server default.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "Search"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "Action": {
+      "type": "string",
+      "enum": [
+        "ACTION_UNSPECIFIED",
+        "ACTION_NOTE_READ",
+        "ACTION_NOTE_COMMENT",
+        "ACTION_NOTE_EDIT",
+        "ACTION_NOTE_CREATE",
+        "ACTION_NOTE_DELETE",
+        "ACTION_NOTE_SHARE",
+        "ACTION_WORKSPACE_MANAGE_MEMBERS",
+        "ACTION_WORKSPACE_MANAGE_SETTINGS",
+        "ACTION_AGENT_RUN"
+      ],
+      "default": "ACTION_UNSPECIFIED",
+      "description": "Every action a subject can attempt. Services authorize with these values,\nnever with free-form strings."
+    },
+    "AnalyzeGraphResponse": {
+      "type": "object",
+      "properties": {
+        "componentOf": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Connected component of each note, ignoring link direction."
+        },
+        "orphanComponents": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Components that contain no root note."
+        },
+        "sccOf": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Strongly connected component of each note, following link direction.\nNumbered so the component holding the smallest note ID is 0."
+        },
+        "sccSizes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "cycle": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "One example cycle, first equals last; empty if the graph is acyclic."
+        },
+        "topologicalOrder": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A reading order where no note comes before one it links to. Partial when\nthe graph has cycles; the rest is in unplaced."
+        },
+        "unplaced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "betweenness": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "pagerank": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "communityOf": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Louvain communities and the modularity of that partition."
+        },
+        "modularity": {
+          "type": "number",
+          "format": "double"
+        },
+        "diameter": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "Any": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "ApplyOpsBody": {
+      "type": "object",
+      "properties": {
+        "replicaId": {
+          "type": "string",
+          "format": "uint64",
+          "example": "4831727201934127107",
+          "description": "A replica registered by the caller (RegisterReplica). JSON string."
+        },
+        "ops": {
+          "type": "string",
+          "format": "byte",
+          "example": "AQIDBAUGBwgJCgsMDQ4PEA==",
+          "description": "A batch in the wire format of docs/spec/crdt-sequence.md. Base64 in JSON."
+        }
+      },
+      "required": [
+        "replicaId",
+        "ops"
+      ]
+    },
+    "ApplyOpsResponse": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "#/definitions/VersionVector"
+        }
+      }
+    },
+    "AuthorizeResponse": {
+      "type": "object",
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "One entry per check, in the same order."
+        }
+      }
+    },
+    "BenchmarkClusteringBody": {
+      "type": "object",
+      "properties": {
+        "algorithms": {
+          "type": "array",
+          "example": [
+            "CLUSTERING_ALGORITHM_KMEANS_PLUS_PLUS",
+            "CLUSTERING_ALGORITHM_E_MEANS"
+          ],
+          "items": {
+            "$ref": "#/definitions/ClusteringAlgorithm"
+          },
+          "description": "Empty means every algorithm."
+        },
+        "k": {
+          "type": "integer",
+          "format": "int64",
+          "example": 8,
+          "description": "Number of clusters."
+        },
+        "runs": {
+          "type": "integer",
+          "format": "int64",
+          "example": 3,
+          "description": "Repetitions per algorithm; means are reported. 0 means 1."
+        },
+        "seed": {
+          "type": "string",
+          "format": "uint64",
+          "example": "20261116",
+          "description": "Seed for every random choice, so a benchmark can be replayed. JSON\nstring."
+        }
+      },
+      "required": [
+        "k"
+      ]
+    },
+    "BenchmarkClusteringResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ClusteringResult"
+          }
+        }
+      }
+    },
+    "BlameResponse": {
+      "type": "object",
+      "properties": {
+        "spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/BlameSpan"
+          }
+        }
+      }
+    },
+    "BlameSpan": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Half-open range [start, end) in code points of the current text\n(ADR-0003); the browser converts to UTF-16."
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "agentRunId": {
+          "type": "string",
+          "description": "Set when an agent run made the edit for user_id."
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BlastDirection": {
+      "type": "string",
+      "enum": [
+        "BLAST_DIRECTION_UNSPECIFIED",
+        "BLAST_DIRECTION_CITED_BY",
+        "BLAST_DIRECTION_CITES"
+      ],
+      "default": "BLAST_DIRECTION_UNSPECIFIED",
+      "description": "Which links a blast radius follows.\n\n - BLAST_DIRECTION_UNSPECIFIED: Treated as BLAST_DIRECTION_CITED_BY.\n - BLAST_DIRECTION_CITED_BY: Follow links backwards, to the notes that link to the source: \"if this\nnote changes, these notes are affected\".\n - BLAST_DIRECTION_CITES: Follow links forwards, to the notes the source links to: \"this note\ndepends on these\"."
+    },
+    "BlastRadiusResponse": {
+      "type": "object",
+      "properties": {
+        "hops": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Notes reached, with their hop distance from the source; the source\nitself is included at distance 0."
+        },
+        "ringSizes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "Number of notes at each distance; ring_sizes[0] is the source itself."
+        }
+      }
+    },
+    "BlockRef": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string",
+          "example": "01936f40-2b3c-7d4e-9f50-6a7b8c9d0e1f",
+          "description": "UUIDv7."
+        },
+        "blockId": {
+          "type": "string",
+          "example": "4831727201934127107:17",
+          "description": "\"replica:counter\" of the block marker, in decimal."
+        },
+        "start": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Half-open range [start, end) in code points."
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "description": "A location inside a note: the block and, optionally, a character range in\ncode points within the block's text (ADR-0003; the browser converts to\nUTF-16). start == end == 0 means the whole block."
+    },
+    "CancelRunBody": {
+      "type": "object"
+    },
+    "CancelRunResponse": {
+      "type": "object"
+    },
+    "ChatSummary": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Check": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/Action"
+        },
+        "resourceId": {
+          "type": "string",
+          "description": "A note ID or a workspace ID, depending on the action."
+        }
+      }
+    },
+    "Citation": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "$ref": "#/definitions/BlockRef"
+        },
+        "quote": {
+          "type": "string"
+        }
+      }
+    },
+    "Cluster": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "label": {
+          "type": "string"
+        },
+        "topTerms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "noteIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ClusteringAlgorithm": {
+      "type": "string",
+      "enum": [
+        "CLUSTERING_ALGORITHM_UNSPECIFIED",
+        "CLUSTERING_ALGORITHM_KMEANS_RANDOM",
+        "CLUSTERING_ALGORITHM_KMEANS_PLUS_PLUS",
+        "CLUSTERING_ALGORITHM_KMEANS_ELKAN",
+        "CLUSTERING_ALGORITHM_KMEANS_MINI_BATCH",
+        "CLUSTERING_ALGORITHM_GMM_EM",
+        "CLUSTERING_ALGORITHM_E_MEANS"
+      ],
+      "default": "CLUSTERING_ALGORITHM_UNSPECIFIED",
+      "description": " - CLUSTERING_ALGORITHM_KMEANS_RANDOM: Lloyd iterations with random initialisation.\n - CLUSTERING_ALGORITHM_KMEANS_PLUS_PLUS: Lloyd iterations with k-means++ initialisation.\n - CLUSTERING_ALGORITHM_KMEANS_ELKAN: k-means++ initialisation, Elkan's triangle-inequality pruning.\n - CLUSTERING_ALGORITHM_GMM_EM: Gaussian mixture fitted by expectation maximisation.\n - CLUSTERING_ALGORITHM_E_MEANS: e-means (Meta FAIR, 2026): mini-batch k-means with exponential moving\naverage updates, scaling-law batch and step sizes, a cosine step\nschedule, dead-cluster revival and an exact closing pass. See\ndocs/research/e-means.md."
+    },
+    "ClusteringResult": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "$ref": "#/definitions/ClusteringAlgorithm"
+        },
+        "implementation": {
+          "type": "string",
+          "description": "Implementation that produced it: \"scratch\" (this repository), or a\nreference: \"sklearn\", or \"faiss\" for e-means."
+        },
+        "meanSeconds": {
+          "type": "number",
+          "format": "double"
+        },
+        "meanIterations": {
+          "type": "number",
+          "format": "double"
+        },
+        "objective": {
+          "type": "number",
+          "format": "double",
+          "description": "Sum of squared distances to centroids (K-means) or negative mean\nlog-likelihood (Gaussian mixtures). Lower is better."
+        },
+        "silhouette": {
+          "type": "number",
+          "format": "double"
+        },
+        "distanceComputations": {
+          "type": "string",
+          "format": "uint64",
+          "description": "Distance computations, to show what Elkan's pruning saves."
+        },
+        "epochs": {
+          "type": "number",
+          "format": "double",
+          "description": "Passes over the data; e-means aims for 1.2 to 3 where Lloyd needs 20+."
+        },
+        "testObjective": {
+          "type": "number",
+          "format": "double",
+          "description": "Objective on held-out points, the fair comparison between algorithms."
+        },
+        "deadClusters": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Clusters left with fewer than ten points."
+        }
+      }
+    },
+    "ConfirmBody": {
+      "type": "object",
+      "properties": {
+        "confirmationId": {
+          "type": "string",
+          "description": "From the ConfirmationRequest event the run streamed."
+        },
+        "approved": {
+          "type": "boolean",
+          "description": "False stops the run without performing the action."
+        }
+      },
+      "required": [
+        "confirmationId"
+      ]
+    },
+    "ConfirmResponse": {
+      "type": "object"
+    },
+    "ConfirmationRequest": {
+      "type": "object",
+      "properties": {
+        "confirmationId": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "argumentsJson": {
+          "type": "string"
+        }
+      },
+      "description": "Sent before a destructive or outward-facing action. The run is paused\nuntil Confirm is called."
+    },
+    "CreateChatBody": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string",
+          "description": "Optional note the chat is about."
+        }
+      }
+    },
+    "CreateChatResponse": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        }
+      }
+    },
+    "CreateNoteBody": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "example": "Raft log compaction"
+        },
+        "markdown": {
+          "type": "string",
+          "example": "# Raft log compaction\nSnapshots bound the log.",
+          "description": "Optional initial content as Markdown."
+        }
+      },
+      "required": [
+        "title"
+      ]
+    },
+    "CreateNoteResponse": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "$ref": "#/definitions/Note"
+        }
+      }
+    },
+    "CreateShareLinkBody": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/definitions/NoteRole"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2026-12-01T00:00:00Z",
+          "description": "When the link stops working. Unset means it never expires."
+        }
+      },
+      "required": [
+        "role"
+      ]
+    },
+    "CreateShareLinkResponse": {
+      "type": "object",
+      "properties": {
+        "linkId": {
+          "type": "string",
+          "example": "01936f70-4d5e-7f60-8a71-8c9d0e1f2031"
+        },
+        "token": {
+          "type": "string",
+          "example": "sl_Vb4nR8tYq2Kd6Hj1",
+          "description": "Returned once; only a hash is stored."
+        }
+      }
+    },
+    "CreateWorkspaceRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Research"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "CreateWorkspaceResponse": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "example": "01936f3e-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+          "description": "UUIDv7."
+        }
+      }
+    },
+    "DeleteNoteResponse": {
+      "type": "object"
+    },
+    "DiffBody": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/VersionVector"
+        },
+        "to": {
+          "$ref": "#/definitions/VersionVector"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    },
+    "DiffHunk": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/Kind"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "DiffResponse": {
+      "type": "object",
+      "properties": {
+        "hunks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/DiffHunk"
+          }
+        }
+      }
+    },
+    "DiscoverResponse": {
+      "type": "object",
+      "properties": {
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/RelatedNote"
+          }
+        }
+      }
+    },
+    "GetLinkGraphResponse": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/GraphNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/GraphEdge"
+          }
+        }
+      }
+    },
+    "GetNoteResponse": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "$ref": "#/definitions/Note"
+        },
+        "markdown": {
+          "type": "string"
+        },
+        "version": {
+          "$ref": "#/definitions/VersionVector"
+        }
+      }
+    },
+    "GetPreferencesResponse": {
+      "type": "object",
+      "properties": {
+        "preferences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Preference"
+          }
+        }
+      }
+    },
+    "GetRunResponse": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/SendMessageResponse"
+          }
+        }
+      }
+    },
+    "GetTextAtBody": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "#/definitions/VersionVector"
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "GetTextAtResponse": {
+      "type": "object",
+      "properties": {
+        "markdown": {
+          "type": "string"
+        }
+      }
+    },
+    "GetUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        }
+      }
+    },
+    "GraphEdge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "description": "A link: the note `from` contains a [[link]] to the note `to`."
+    },
+    "GraphNode": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "isRoot": {
+          "type": "boolean",
+          "description": "A designated entry point of the workspace. Components that contain no\nroot are reported as orphans by AnalyzeGraph."
+        }
+      }
+    },
+    "IndexKind": {
+      "type": "string",
+      "enum": [
+        "INDEX_KIND_UNSPECIFIED",
+        "INDEX_KIND_BRUTE_FORCE",
+        "INDEX_KIND_IVF",
+        "INDEX_KIND_HNSW"
+      ],
+      "default": "INDEX_KIND_UNSPECIFIED"
+    },
+    "IssueDelegatedTokenResponse": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        }
+      }
+    },
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "KIND_UNSPECIFIED",
+        "KIND_EQUAL",
+        "KIND_INSERT",
+        "KIND_DELETE"
+      ],
+      "default": "KIND_UNSPECIFIED"
+    },
+    "ListChatsResponse": {
+      "type": "object",
+      "properties": {
+        "chats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ChatSummary"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "ListClustersResponse": {
+      "type": "object",
+      "properties": {
+        "clusters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Cluster"
+          }
+        }
+      }
+    },
+    "ListInboxResponse": {
+      "type": "object",
+      "properties": {
+        "notifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Notification"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        },
+        "unread": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total unread notifications in the inbox, for the badge."
+        }
+      }
+    },
+    "ListMembersResponse": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Member"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "ListNotesResponse": {
+      "type": "object",
+      "properties": {
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Note"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "ListReadableNotesResponse": {
+      "type": "object",
+      "properties": {
+        "noteIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ListVersionsResponse": {
+      "type": "object",
+      "properties": {
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/NoteVersion"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "MarkReadRequest": {
+      "type": "object",
+      "properties": {
+        "ids": {
+          "type": "array",
+          "example": [
+            "01936f60-5e6f-7a80-9b92-0d1e2f304152"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ids"
+      ]
+    },
+    "MarkReadResponse": {
+      "type": "object"
+    },
+    "Member": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "role": {
+          "$ref": "#/definitions/WorkspaceRole"
+        }
+      }
+    },
+    "Note": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "example": "01936f40-2b3c-7d4e-9f50-6a7b8c9d0e1f",
+          "description": "UUIDv7.",
+          "readOnly": true
+        },
+        "workspaceId": {
+          "type": "string",
+          "example": "01936f3e-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+          "readOnly": true
+        },
+        "title": {
+          "type": "string",
+          "example": "Raft log compaction"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User ID of the author.",
+          "readOnly": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "trashed": {
+          "type": "boolean",
+          "description": "True while the note is in the trash.",
+          "readOnly": true
+        }
+      }
+    },
+    "NoteRole": {
+      "type": "string",
+      "enum": [
+        "NOTE_ROLE_UNSPECIFIED",
+        "NOTE_ROLE_VIEWER",
+        "NOTE_ROLE_COMMENTER",
+        "NOTE_ROLE_EDITOR"
+      ],
+      "default": "NOTE_ROLE_UNSPECIFIED"
+    },
+    "NoteVersion": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "#/definitions/VersionVector"
+        },
+        "authorIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "A version is a point in history: everything up to a version vector,\ngrouped by author and time for display."
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/NotificationKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/definitions/BlockRef"
+        },
+        "actorId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NotificationKind": {
+      "type": "string",
+      "enum": [
+        "NOTIFICATION_KIND_UNSPECIFIED",
+        "NOTIFICATION_KIND_MENTION",
+        "NOTIFICATION_KIND_COMMENT",
+        "NOTIFICATION_KIND_SHARE",
+        "NOTIFICATION_KIND_AGENT_RUN_FINISHED",
+        "NOTIFICATION_KIND_ACCESS_CHANGED"
+      ],
+      "default": "NOTIFICATION_KIND_UNSPECIFIED"
+    },
+    "OAuthProvider": {
+      "type": "string",
+      "enum": [
+        "O_AUTH_PROVIDER_UNSPECIFIED",
+        "O_AUTH_PROVIDER_GOOGLE",
+        "O_AUTH_PROVIDER_GITHUB"
+      ],
+      "default": "O_AUTH_PROVIDER_UNSPECIFIED"
+    },
+    "Outcome": {
+      "type": "string",
+      "enum": [
+        "OUTCOME_UNSPECIFIED",
+        "OUTCOME_COMPLETED",
+        "OUTCOME_CANCELLED",
+        "OUTCOME_BUDGET_EXCEEDED",
+        "OUTCOME_FAILED"
+      ],
+      "default": "OUTCOME_UNSPECIFIED"
+    },
+    "PageRequest": {
+      "type": "object",
+      "properties": {
+        "pageSize": {
+          "type": "integer",
+          "format": "int64",
+          "example": 50,
+          "description": "Maximum items to return. The server may return fewer. 0 means the default."
+        },
+        "pageToken": {
+          "type": "string",
+          "example": "CgwIgICAgICAgICAARIA",
+          "description": "Token from a previous response's next_page_token; empty for the first page."
+        }
+      },
+      "description": "Cursor-based pagination. Page tokens are opaque to clients. Over REST the\nfields are query parameters: `?page.pageSize=50\u0026page.pageToken=...`."
+    },
+    "PageResponse": {
+      "type": "object",
+      "properties": {
+        "nextPageToken": {
+          "type": "string",
+          "example": "CgwIgICAgICAgICAARIA",
+          "description": "Empty when there are no more pages."
+        }
+      }
+    },
+    "PathMetric": {
+      "type": "string",
+      "enum": [
+        "PATH_METRIC_UNSPECIFIED",
+        "PATH_METRIC_HOPS",
+        "PATH_METRIC_SEMANTIC"
+      ],
+      "default": "PATH_METRIC_UNSPECIFIED",
+      "description": " - PATH_METRIC_HOPS: Link hops, ignoring direction.\n - PATH_METRIC_SEMANTIC: Sum of (1 - cosine similarity) along links."
+    },
+    "PlannedNote": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "minutes": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": {
+          "type": "number",
+          "format": "double"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Preference": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/NotificationKind"
+        },
+        "inApp": {
+          "type": "boolean",
+          "description": "Show in the inbox and push live."
+        },
+        "email": {
+          "type": "boolean",
+          "description": "Also send an email."
+        }
+      }
+    },
+    "Presence": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "replicaId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Cursor and selection anchored to element IDs (\"replica:counter\")."
+        },
+        "head": {
+          "type": "string"
+        }
+      }
+    },
+    "Range": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "ReadingPathResponse": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ReadingStep"
+          }
+        }
+      }
+    },
+    "ReadingPlanResponse": {
+      "type": "object",
+      "properties": {
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PlannedNote"
+          }
+        },
+        "totalMinutes": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalValue": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "ReadingStep": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why this note is in the path, for example \"linked from X\"."
+        },
+        "depth": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "RedoBody": {
+      "type": "object",
+      "properties": {
+        "replicaId": {
+          "type": "string",
+          "format": "uint64",
+          "example": "4831727201934127107",
+          "description": "The replica whose change groups to undo or redo. JSON string."
+        }
+      },
+      "required": [
+        "replicaId"
+      ]
+    },
+    "RedoResponse": {
+      "type": "object",
+      "properties": {
+        "ops": {
+          "type": "string",
+          "format": "byte",
+          "description": "The operations generated and applied, in the CRDT wire format. Base64 in\nJSON."
+        }
+      }
+    },
+    "RefreshRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "refreshToken"
+      ]
+    },
+    "RefreshResponse": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/definitions/Session"
+        }
+      }
+    },
+    "RegisterReplicaRequest": {
+      "type": "object",
+      "properties": {
+        "replicaId": {
+          "type": "string",
+          "format": "uint64",
+          "example": "4831727201934127107",
+          "description": "Random 64-bit ID minted by the device. A JSON string, because uint64\ndoes not fit a JavaScript number."
+        }
+      },
+      "required": [
+        "replicaId"
+      ]
+    },
+    "RegisterReplicaResponse": {
+      "type": "object"
+    },
+    "RelatedNote": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "cosine": {
+          "type": "number",
+          "format": "double"
+        },
+        "sharedTags": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "tagJaccard": {
+          "type": "number",
+          "format": "double"
+        },
+        "hops": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Link distance ignoring direction; -1 means not connected."
+        },
+        "suggestLink": {
+          "type": "boolean",
+          "description": "True when meaning is close but the notes are not linked."
+        }
+      }
+    },
+    "RemoveMemberResponse": {
+      "type": "object"
+    },
+    "RenameNoteBody": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "example": "Raft snapshots"
+        }
+      },
+      "required": [
+        "title"
+      ]
+    },
+    "RenameNoteResponse": {
+      "type": "object"
+    },
+    "RestoreNoteBody": {
+      "type": "object"
+    },
+    "RestoreNoteResponse": {
+      "type": "object"
+    },
+    "RevokeShareLinkResponse": {
+      "type": "object"
+    },
+    "RunFinished": {
+      "type": "object",
+      "properties": {
+        "outcome": {
+          "$ref": "#/definitions/Outcome"
+        },
+        "steps": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "inputTokens": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "outputTokens": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "SearchHit": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "$ref": "#/definitions/BlockRef"
+        },
+        "noteTitle": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": "string"
+        },
+        "highlights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Range"
+          },
+          "description": "Match ranges inside snippet, in code points."
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "language": {
+          "type": "string"
+        }
+      }
+    },
+    "SearchMode": {
+      "type": "string",
+      "enum": [
+        "SEARCH_MODE_UNSPECIFIED",
+        "SEARCH_MODE_TEXT",
+        "SEARCH_MODE_REGEX"
+      ],
+      "default": "SEARCH_MODE_UNSPECIFIED",
+      "description": " - SEARCH_MODE_TEXT: Words and phrases, typo-tolerant.\n - SEARCH_MODE_REGEX: Regular expression over block text, accelerated by the trigram index."
+    },
+    "SearchResponse": {
+      "type": "object",
+      "properties": {
+        "hits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/SearchHit"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/PageResponse"
+        },
+        "candidates": {
+          "type": "integer",
+          "format": "int64",
+          "description": "How many blocks the trigram index proposed and how many matched, so the\nindex's selectivity is visible."
+        },
+        "matched": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "SemanticHit": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "$ref": "#/definitions/BlockRef"
+        },
+        "cosine": {
+          "type": "number",
+          "format": "double",
+          "description": "Cosine similarity between query and block embeddings, in [-1, 1]."
+        }
+      }
+    },
+    "SemanticSearchResponse": {
+      "type": "object",
+      "properties": {
+        "hits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/SemanticHit"
+          }
+        },
+        "recallAtK": {
+          "type": "number",
+          "format": "double"
+        },
+        "latencyMs": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "SendMessageResponse": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "textDelta": {
+          "type": "string"
+        },
+        "toolCall": {
+          "$ref": "#/definitions/ToolCall"
+        },
+        "toolResult": {
+          "$ref": "#/definitions/ToolResult"
+        },
+        "confirmation": {
+          "$ref": "#/definitions/ConfirmationRequest"
+        },
+        "citation": {
+          "$ref": "#/definitions/Citation"
+        },
+        "finished": {
+          "$ref": "#/definitions/RunFinished"
+        }
+      }
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string",
+          "example": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl",
+          "description": "Short-lived signed token (minutes)."
+        },
+        "accessExpiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "refreshToken": {
+          "type": "string",
+          "example": "rt_9mQ2xV7kLp3sT8wZ",
+          "description": "Opaque rotating token (days). Each refresh returns a new one."
+        },
+        "refreshExpiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "A signed-in session. Send access_token as `Authorization: Bearer \u003ctoken\u003e`;\nkeep refresh_token secret and use it only with Refresh and SignOut."
+    },
+    "SetNoteRoleBody": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/definitions/NoteRole",
+          "description": "NOTE_ROLE_UNSPECIFIED removes the override and falls back to the\nworkspace role."
+        }
+      }
+    },
+    "SetNoteRoleResponse": {
+      "type": "object"
+    },
+    "SetWorkspaceRoleBody": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/definitions/WorkspaceRole",
+          "description": "WORKSPACE_ROLE_UNSPECIFIED is rejected; use RemoveMember to remove."
+        }
+      },
+      "required": [
+        "role"
+      ]
+    },
+    "SetWorkspaceRoleResponse": {
+      "type": "object"
+    },
+    "ShortestPathResponse": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean",
+          "description": "False when no path exists; path is then empty."
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Note IDs from `from` to `to`, both included."
+        },
+        "cost": {
+          "type": "number",
+          "format": "double",
+          "description": "Total cost under the requested metric."
+        }
+      }
+    },
+    "SignInRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "example": "ada@example.com"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    },
+    "SignInResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "session": {
+          "$ref": "#/definitions/Session"
+        }
+      }
+    },
+    "SignInWithOAuthRequest": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "$ref": "#/definitions/OAuthProvider"
+        },
+        "code": {
+          "type": "string",
+          "description": "The authorization code the provider returned to redirect_uri."
+        },
+        "codeVerifier": {
+          "type": "string",
+          "description": "The PKCE verifier whose challenge started the flow."
+        },
+        "redirectUri": {
+          "type": "string",
+          "example": "https://skein.example.com/auth/callback",
+          "description": "Must equal the redirect URI used to start the flow."
+        }
+      },
+      "required": [
+        "provider",
+        "code",
+        "codeVerifier",
+        "redirectUri"
+      ]
+    },
+    "SignInWithOAuthResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "session": {
+          "$ref": "#/definitions/Session"
+        },
+        "created": {
+          "type": "boolean",
+          "description": "True when this sign-in created the account."
+        }
+      }
+    },
+    "SignOutRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "refreshToken"
+      ]
+    },
+    "SignOutResponse": {
+      "type": "object"
+    },
+    "SignUpRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "example": "ada@example.com"
+        },
+        "password": {
+          "type": "string",
+          "description": "Stored only as an Argon2id hash and never logged (ADR-0008). Identity\nrejects weak passwords with INVALID_ARGUMENT."
+        },
+        "displayName": {
+          "type": "string",
+          "example": "Ada Lovelace"
+        }
+      },
+      "required": [
+        "email",
+        "password",
+        "displayName"
+      ]
+    },
+    "SignUpResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        },
+        "session": {
+          "$ref": "#/definitions/Session"
+        }
+      }
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Any"
+          }
+        }
+      }
+    },
+    "Subject": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "agentRunId": {
+          "type": "string",
+          "description": "Set when an agent run acts for user_id."
+        }
+      },
+      "description": "Who is acting: a user, or an agent run acting for a user."
+    },
+    "SubscribeResponse": {
+      "type": "object",
+      "properties": {
+        "notification": {
+          "$ref": "#/definitions/Notification"
+        }
+      }
+    },
+    "SuggestTitlesResponse": {
+      "type": "object",
+      "properties": {
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/TitleSuggestion"
+          }
+        }
+      }
+    },
+    "SyncHello": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "replicaId": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "version": {
+          "$ref": "#/definitions/VersionVector"
+        }
+      }
+    },
+    "SyncRejected": {
+      "type": "object",
+      "properties": {
+        "ops": {
+          "type": "string",
+          "format": "byte"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "SyncResponse": {
+      "type": "object",
+      "properties": {
+        "ops": {
+          "type": "string",
+          "format": "byte"
+        },
+        "presence": {
+          "$ref": "#/definitions/Presence"
+        },
+        "rejected": {
+          "$ref": "#/definitions/SyncRejected",
+          "description": "Operations the server refused (for example after access was revoked\nwhile the client was offline). The client drops them and keeps their\ntext as a draft."
+        }
+      }
+    },
+    "TitleSuggestion": {
+      "type": "object",
+      "properties": {
+        "noteId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "editDistance": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Edit distance between the typed prefix and the title; 0 is an exact\nprefix match."
+        }
+      }
+    },
+    "ToolCall": {
+      "type": "object",
+      "properties": {
+        "callId": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "argumentsJson": {
+          "type": "string",
+          "description": "Arguments as JSON, matching the tool's schema."
+        }
+      }
+    },
+    "ToolResult": {
+      "type": "object",
+      "properties": {
+        "callId": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short human summary, for example \"Read 3 notes\"."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      }
+    },
+    "UndoBody": {
+      "type": "object",
+      "properties": {
+        "replicaId": {
+          "type": "string",
+          "format": "uint64",
+          "example": "4831727201934127107",
+          "description": "The replica whose change groups to undo or redo. JSON string."
+        }
+      },
+      "required": [
+        "replicaId"
+      ]
+    },
+    "UndoResponse": {
+      "type": "object",
+      "properties": {
+        "ops": {
+          "type": "string",
+          "format": "byte",
+          "description": "The operations generated and applied, in the CRDT wire format. Base64 in\nJSON."
+        }
+      }
+    },
+    "UpdatePreferencesRequest": {
+      "type": "object",
+      "properties": {
+        "preferences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Preference"
+          }
+        }
+      }
+    },
+    "UpdatePreferencesResponse": {
+      "type": "object"
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "example": "01936f3e-8c4a-7b2e-9f10-3d5a6b7c8d90",
+          "description": "UUIDv7.",
+          "readOnly": true
+        },
+        "email": {
+          "type": "string",
+          "example": "ada@example.com"
+        },
+        "displayName": {
+          "type": "string",
+          "example": "Ada Lovelace"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "VersionEntry": {
+      "type": "object",
+      "properties": {
+        "replicaId": {
+          "type": "string",
+          "format": "uint64",
+          "example": "4831727201934127107",
+          "description": "JSON string: uint64 does not fit a JavaScript number."
+        },
+        "counter": {
+          "type": "string",
+          "format": "uint64",
+          "example": "42",
+          "description": "Highest operation counter seen from that replica. JSON string."
+        }
+      }
+    },
+    "VersionVector": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/VersionEntry"
+          }
+        }
+      },
+      "description": "Version vector entries, sorted by replica_id."
+    },
+    "WorkspaceRole": {
+      "type": "string",
+      "enum": [
+        "WORKSPACE_ROLE_UNSPECIFIED",
+        "WORKSPACE_ROLE_GUEST",
+        "WORKSPACE_ROLE_MEMBER",
+        "WORKSPACE_ROLE_ADMIN",
+        "WORKSPACE_ROLE_OWNER"
+      ],
+      "default": "WORKSPACE_ROLE_UNSPECIFIED"
+    }
+  },
+  "securityDefinitions": {
+    "bearer": {
+      "type": "apiKey",
+      "description": "An access token from sign-in, sign-up or refresh, sent as `Authorization: Bearer \u003ctoken\u003e`. Tokens are short-lived; refresh with POST /v1/sessions:refresh.",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "externalDocs": {
+    "description": "REST conventions, error model and WebSocket endpoints",
+    "url": "https://github.com/genuinebnt/skein-go/tree/main/docs/api"
+  }
+}

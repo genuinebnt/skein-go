@@ -51,10 +51,12 @@ message NoteTrashed {
 message NoteRestored {
   string note_id = 1;
 }
+
 // Every projection must erase what it holds about the note.
 message NotePurged {
   string note_id = 1;
 }
+
 // The current text of blocks that changed, so projections can re-index
 // without calling back into documents.
 message BlocksChanged {

@@ -2,11 +2,10 @@
 *.test
 *.out
 /bin/
-# Generated code (regenerated from proto/)
-/gen/
 # Python
 __pycache__/
 .venv/
+*.egg-info/
 *.pyc
 # Local config
 .env
