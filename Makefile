@@ -7,7 +7,12 @@ COMPOSE    := docker compose -f deploy/compose/docker-compose.yml
 # Libraries that must stay buildable for the browser (ADR-0007).
 WASM_LIBS  := libs/crdt
 
-.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto-check up down logs ci
+# Seed data (tools/seed, docs/seed-data.md). bin/ is git-ignored.
+PROFILE    ?= medium
+SEED       ?= 1234
+SEED_OUT   ?= bin/seed/$(PROFILE)
+
+.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto-check up down logs ci seed seed-small seed-check
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -54,5 +59,14 @@ down: ## Stop the local stack (keeps data)
 
 logs: ## Follow the local stack's logs
 	$(COMPOSE) logs -f
+
+seed: ## Generate seed data: make seed PROFILE=small|medium|large|stress [SEED=1234] [SEED_OUT=dir]
+	go run ./tools/seed -profile $(PROFILE) -seed $(SEED) -out $(SEED_OUT)
+
+seed-small: ## Regenerate the committed small dataset in testdata/seed/small
+	go run ./tools/seed -profile small -seed 1234 -out testdata/seed/small
+
+seed-check: ## Seed tool tests, including the medium profile's time budget
+	cd tools/seed && SKEIN_SEED_MEDIUM=1 go test -count=1 -timeout 20m ./...
 
 ci: fmt-check vet test wasm-check ## What CI runs for Go
