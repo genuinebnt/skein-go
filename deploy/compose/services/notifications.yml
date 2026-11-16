@@ -7,6 +7,7 @@
 # a hard dependency.
 services:
   notifications:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/notifications/Dockerfile

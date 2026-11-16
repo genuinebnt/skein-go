@@ -12,7 +12,7 @@ PROFILE    ?= medium
 SEED       ?= 1234
 SEED_OUT   ?= bin/seed/$(PROFILE)
 
-.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up up-min down logs urls stack-check stack-smoke ci seed seed-small seed-check
+.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up up-app up-min seed-load down logs urls stack-check stack-smoke ci seed seed-small seed-check
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -95,13 +95,20 @@ proto-stale: proto ## Regenerate and fail if the committed gen/ differs
 
 # gen/openapi is created first so Docker does not create it as root for the
 # Swagger UI mount; it stays empty until the contracts pipeline generates it.
-up: ## Start infrastructure plus observability (telemetry, dashboards, API docs)
+up: ## Start everything: infrastructure, observability and the seven services
 	@mkdir -p gen/openapi
-	$(COMPOSE) --profile observability up -d --wait
+	$(COMPOSE) --profile observability --profile app up -d --build --wait
 	@$(MAKE) --no-print-directory urls
+
+up-app: ## Start infrastructure and the seven services, without observability
+	$(COMPOSE) --profile app up -d --build --wait
 
 up-min: ## Start only infrastructure: Postgres, Redis, Pub/Sub emulator, Mailpit
 	$(COMPOSE) up -d --wait
+
+seed-load: ## Load testdata/seed/small into a running stack (identity and documents)
+	$(COMPOSE) --profile app --profile seed run --rm identity-seed
+	$(COMPOSE) --profile app --profile seed run --rm documents-seed
 
 down: ## Stop the local stack, every profile (keeps data)
 	$(COMPOSE) --profile '*' down
@@ -110,11 +117,19 @@ logs: ## Follow the local stack's logs
 	$(COMPOSE) --profile '*' logs -f
 
 urls: ## Print every local URL
-	@echo "Infrastructure (make up-min and make up)"
+	@echo "Infrastructure (every up target)"
 	@echo "  Postgres            postgres://skein:skein@localhost:5432/skein"
 	@echo "  Redis               redis://localhost:6379"
 	@echo "  Pub/Sub emulator    http://localhost:8085  (PUBSUB_EMULATOR_HOST=localhost:8085)"
 	@echo "  Mailpit             http://localhost:8025  (SMTP localhost:1025)"
+	@echo "Skein (make up and make up-app)"
+	@echo "  Gateway REST         http://localhost:8080/v1  (API docs at /docs, spec at /openapi.json)"
+	@echo "  identity             gRPC localhost:9101  admin http://localhost:8101"
+	@echo "  documents            gRPC localhost:9102  admin http://localhost:8102"
+	@echo "  search               gRPC localhost:9093  admin http://localhost:8083"
+	@echo "  ml                   gRPC localhost:9105  admin http://localhost:8105"
+	@echo "  agent                gRPC localhost:9107  admin http://localhost:8107"
+	@echo "  notifications        gRPC localhost:19095 admin http://localhost:18085"
 	@echo "Observability (make up)"
 	@echo "  Grafana             http://localhost:3000  (dashboards in the Skein folder)"
 	@echo "  Jaeger              http://localhost:16686"

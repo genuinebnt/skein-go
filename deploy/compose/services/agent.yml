@@ -17,6 +17,7 @@
 # to the model as a tool error.
 services:
   agent:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/agent/Dockerfile
