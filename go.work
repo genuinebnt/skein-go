@@ -7,5 +7,6 @@ use (
 	./libs/graph
 	./platform
 	./services/gateway
+	./services/identity
 	./tools/seed
 )
