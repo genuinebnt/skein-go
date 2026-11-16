@@ -1,0 +1,52 @@
+{
+  "name": "a note with two prerequisites makes the problem a DAG, solved exactly by branch and bound, read in Kahn order",
+  "why": "top needs left and right, both need base: not a forest, so branch and bound. All four fit in 8 minutes (value 19). Rank: base 0, left 1, top 2 (first reached from left), right 3. Reading order is Kahn's algorithm taking the ready note of smallest rank: base; then left (1) before right (3); top only after right. So base, left, right, top, which differs from rank order.",
+  "kind": "reading_plan",
+  "input": {
+    "budget": 8,
+    "notes": [
+      {
+        "id": "top",
+        "minutes": 1,
+        "value": 10,
+        "prerequisites": [
+          "left",
+          "right"
+        ]
+      },
+      {
+        "id": "right",
+        "minutes": 2,
+        "value": 4,
+        "prerequisites": [
+          "base"
+        ]
+      },
+      {
+        "id": "left",
+        "minutes": 2,
+        "value": 4,
+        "prerequisites": [
+          "base"
+        ]
+      },
+      {
+        "id": "base",
+        "minutes": 3,
+        "value": 1
+      }
+    ]
+  },
+  "expect": {
+    "notes": [
+      "base",
+      "left",
+      "right",
+      "top"
+    ],
+    "total_minutes": 8,
+    "total_value": 19,
+    "method": "branch-and-bound",
+    "optimal": true
+  }
+}

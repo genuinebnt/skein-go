@@ -1,0 +1,27 @@
+{
+  "name": "patience diff anchors on the only unique line even though it costs more edits",
+  "why": "Same input as 008. The only line occurring once in each side is # Heading (index 2 in a, 0 in b), so it is the anchor: everything before it in a (the braces) is deleted, everything after it in b is inserted. 4 edits instead of 2, but the heading stays in place.",
+  "kind": "diff",
+  "input": {
+    "a": "}\n}\n# Heading\n",
+    "b": "# Heading\n}\n}\n",
+    "tokens": "lines",
+    "algorithm": "patience"
+  },
+  "expect": {
+    "hunks": [
+      {
+        "kind": "delete",
+        "text": "}\n}\n"
+      },
+      {
+        "kind": "equal",
+        "text": "# Heading\n"
+      },
+      {
+        "kind": "insert",
+        "text": "}\n}\n"
+      }
+    ]
+  }
+}

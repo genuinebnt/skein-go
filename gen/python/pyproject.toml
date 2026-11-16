@@ -1,0 +1,33 @@
+# Generated Python bindings for Skein's gRPC contracts (proto/skein/v1).
+# The code under skein_proto/ is produced by scripts/gen-python.sh; only this
+# file, README.md, skein_proto/__init__.py, py.typed and tests/ are written
+# by hand.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skein-proto"
+version = "0.1.0"
+description = "Generated protobuf messages and gRPC stubs for Skein's v1 contracts"
+readme = "README.md"
+requires-python = ">=3.11"
+# Lower bounds are the versions the code was generated with: protobuf and
+# grpcio refuse to load generated code newer than their runtime.
+dependencies = [
+  "protobuf>=7.35.1,<8",
+  "grpcio>=1.85.1,<2",
+  "googleapis-common-protos>=1.76.0,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["skein_proto*"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed", "*.pyi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
