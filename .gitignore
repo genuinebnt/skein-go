@@ -1,0 +1,16 @@
+# Go
+*.test
+*.out
+/bin/
+# Generated code (regenerated from proto/)
+/gen/
+# Python
+__pycache__/
+.venv/
+*.pyc
+# Local config
+.env
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
