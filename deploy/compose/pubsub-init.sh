@@ -28,6 +28,7 @@ topic notifications.requests
 subscription search.documents-events documents.events
 subscription ml.documents-events documents.events
 subscription notifications.documents-events documents.events
+subscription identity.documents-events documents.events
 subscription documents.identity-events identity.events
 subscription search.identity-events identity.events
 subscription ml.identity-events identity.events

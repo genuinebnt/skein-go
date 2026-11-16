@@ -1,0 +1,6 @@
+**
+!gen/go
+!platform
+!services/identity
+**/*_test.go
+**/testdata
