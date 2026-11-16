@@ -7,6 +7,7 @@
 # cache, and the ml.documents-events subscription (pubsub-init.sh).
 services:
   ml:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/ml/Dockerfile

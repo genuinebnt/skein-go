@@ -6,6 +6,7 @@
 # token verification retries the fetch, so it is not a hard dependency.
 services:
   gateway:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/gateway/Dockerfile

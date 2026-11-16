@@ -3,6 +3,7 @@
 # gRPC on 127.0.0.1:9102, admin HTTP (probes) on 127.0.0.1:8102.
 services:
   documents:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/documents/Dockerfile

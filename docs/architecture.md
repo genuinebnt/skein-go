@@ -138,9 +138,9 @@ through the gateway and sends email according to preferences.
 | Environment | How | Infrastructure |
 |---|---|---|
 | Unit | `go test ./...` in one module, `pytest` in one service | none |
-| Local stack | `make up` (Docker Compose) | Postgres, Redis, Pub/Sub emulator, Mailpit |
-| Local Kubernetes | `make kind-up` | the same manifests as GKE, on kind |
-| Cloud | Terraform in `deploy/terraform` | GKE, Cloud SQL, Memorystore, Pub/Sub, Secret Manager, Artifact Registry |
+| Local stack | `make up` (everything), `make up-app` (no observability), `make up-min` (infrastructure only), then `make seed-load` | Postgres, Redis, Pub/Sub emulator, Mailpit; the seven services (profile `app`); collector, Jaeger, Prometheus, Loki, Grafana, Swagger UI (profile `observability`) |
+| Local Kubernetes | `make kind-up` (planned) | the same manifests as GKE, on kind |
+| Cloud | Terraform in `deploy/terraform` (planned) | GKE, Cloud SQL, Memorystore, Pub/Sub, Secret Manager, Artifact Registry |
 
 Nothing requires the cloud. Every adapter that touches a cloud service has a
 local implementation selected by configuration.
@@ -159,9 +159,21 @@ docs/            architecture, decision records, specs, guides
 
 ## 8. Status
 
-Phase 1 is being built one pull request per milestone. Done: the sequence
-CRDT (`libs/crdt`) with spec, codec, invariants and conformance fixtures, the
-contracts, and the local infrastructure stack. Next, in order: graph and
-dynamic programming libraries, `identity` and `gateway`, `documents` with the
-outbox, `search`, `ml`, `agent`, `notifications`, Kubernetes and Terraform,
-then the frontend from the design.
+Phases 1 and 2 are merged into `main`:
+
+- Libraries: `libs/crdt`, `libs/blocks`, `libs/dp`, `libs/graph` and
+  `libs/trigram`, each with a spec in `docs/spec/` and conformance fixtures
+  in `testdata/conformance/` for the Rust port; `platform/` for the shared
+  service infrastructure.
+- Contracts and generated code: `proto/skein/v1`, `gen/go`, `gen/python`,
+  the OpenAPI spec and `docs/api/`.
+- Services: `gateway`, `identity`, `documents`, `search` and
+  `notifications` in Go; `ml` and `agent` in Python. Each has a seed loader
+  checked against the seed data's ground truth.
+- Local stack: infrastructure, observability and every service in Docker
+  Compose (`make up`); seed data from `tools/seed`.
+
+Not yet done: running the full stack and the Docker-based integration
+tests end to end (the build environment had no Docker daemon), Kubernetes
+manifests and Terraform, and the frontend from the design. Open contract
+follow-ups are listed in each service's README.

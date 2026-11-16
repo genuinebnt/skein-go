@@ -2,6 +2,7 @@
 # compose file in the integration step; ports bind to 127.0.0.1 only.
 services:
   search:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/search/Dockerfile

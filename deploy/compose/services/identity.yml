@@ -3,6 +3,7 @@
 # gRPC on 127.0.0.1:9101, admin HTTP (JWKS, probes) on 127.0.0.1:8101.
 services:
   identity:
+    profiles: ["app"]
     build:
       context: ../../..
       dockerfile: services/identity/Dockerfile
