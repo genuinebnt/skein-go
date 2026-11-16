@@ -1,11 +1,33 @@
-# Local infrastructure for Skein. `make up` starts it; services are added here
-# as their milestones land. Every cloud dependency has a local stand-in, so
-# nothing here needs a GCP account (ADR-0014).
+# Local stack for Skein. Every cloud dependency has a local stand-in, so
+# nothing here needs a GCP account (ADR-0014). Services are added here as
+# their milestones land.
+#
+# Profiles:
+#   (none)          infrastructure: postgres, redis, pubsub, pubsub-init,
+#                   mailpit. `make up-min` starts only these.
+#   observability   OpenTelemetry Collector, Jaeger, Prometheus, Loki,
+#                   Grafana, Swagger UI and Redis Insight. `make up` starts
+#                   infrastructure plus these.
+# `make urls` lists every UI; docs/observability.md explains the signals.
+#
+# Every image is pinned to an exact version so a stack that worked keeps
+# working. Healthchecks let `docker compose up --wait` return only when the
+# stack is usable. Resource limits keep a laptop responsive and make the
+# collector's memory_limiter meaningful (it reads the cgroup limit).
+#
+# Observability ports bind to 127.0.0.1 only: Grafana runs with anonymous
+# admin access and nothing in that profile has authentication.
 name: skein
+
+x-healthcheck-timing: &healthcheck-timing
+  interval: 5s
+  timeout: 3s
+  retries: 30
+  start_period: 5s
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.12-alpine
     environment:
       POSTGRES_USER: skein
       POSTGRES_PASSWORD: skein
@@ -16,28 +38,35 @@ services:
       # One schema and one login role per service (ADR-0001).
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U skein"]
-      interval: 3s
-      retries: 20
+      <<: *healthcheck-timing
+      test: ["CMD-SHELL", "pg_isready -U skein -d skein"]
+    deploy:
+      resources:
+        limits: {cpus: "2", memory: 1g}
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.12-alpine
     ports: ["6379:6379"]
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      retries: 20
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 512m}
 
   # Google's Pub/Sub emulator: the same client libraries as production, with
   # PUBSUB_EMULATOR_HOST=localhost:8085 set.
   pubsub:
-    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:593.0.0-emulators
     command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=skein-local
     ports: ["8085:8085"]
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD-SHELL", "curl -sf http://localhost:8085 || exit 1"]
-      interval: 3s
-      retries: 30
+      start_period: 15s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 1g}
 
   # Creates the topics and subscriptions the services expect, then exits.
   pubsub-init:
@@ -48,11 +77,210 @@ services:
     volumes:
       - ./pubsub-init.sh:/pubsub-init.sh:ro
     entrypoint: ["/bin/sh", "/pubsub-init.sh"]
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 64m}
 
   # Catches every email the services send; web UI on http://localhost:8025.
   mailpit:
-    image: axllent/mailpit:v1.21
+    image: axllent/mailpit:v1.33.1
     ports: ["8025:8025", "1025:1025"]
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "/mailpit", "readyz"]
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256m}
+
+  # --- observability profile -------------------------------------------------
+
+  # The collector and Loki images contain only their binary: no shell, no
+  # wget, so no way to run a healthcheck. This one-shot job copies a static
+  # busybox into a shared read-only volume that those two containers use for
+  # their healthchecks. Statically linked, so it runs on any base image and
+  # on both amd64 and arm64.
+  healthcheck-tools:
+    image: busybox:1.37.0-musl
+    profiles: [observability]
+    command: ["cp", "/bin/busybox", "/tools/busybox"]
+    volumes:
+      - healthcheck-tools:/tools
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 32m}
+
+  # The only telemetry endpoint services know about: OTLP gRPC on 4317 and
+  # OTLP HTTP on 4318. Config: deploy/observability/otel-collector.yaml.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    profiles: [observability]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    environment:
+      DEPLOYMENT_ENVIRONMENT: local
+      # Go's soft memory limit just under memory_limiter's 80%, so the
+      # garbage collector works harder before the limiter starts refusing.
+      GOMEMLIMIT: 400MiB
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - healthcheck-tools:/tools:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    depends_on:
+      healthcheck-tools:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "/tools/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:13133/"]
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 512m}
+
+  # Pinned to 2.20.0, the last release with the v1 HTTP query API. Jaeger
+  # 2.21 removed /api/services and /api/traces search, which Grafana's
+  # bundled Jaeger data source (plugin 13.0.8 in Grafana 13.3.1) still uses
+  # for search and its health check. Bump when that plugin moves to API v3.
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    profiles: [observability]
+    command: ["--config=/etc/jaeger/config.yaml"]
+    volumes:
+      - ../observability/jaeger.yaml:/etc/jaeger/config.yaml:ro
+    ports:
+      - "127.0.0.1:16686:16686"
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:13133/status"]
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 1g}
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      # The collector pushes service metrics (see otel-collector.yaml).
+      - --web.enable-remote-write-receiver
+      # Keeps trace IDs on histogram samples so Grafana can jump to a trace.
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ../observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 1g}
+
+  loki:
+    image: grafana/loki:3.7.10
+    profiles: [observability]
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ../observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+      - healthcheck-tools:/tools:ro
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      healthcheck-tools:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "/tools/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3100/ready"]
+      # The ingester waits about 15 s before it reports ready.
+      start_period: 20s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 1g}
+
+  grafana:
+    image: grafana/grafana:13.3.1
+    profiles: [observability]
+    environment:
+      # Local only (ports bind to 127.0.0.1): no login, everyone is admin.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/service-overview.json
+    volumes:
+      # Only these two subfolders: mounting all of provisioning/ would hide
+      # the image's empty alerting/ and plugins/ folders and log errors.
+      - ../observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      start_period: 20s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 512m}
+
+  # Serves the gateway's OpenAPI document from gen/openapi, generated from
+  # proto/ by the contracts pipeline (make proto). The folder is served as
+  # static files rather than passed as SWAGGER_JSON: with SWAGGER_JSON a
+  # missing file silently falls back to the Petstore demo, while this way a
+  # missing spec shows as an explicit "Failed to load API definition" error
+  # and a regenerated spec appears on browser refresh without a restart.
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.35.0
+    profiles: [observability]
+    environment:
+      URL: /openapi/skein.swagger.json
+    volumes:
+      # `make up` creates gen/openapi first, so Docker does not create it
+      # as root on Linux hosts.
+      - ../../gen/openapi:/usr/share/nginx/html/openapi:ro
+    ports:
+      - "127.0.0.1:8090:8080"
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 128m}
+
+  # Browses cache entries and rate-limit keys; preconnected to the local
+  # Redis as "skein-local".
+  redis-insight:
+    image: redis/redisinsight:3.8.0
+    profiles: [observability]
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: skein-local
+    volumes:
+      - redisinsight-data:/data
+    ports:
+      - "127.0.0.1:5540:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5540/api/health"]
+      start_period: 20s
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 512m}
 
 volumes:
   postgres-data:
+  healthcheck-tools:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+  redisinsight-data:
