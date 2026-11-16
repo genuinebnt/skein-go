@@ -170,6 +170,7 @@ func (h *Handlers) upgrade(w http.ResponseWriter, r *http.Request, kind domain.S
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: protocols, OriginPatterns: h.cfg.OriginPatterns})
 	if err != nil {
 		// Accept has written the response (403 for a foreign origin).
+		sock.stop()
 		remove()
 		return nil, nil, false
 	}

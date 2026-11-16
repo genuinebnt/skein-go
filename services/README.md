@@ -5,7 +5,7 @@ They are added one milestone at a time; see `docs/architecture.md` section 8.
 
 | Service | Language | Status |
 |---|---|---|
-| `gateway` | Go | planned |
+| `gateway` | Go | phase 2: REST and WebSocket edge (`services/gateway/README.md`) |
 | `identity` | Go | planned |
 | `documents` | Go | planned |
 | `search` | Go | planned |
