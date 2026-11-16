@@ -1259,7 +1259,7 @@ func sha(b []byte) string { return shaHex(b) }
 
 // mediumBudget is the stated time budget for generating the medium profile
 // (8,000 notes, about 150,000 blocks, 16 million CRDT ops, every note
-// replay-verified). Measured: 38 s on 2 cores of a 2.x GHz cloud VM.
+// replay-verified). Measured: 38 to 50 s on a shared 2-core cloud VM.
 const mediumBudget = 180 * time.Second
 
 func TestMediumProfileGeneratesWithinBudget(t *testing.T) {

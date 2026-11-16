@@ -43,14 +43,15 @@ committed copy. Anything that changes the output for an existing seed bumps
 ## Profiles
 
 Users, workspaces and notes are exact. Blocks are a target, met within
-±15% (tested). Numbers are from seed 1234 on a 2-core cloud VM.
+±15% (tested). Numbers are from seed 1234 on a 2-core cloud VM shared with
+other work, which explains the ranges.
 
 | Profile | Workspaces | Users | Notes | Blocks (target / actual) | CRDT ops | Size | Time | Peak memory |
 |---|---|---|---|---|---|---|---|---|
 | small | 3 | 25 | 300 | 4,000 / 3,923 | 432,002 | 19.5 MB (3.7 MB compressed in git) | 1 s | under 100 MB |
-| medium | 10 | 200 | 8,000 | 150,000 / 148,706 | 16.1 M | 634 MB | 38 to 46 s (budget 180 s, tested) | 152 MB |
-| large | 50 | 2,000 | 100,000 | 2,000,000 / 1,972,527 | 176.7 M | 6.5 GB (4.8 GB of it ops) | 8.6 min | 586 MB |
-| stress | 4 | 120 | 150,068 | 151,000 / 151,006 | 4.4 M | 489 MB | 27 s | 0.93 GB |
+| medium | 10 | 200 | 8,000 | 150,000 / 149,018 | 16.2 M | 635 MB | 38 to 50 s (budget 180 s, tested) | 152 MB |
+| large | 50 | 2,000 | 100,000 | 2,000,000 / 1,973,833 | 176.8 M | 6.6 GB (4.8 GB of it ops) | 8.6 to 14 min | 586 MB |
+| stress | 4 | 120 | 150,068 | 151,000 / 151,006 | 4.4 M | 489 MB | 27 to 38 s | 0.95 GB |
 
 Every profile contains the hand-written anchor workspace (62 notes). The
 other workspaces are generated (`procedural`), except in `stress`. Size is
