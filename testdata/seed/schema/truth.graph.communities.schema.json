@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.communities.schema.json",
+  "title": "One line of truth/graph/communities.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "note_id",
+    "community"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "community": {
+      "$ref": "common.schema.json#/$defs/topic"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.permissions.matrix.schema.json",
+  "title": "One line of truth/permissions/matrix.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "subject",
+    "action",
+    "resource_id",
+    "at",
+    "expected",
+    "rule"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_id",
+        "agent_run_id",
+        "share_link_id"
+      ],
+      "properties": {
+        "user_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent_run_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "share_link_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "user_id": {
+              "$ref": "common.schema.json#/$defs/uuid"
+            },
+            "share_link_id": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "user_id": {
+              "type": "null"
+            },
+            "agent_run_id": {
+              "type": "null"
+            },
+            "share_link_id": {
+              "$ref": "common.schema.json#/$defs/uuid"
+            }
+          }
+        }
+      ]
+    },
+    "action": {
+      "$ref": "common.schema.json#/$defs/action"
+    },
+    "resource_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "expected": {
+      "enum": [
+        "allow",
+        "deny"
+      ]
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

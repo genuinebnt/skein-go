@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.search.typo_queries.schema.json",
+  "title": "One line of truth/search/typo_queries.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "query",
+    "intended",
+    "edit_distance",
+    "target_query_id",
+    "target_note_ids"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "query": {
+      "type": "string"
+    },
+    "intended": {
+      "type": "string"
+    },
+    "edit_distance": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "target_query_id": {
+      "type": "string"
+    },
+    "target_note_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/uuid"
+      }
+    }
+  }
+}

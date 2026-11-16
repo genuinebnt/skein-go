@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.dangling.schema.json",
+  "title": "One line of truth/graph/dangling.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "source_note_id",
+    "target_title",
+    "block_id"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "source_note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "target_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "block_id": {
+      "$ref": "common.schema.json#/$defs/blockId"
+    }
+  }
+}

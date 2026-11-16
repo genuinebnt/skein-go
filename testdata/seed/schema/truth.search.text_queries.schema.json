@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.search.text_queries.schema.json",
+  "title": "One line of truth/search/text_queries.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "query",
+    "terms",
+    "kind",
+    "subject_user_id",
+    "qrels"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1
+    },
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "kind": {
+      "enum": [
+        "anchor",
+        "codename",
+        "codename+topic",
+        "topic",
+        "permission",
+        "stress"
+      ]
+    },
+    "subject_user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "qrels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "note_id",
+          "grade"
+        ],
+        "properties": {
+          "note_id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          },
+          "grade": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          }
+        }
+      }
+    }
+  }
+}

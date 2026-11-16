@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "batches.schema.json",
+  "title": "One line of batches.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "note_id",
+    "seq",
+    "replica_id",
+    "user_id",
+    "agent_run_id",
+    "kind",
+    "created_at",
+    "delivered_at",
+    "op_count",
+    "inserts",
+    "deletes",
+    "byte_offset",
+    "byte_length",
+    "sha256"
+  ],
+  "properties": {
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "replica_id": {
+      "$ref": "common.schema.json#/$defs/replicaId"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "agent_run_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "$ref": "common.schema.json#/$defs/batchKind"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "delivered_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "op_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "inserts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "deletes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "byte_offset": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "byte_length": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    }
+  }
+}

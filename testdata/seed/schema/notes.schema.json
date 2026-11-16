@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "notes.schema.json",
+  "title": "One line of notes.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "title",
+    "kind",
+    "language",
+    "created_by",
+    "created_at",
+    "updated_at",
+    "trashed",
+    "trashed_at",
+    "is_root",
+    "block_count",
+    "char_count",
+    "op_count",
+    "batches",
+    "ops_path",
+    "ops_sha256",
+    "text_sha256",
+    "duplicate_of"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "anchor",
+        "procedural",
+        "mixed",
+        "multilingual",
+        "near-duplicate",
+        "stress"
+      ]
+    },
+    "language": {
+      "enum": [
+        "en",
+        "hi",
+        "ja",
+        "de"
+      ]
+    },
+    "created_by": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "trashed": {
+      "type": "boolean"
+    },
+    "trashed_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_root": {
+      "type": "boolean"
+    },
+    "block_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "char_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "op_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "batches": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ops_path": {
+      "type": "string",
+      "pattern": "^ops/[0-9]{4}/[0-9a-f-]{36}\\.ops$"
+    },
+    "ops_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "text_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "duplicate_of": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

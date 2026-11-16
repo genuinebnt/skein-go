@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.crdt.conflicts.schema.json",
+  "title": "One line of truth/crdt/conflicts.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "why",
+    "replicas",
+    "steps",
+    "expect",
+    "batches",
+    "version_vector"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "why": {
+      "type": "string",
+      "minLength": 20
+    },
+    "replicas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "replica": {
+            "type": "string"
+          },
+          "insert": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "text"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "delete": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "count"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "const": "all"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "reject": {
+            "type": "string"
+          },
+          "expect": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "minProperties": 1
+      },
+      "minItems": 1
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "replica",
+          "ops_base64",
+          "rejected"
+        ],
+        "properties": {
+          "replica": {
+            "type": "string"
+          },
+          "ops_base64": {
+            "type": "string",
+            "pattern": "^U0sB"
+          },
+          "rejected": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "version_vector": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/versionEntry"
+      }
+    }
+  }
+}

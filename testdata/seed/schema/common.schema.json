@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "title": "Shared definitions for the seed data files",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUIDv7, lowercase"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "description": "RFC 3339, UTC, milliseconds"
+    },
+    "replicaId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$",
+      "description": "uint64 as a decimal string (proto3 JSON style)"
+    },
+    "blockId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}:[1-9][0-9]*$",
+      "description": "replica:counter of the block marker"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "workspaceRole": {
+      "enum": [
+        "owner",
+        "admin",
+        "member",
+        "guest"
+      ]
+    },
+    "noteRole": {
+      "enum": [
+        "editor",
+        "commenter",
+        "viewer"
+      ]
+    },
+    "action": {
+      "enum": [
+        "ACTION_NOTE_READ",
+        "ACTION_NOTE_COMMENT",
+        "ACTION_NOTE_EDIT",
+        "ACTION_NOTE_CREATE",
+        "ACTION_NOTE_DELETE",
+        "ACTION_NOTE_SHARE",
+        "ACTION_WORKSPACE_MANAGE_MEMBERS",
+        "ACTION_WORKSPACE_MANAGE_SETTINGS",
+        "ACTION_AGENT_RUN"
+      ]
+    },
+    "notificationKind": {
+      "enum": [
+        "NOTIFICATION_KIND_MENTION",
+        "NOTIFICATION_KIND_COMMENT",
+        "NOTIFICATION_KIND_SHARE",
+        "NOTIFICATION_KIND_AGENT_RUN_FINISHED",
+        "NOTIFICATION_KIND_ACCESS_CHANGED"
+      ]
+    },
+    "blockType": {
+      "enum": [
+        "paragraph",
+        "heading1",
+        "heading2",
+        "heading3",
+        "bulleted",
+        "numbered",
+        "todo",
+        "quote",
+        "code",
+        "divider",
+        "table"
+      ]
+    },
+    "batchKind": {
+      "enum": [
+        "type",
+        "revise",
+        "split",
+        "merge",
+        "concurrent",
+        "offline",
+        "agent",
+        "link"
+      ]
+    },
+    "topic": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note_id",
+        "block_id",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "note_id": {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        "block_id": {
+          "type": "string",
+          "pattern": "^([1-9][0-9]{0,19}:[1-9][0-9]*)?$",
+          "description": "empty means the whole note"
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "versionEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replica_id",
+        "counter"
+      ],
+      "properties": {
+        "replica_id": {
+          "$ref": "common.schema.json#/$defs/replicaId"
+        },
+        "counter": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "noteIdList": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/uuid"
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.hubs.schema.json",
+  "title": "One line of truth/graph/hubs.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "note_id",
+    "title",
+    "by",
+    "rank",
+    "in_degree",
+    "out_degree",
+    "planted"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "title": {
+      "type": "string"
+    },
+    "by": {
+      "enum": [
+        "in_degree",
+        "out_degree"
+      ]
+    },
+    "rank": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "in_degree": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "out_degree": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "planted": {
+      "type": "boolean"
+    }
+  }
+}
