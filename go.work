@@ -8,5 +8,6 @@ use (
 	./platform
 	./services/gateway
 	./services/identity
+	./services/notifications
 	./tools/seed
 )

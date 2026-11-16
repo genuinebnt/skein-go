@@ -1,0 +1,20 @@
+[
+  {"text": "@ada can you check the snapshot threshold?", "handles": ["ada"], "why": "A mention at the start of the text."},
+  {"text": "Ping @Grace and @ada, then @ada again.", "handles": ["ada", "grace"], "why": "Handles are lowercased, deduplicated and sorted; the sentence's comma and full stop end the handle."},
+  {"text": "Ask @kaito.varga.", "handles": ["kaito.varga"], "why": "Dots inside a handle belong to it (the seed's generated handles have them); a trailing dot is punctuation."},
+  {"text": "cc @rin_schafer- and @chen-andersen", "handles": ["chen-andersen", "rin_schafer"], "why": "Underscores and hyphens are handle characters, but trailing ones are dropped."},
+  {"text": "Data processing contact: privacy@lumenwright.example", "handles": [], "why": "An @ after a letter is part of an email address, not a mention."},
+  {"text": "for a recall@10 of 0.973", "handles": [], "why": "An @ after a letter or digit never starts a mention."},
+  {"text": "WHERE search @@ q", "handles": [], "why": "SQL's @@ operator: the first @ is not followed by a letter, the second follows an @."},
+  {"text": "write to @ada@example.com", "handles": [], "why": "A handle directly followed by another @ is an address."},
+  {"text": "see https://example.com/@ada and a=@bob", "handles": [], "why": "An @ after / or = is inside a URL or an assignment."},
+  {"text": "use `@ada` literally, but tell @bob", "handles": ["bob"], "why": "Inline code spans are not scanned."},
+  {"text": "``code with ` and @ada`` then @cyd", "handles": ["cyd"], "why": "A span opened by two backticks closes only at the next run of exactly two, so the single backtick inside does not end it (CommonMark)."},
+  {"text": "an unclosed ` backtick and @ada", "handles": ["ada"], "why": "A backtick run with no matching closer is literal text, so the mention after it counts."},
+  {"text": "(@ada) [@bob] \"@cyd\" *@dee*", "handles": ["ada", "bob", "cyd", "dee"], "why": "Brackets, quotes and emphasis markers may precede a mention."},
+  {"text": "@1password and @_ada", "handles": [], "why": "A handle starts with an ASCII letter."},
+  {"text": "Grüße @jürgen", "handles": ["j"], "why": "Handles are ASCII; a non-ASCII letter ends one. Real handles never contain one, so this only pins the grammar."},
+  {"text": "ü@ada", "handles": [], "why": "Any Unicode letter before the @ blocks the mention, not only ASCII ones."},
+  {"text": "@", "handles": [], "why": "A lone @ is not a mention."},
+  {"text": "@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "handles": [], "why": "65 characters is longer than MaxHandleLength (64)."}
+]

@@ -34,4 +34,5 @@ subscription search.identity-events identity.events
 subscription ml.identity-events identity.events
 subscription gateway.identity-events identity.events
 subscription notifications.agent-events agent.events
+subscription notifications.identity-events identity.events
 subscription notifications.requests notifications.requests
