@@ -1,0 +1,65 @@
+[project]
+name = "skein-agent"
+version = "0.1.0"
+description = "Skein's agent service: a LangGraph agent that acts as the user through the same gRPC APIs as the frontend (ADR-0009)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "grpcio>=1.85",
+  "grpcio-health-checking>=1.85",
+  "protobuf>=6.30",
+  "langgraph>=1.2,<2",
+  "langchain-core>=1.8,<2",
+  "langchain-anthropic>=1.7,<2",
+  "opentelemetry-api>=1.45",
+  "opentelemetry-sdk>=1.45",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.45",
+  "redis>=6",
+]
+
+[project.optional-dependencies]
+# The Postgres checkpointer is optional: tests and the evals use LangGraph's
+# in-memory checkpointer.
+postgres = ["langgraph-checkpoint-postgres>=3.2", "psycopg[binary]>=3.2"]
+dev = [
+  "grpcio-tools>=1.85",
+  "pytest>=8",
+  "pytest-asyncio>=1.0",
+  "fakeredis[lua]>=2.30",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+skein-agent = "skein_agent.__main__:main"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skein_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not integration and not live_model'"
+markers = [
+  "integration: needs Docker (Testcontainers); skipped by default",
+  "live_model: calls the real Anthropic API; needs ANTHROPIC_API_KEY; skipped by default",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["gen"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# A Markdown table of settings and scripted model lines read better unwrapped.
+"src/skein_agent/config.py" = ["E501"]
+"src/skein_agent/evals/tasks.py" = ["E501"]
