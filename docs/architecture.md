@@ -130,6 +130,7 @@ through the gateway and sends email according to preferences.
   with trace IDs.
 - **Health and shutdown:** gRPC health checks, readiness that waits for
   database and Pub/Sub, graceful drain on SIGTERM.
+- **Shared Go infrastructure:** the `platform` module implements all of the above for the Go services ([platform.md](platform.md)).
 
 ## 6. Environments ([ADR-0014](adr/0014-deployment.md))
 
