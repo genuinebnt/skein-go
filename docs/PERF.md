@@ -86,3 +86,13 @@ Character diffs of whole notes are the expensive case: the diff records one
 operation per element before grouping, so memory is about 450 bytes per code
 point at this size. The documents service should diff by line first and
 refine changed lines by word or character, which keeps D and N small.
+
+### services/ml algorithms (2026-11-16)
+
+Python 3.13, NumPy 2.5, 2 vCPUs (cloud development container). Clustering
+and vector search, from scratch and against scikit-learn, FAISS and hnswlib,
+are recorded in [ml-benchmarks.md](ml-benchmarks.md) by
+`python -m skein_ml.bench`; regenerate that file rather than copying numbers
+here. Headline: scratch e-means reproduces `faiss.contrib.e_means` exactly;
+Elkan does 3 to 10 times fewer distance computations than Lloyd from the same
+start; scratch HNSW matches hnswlib's recall@10 at equal parameters.

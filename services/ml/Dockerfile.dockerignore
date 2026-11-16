@@ -1,0 +1,10 @@
+# Used by BuildKit for services/ml/Dockerfile; paths are relative to the
+# build context (the repository root).
+**
+!proto/**
+!services/ml/pyproject.toml
+!services/ml/README.md
+!services/ml/src/**
+!services/ml/scripts/**
+!services/ml/migrations/**
+**/__pycache__
