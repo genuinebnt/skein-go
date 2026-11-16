@@ -1,0 +1,62 @@
+# identity (services/identity/README.md). Included by the integration step
+# from deploy/compose/docker-compose.yml; paths are relative to this file.
+# gRPC on 127.0.0.1:9101, admin HTTP (JWKS, probes) on 127.0.0.1:8101.
+services:
+  identity:
+    build:
+      context: ../../..
+      dockerfile: services/identity/Dockerfile
+    image: skein/identity:dev
+    environment:
+      SKEIN_ENV: dev
+      DATABASE_URL: postgres://identity:identity@postgres:5432/skein?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      PUBSUB_PROJECT: skein-local
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      OTEL_SERVICE_NAME: identity
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
+      IDENTITY_GRPC_ADDR: ":9090"
+      IDENTITY_ADMIN_ADDR: ":8080"
+      IDENTITY_OAUTH_REDIRECT_URIS: http://localhost:3000/auth/callback
+      # Optional: IDENTITY_SIGNING_KEYS (else a key is generated per start),
+      # IDENTITY_GOOGLE_CLIENT_ID/SECRET, IDENTITY_GITHUB_CLIENT_ID/SECRET,
+      # IDENTITY_FIXED_NOW=2026-11-01T00:00:00Z to match seed ground truth.
+      IDENTITY_FIXED_NOW: ${IDENTITY_FIXED_NOW:-}
+      IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS: ${IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS:-false}
+    ports:
+      - "127.0.0.1:9101:9090"
+      - "127.0.0.1:8101:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/identity", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    deploy:
+      resources:
+        # Argon2id holds 64 MiB per hash and at most 4 run at once.
+        limits: {cpus: "1", memory: 512m}
+
+  # Loads identity's share of testdata/seed/small, then exits:
+  #   docker compose run --rm identity-seed
+  identity-seed:
+    image: skein/identity:dev
+    profiles: ["seed"]
+    entrypoint: ["/usr/local/bin/identity-seed", "-dir", "/seed"]
+    environment:
+      DATABASE_URL: postgres://identity:identity@postgres:5432/skein?sslmode=disable
+      SKEIN_SEED_PASSWORD: ${SKEIN_SEED_PASSWORD:-}
+    volumes:
+      - ../../../testdata/seed/small:/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
