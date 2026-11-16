@@ -1,0 +1,54 @@
+# The gateway: the only service with a public port (ADR-0002). Included by
+# the stack's compose file during integration; paths are relative to this
+# file. The backends are reached by service name on their gRPC port 9090;
+# connections are lazy, so the gateway starts before them and only needs
+# Redis and the Pub/Sub topics. Identity is wanted for the key set, but
+# token verification retries the fetch, so it is not a hard dependency.
+services:
+  gateway:
+    build:
+      context: ../../..
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      SKEIN_ENV: dev
+      REDIS_URL: redis://redis:6379/0
+      PUBSUB_PROJECT: skein-local
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      GATEWAY_HTTP_ADDR: ":8080"
+      IDENTITY_GRPC_TARGET: dns:///identity:9090
+      DOCUMENTS_GRPC_TARGET: dns:///documents:9090
+      DOCUMENTS_SYNC_ADDR: documents:9090
+      SEARCH_GRPC_TARGET: dns:///search:9090
+      ML_GRPC_TARGET: dns:///ml:9090
+      AGENT_GRPC_TARGET: dns:///agent:9090
+      NOTIFICATIONS_GRPC_TARGET: dns:///notifications:9090
+      IDENTITY_JWKS_URL: http://identity:8080/.well-known/jwks.json
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      # Nothing sits in front of the gateway locally; the host's IP is the client.
+      TRUSTED_PROXIES: ""
+      # No load balancer to notice readiness locally.
+      GATEWAY_DRAIN_DELAY: 0s
+      OTEL_SERVICE_NAME: gateway
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      pubsub-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_started
+        required: false
+    healthcheck:
+      test: ["CMD", "/gateway", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    # Longer than the shutdown manager's 25 s, so a drain finishes.
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits: {cpus: "1", memory: 256m}

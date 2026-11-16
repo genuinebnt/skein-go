@@ -71,6 +71,10 @@ is accepted in between.
   is the number of seconds to wait before reconnecting.
 - On deploy, the gateway closes connections with `1012` (service restart);
   clients reconnect with backoff.
+- Each connection has a bounded send queue (256 frames). A client that does
+  not read fast enough fills it and is closed with `1013` rather than slowing
+  the stream for everyone; it reconnects with backoff, and sync catches up
+  from its version vector.
 - Reconnect with exponential backoff and jitter, starting at 1 second and
   capped at 30 seconds, except after `4401` (refresh, then reconnect at once).
 
@@ -87,6 +91,7 @@ status message:
 | `1009` | Frame over 1 MiB | Fix the client |
 | `1011` | `INTERNAL`, `UNKNOWN`, `DATA_LOSS` | Reconnect with backoff |
 | `1012` | Gateway restarting, or `UNAVAILABLE` | Reconnect with backoff |
+| `1013` | The client read too slowly and its send queue filled | Reconnect with backoff |
 | `4400` | `INVALID_ARGUMENT`, `FAILED_PRECONDITION`, a frame that does not decode, a first sync frame that is not a hello | Fix the client; do not retry unchanged |
 | `4401` | `UNAUTHENTICATED`, including token expiry | Refresh the token and reconnect |
 | `4403` | `PERMISSION_DENIED`, including access revoked while connected | Stop; reload the resource over REST |
