@@ -1,0 +1,16 @@
+# Loads every dashboard JSON in deploy/observability/grafana/dashboards
+# (mounted read-only at /etc/grafana/dashboards) into a "Skein" folder.
+# The files are the source of truth: edits made in the UI are allowed so a
+# panel can be tweaked, but to keep a change, export the dashboard JSON
+# and commit it over the file.
+apiVersion: 1
+
+providers:
+  - name: skein
+    folder: Skein
+    type: file
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

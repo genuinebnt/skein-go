@@ -1,0 +1,73 @@
+# GKE overlay for otel-collector.yaml. Run the collector with both files:
+#
+#   --config=/conf/otel-collector.yaml --config=/conf/otel-collector.gke.yaml
+#
+# The collector merges them: maps merge key by key, lists are replaced. So
+# receivers and the memory_limiter, resource, normalisation and redaction
+# processors come from the base file unchanged (one definition of what gets
+# redacted, for every environment), and this file only adds GCP resource
+# detection and Kubernetes metadata and swaps the exporters. The local
+# exporters stay defined but unused, which the collector allows.
+#
+# Destinations (docs/observability.md, "GCP mapping"):
+#   traces  -> Cloud Trace            (googlecloud exporter)
+#   logs    -> Cloud Logging          (googlecloud exporter)
+#   metrics -> Cloud Monitoring, through Managed Service for Prometheus
+#              (googlemanagedprometheus exporter), which keeps the Prometheus
+#              names so the Grafana dashboards work unchanged.
+# Credentials come from Workload Identity; no key files.
+# The Kubernetes manifests that run this belong to deploy/k8s (not yet built).
+
+processors:
+  resource_detection:
+    # Adds cloud.*, k8s.cluster.name and host attributes; the exporters use
+    # them to pick the monitored resource (k8s_container).
+    detectors: [env, gcp]
+    timeout: 5s
+    override: false
+
+  k8s_attributes:
+    # Pod, namespace and workload names; needs the collector's service
+    # account to get, list and watch pods and replicasets.
+    auth_type: serviceAccount
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.deployment.name
+        - k8s.node.name
+        - container.id
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+      - sources:
+          - from: connection
+
+  batch:
+    # Cloud APIs bill and rate-limit per request; bigger, slower batches.
+    timeout: 5s
+    send_batch_size: 8192
+    send_batch_max_size: 16384
+
+exporters:
+  googlecloud:
+    log:
+      default_log_name: skein
+
+  googlemanagedprometheus: {}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, k8s_attributes, resource, transform/normalize_resource, transform/redact, batch]
+      exporters: [googlecloud]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, k8s_attributes, resource, transform/normalize_resource, transform/redact, batch]
+      exporters: [googlemanagedprometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, k8s_attributes, resource, transform/normalize_resource, transform/redact, batch]
+      exporters: [googlecloud]

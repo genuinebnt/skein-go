@@ -1,0 +1,33 @@
+# Prometheus (pinned in deploy/compose/docker-compose.yml) for the local stack.
+#
+# Service metrics do not appear below: the collector pushes them with remote
+# write (see otel-collector.yaml for why), which needs
+# --web.enable-remote-write-receiver on the command line. The scrape jobs here
+# are only the observability stack watching itself, so a dashboard that shows
+# nothing can be told apart from a pipeline that is broken.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Accepted, refused and dropped spans, metric points and log records.
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8888"]
+
+  - job_name: jaeger
+    static_configs:
+      - targets: ["jaeger:8888"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]

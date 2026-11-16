@@ -1,5 +1,5 @@
-# Skein developer commands. Every target works without the cloud; only `up`,
-# `down` and `logs` need Docker.
+# Skein developer commands. Every target works without the cloud; only the
+# stack targets (up, up-min, down, logs, stack-smoke) need Docker.
 
 GO_MODULES := $(shell find libs services gen platform tools -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null | sort)
 FUZZTIME   ?= 30s
@@ -12,7 +12,7 @@ PROFILE    ?= medium
 SEED       ?= 1234
 SEED_OUT   ?= bin/seed/$(PROFILE)
 
-.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up down logs ci seed seed-small seed-check
+.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up up-min down logs urls stack-check stack-smoke ci seed seed-small seed-check
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -93,14 +93,47 @@ proto-stale: proto ## Regenerate and fail if the committed gen/ differs
 	@git add -N gen && git diff --exit-code --stat gen || \
 	  { echo "gen/ is stale: run 'make proto' and commit the result"; exit 1; }
 
-up: ## Start the local stack
+# gen/openapi is created first so Docker does not create it as root for the
+# Swagger UI mount; it stays empty until the contracts pipeline generates it.
+up: ## Start infrastructure plus observability (telemetry, dashboards, API docs)
+	@mkdir -p gen/openapi
+	$(COMPOSE) --profile observability up -d --wait
+	@$(MAKE) --no-print-directory urls
+
+up-min: ## Start only infrastructure: Postgres, Redis, Pub/Sub emulator, Mailpit
 	$(COMPOSE) up -d --wait
 
-down: ## Stop the local stack (keeps data)
-	$(COMPOSE) down
+down: ## Stop the local stack, every profile (keeps data)
+	$(COMPOSE) --profile '*' down
 
 logs: ## Follow the local stack's logs
-	$(COMPOSE) logs -f
+	$(COMPOSE) --profile '*' logs -f
+
+urls: ## Print every local URL
+	@echo "Infrastructure (make up-min and make up)"
+	@echo "  Postgres            postgres://skein:skein@localhost:5432/skein"
+	@echo "  Redis               redis://localhost:6379"
+	@echo "  Pub/Sub emulator    http://localhost:8085  (PUBSUB_EMULATOR_HOST=localhost:8085)"
+	@echo "  Mailpit             http://localhost:8025  (SMTP localhost:1025)"
+	@echo "Observability (make up)"
+	@echo "  Grafana             http://localhost:3000  (dashboards in the Skein folder)"
+	@echo "  Jaeger              http://localhost:16686"
+	@echo "  Prometheus          http://localhost:9090"
+	@echo "  Loki API            http://localhost:3100  (browse logs in Grafana > Explore)"
+	@echo "  Swagger UI          http://localhost:8090  (spec from gen/openapi)"
+	@echo "  Redis Insight       http://localhost:5540"
+	@echo "  OTLP gRPC           localhost:4317         (OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317)"
+	@echo "  OTLP HTTP           http://localhost:4318"
+
+stack-check: ## Validate compose, collector, Jaeger, Prometheus, Loki and dashboard configs
+	deploy/observability/check.sh
+
+SMOKE := deploy/observability/smoke
+stack-smoke: ## Send synthetic telemetry to a running `make up` stack and check dashboards and redaction
+	@test -x $(SMOKE)/.venv/bin/python || (python3 -m venv $(SMOKE)/.venv && $(SMOKE)/.venv/bin/pip install -q -r $(SMOKE)/requirements.txt)
+	$(SMOKE)/.venv/bin/python $(SMOKE)/emit.py --seconds 60
+	@sleep 10 # let the collector's batch and Prometheus' remote-write ingestion catch up
+	python3 $(SMOKE)/check.py
 
 seed: ## Generate seed data: make seed PROFILE=small|medium|large|stress [SEED=1234] [SEED_OUT=dir]
 	go run ./tools/seed -profile $(PROFILE) -seed $(SEED) -out $(SEED_OUT)
