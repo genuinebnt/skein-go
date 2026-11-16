@@ -1,0 +1,7 @@
+# Generated stubs (scripts/gen_proto.py). Replaced by gen/python at the repo
+# root once the contracts change lands.
+/gen/
+.venv/
+.pytest_cache/
+.ruff_cache/
+eval-report.json

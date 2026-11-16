@@ -1,0 +1,18 @@
+{
+  "name": "a star's centre is the only bridge and collects the rank",
+  "why": "Leaves a, b and c cite hub, which cites nothing (a dangling note).",
+  "graph": {
+    "nodes": [{"id": "hub"}, {"id": "a"}, {"id": "b"}, {"id": "c"}],
+    "edges": [{"from": "a", "to": "hub"}, {"from": "b", "to": "hub"}, {"from": "c", "to": "hub"}]
+  },
+  "queries": [
+    {"query": {"op": "betweenness"}, "expected": {"scores": {"hub": 1, "a": 0, "b": 0, "c": 0}},
+     "why": "Every pair of leaves has exactly one shortest path, through hub; normalised by the 3 pairs, hub scores 1."},
+    {"query": {"op": "pagerank", "damping": 0.85, "tolerance": 1e-13, "max_iterations": 500},
+     "expected": {"scores": {"hub": 0.5419847328244275, "a": 0.15267175572519084, "b": 0.15267175572519084, "c": 0.15267175572519084}, "converged": true},
+     "why": "hub's rank is spread over all 4 notes. leaf = 0.15/4 + 0.85*hub/4, hub = 0.15/4 + 0.85*(3*leaf + hub/4) and 3*leaf + hub = 1 give hub = 0.8875/1.6375."},
+    {"query": {"op": "pagerank", "damping": 0, "tolerance": 1e-13, "max_iterations": 10},
+     "expected": {"scores": {"hub": 0.25, "a": 0.25, "b": 0.25, "c": 0.25}, "converged": true},
+     "why": "With damping 0 every step is a random jump, so rank is uniform."}
+  ]
+}

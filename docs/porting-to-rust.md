@@ -107,6 +107,23 @@ embeddings, and agent frameworks are young; check the current options first.
   `deliver(&mut self, ops: impl IntoIterator<Item = Op>) -> Result<(), Error>`.
 - The codec must match the golden bytes in `codec_test.go` and the spec.
 
+### `libs/graph` (`skein-graph`)
+
+- `Graph` holds `ids: Vec<String>` (ascending), `index: HashMap<String,
+  usize>`, `root: Vec<bool>`, `out`, `in_`, `adj: Vec<Vec<usize>>` and the
+  weight vectors. Node positions are `usize` and never leave the crate.
+- `Direction` becomes `enum Direction { CitedBy, Cites, Undirected }` with
+  `CitedBy` as `Default`; the "unknown direction" error disappears.
+- `container/heap` becomes `BinaryHeap<Reverse<usize>>`; Dijkstra's
+  `costItem` needs a manual `Ord` comparing `(cost, hops, node)` with
+  `f64::total_cmp` (costs are never NaN).
+- Keep every search iterative (explicit frame stacks); Rust test threads have
+  2 MiB of stack and the Go deep-chain test caps its own stack to match.
+- Add floating-point values in the same order as Go (PageRank pulls from
+  in-links in ascending order; modularity sums communities in label order) so
+  results agree to the last bit where they can; fixtures still allow `1e-9`.
+- `docs/spec/graph.md` is normative, including the Louvain label rule.
+
 ## 6. Cross-language checks
 
 - **Fixtures:** each Rust crate's tests load `testdata/conformance/<name>`

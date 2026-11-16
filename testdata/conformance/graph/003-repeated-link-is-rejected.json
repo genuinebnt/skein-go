@@ -1,0 +1,10 @@
+{
+  "name": "the same directed link given twice is rejected",
+  "why": "The graph is a set of links. a -> b and b -> a are two different edges and both are accepted, but a -> b twice (here with different weights, which would make the semantic distance ambiguous) is an error.",
+  "graph": {
+    "nodes": [{"id": "a"}, {"id": "b"}],
+    "edges": [{"from": "a", "to": "b", "weight": 0.5}, {"from": "b", "to": "a"}, {"from": "a", "to": "b", "weight": 0.25}]
+  },
+  "build_error": "duplicate_edge",
+  "queries": []
+}

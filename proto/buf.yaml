@@ -1,10 +1,25 @@
 # Lint and breaking-change rules for Skein's contracts. Run `make proto-check`.
+#
+# Two modules: our contracts, and the vendored third-party protos they import
+# (google.api HTTP annotations and the protoc-gen-openapiv2 options; see
+# third_party/README.md). Vendoring keeps generation offline and independent
+# of the Buf Schema Registry. Third-party files are not ours to lint.
 version: v2
 modules:
   - path: .
+    excludes:
+      - third_party
+  - path: third_party
+    lint:
+      use:
+        - MINIMAL
+      ignore:
+        - third_party
 lint:
   use:
     - STANDARD
 breaking:
   use:
     - FILE
+  ignore:
+    - third_party

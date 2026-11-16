@@ -1,0 +1,14 @@
+{
+  "name": "an equal-cost path with fewer hops replaces one found earlier",
+  "why": "s-a-b-t costs 0 + 0 + 0.5 and s-c-t costs 0.5 + 0. Dijkstra settles a and b (cost 0) before c (cost 0.5), so t is first reached through b with 3 hops; when c is settled the same cost arrives in 2 hops and must replace it.",
+  "graph": {
+    "nodes": [{"id": "s"}, {"id": "a"}, {"id": "b"}, {"id": "c"}, {"id": "t"}],
+    "edges": [
+      {"from": "s", "to": "a", "weight": 0}, {"from": "a", "to": "b", "weight": 0}, {"from": "b", "to": "t", "weight": 0.5},
+      {"from": "s", "to": "c", "weight": 0.5}, {"from": "c", "to": "t", "weight": 0}]
+  },
+  "queries": [
+    {"query": {"op": "weighted_path", "from": "s", "to": "t"}, "expected": {"found": true, "path": ["s", "c", "t"], "cost": 0.5},
+     "why": "Both routes cost 0.5; the two-hop one wins."}
+  ]
+}

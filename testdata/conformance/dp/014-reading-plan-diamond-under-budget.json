@@ -1,0 +1,51 @@
+{
+  "name": "when the note with two prerequisites does not fit, its prerequisites are still chosen on their own value",
+  "why": "Same diamond with 7 minutes: top needs all 8 minutes of its closure, so it is out. base + left + right = 7 minutes, value 9, beats base + left (5 minutes, value 5).",
+  "kind": "reading_plan",
+  "input": {
+    "budget": 7,
+    "notes": [
+      {
+        "id": "top",
+        "minutes": 1,
+        "value": 10,
+        "prerequisites": [
+          "left",
+          "right"
+        ]
+      },
+      {
+        "id": "right",
+        "minutes": 2,
+        "value": 4,
+        "prerequisites": [
+          "base"
+        ]
+      },
+      {
+        "id": "left",
+        "minutes": 2,
+        "value": 4,
+        "prerequisites": [
+          "base"
+        ]
+      },
+      {
+        "id": "base",
+        "minutes": 3,
+        "value": 1
+      }
+    ]
+  },
+  "expect": {
+    "notes": [
+      "base",
+      "left",
+      "right"
+    ],
+    "total_minutes": 7,
+    "total_value": 9,
+    "method": "branch-and-bound",
+    "optimal": true
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "blast radius follows citing notes by default, cited notes on request",
+  "why": "design and impl cite spec, tests cite impl, release cites tests, spec cites glossary. Changing spec affects what cites it, transitively; spec itself relies only on glossary.",
+  "graph": {
+    "nodes": [{"id": "spec", "root": true}, {"id": "design"}, {"id": "impl"}, {"id": "tests"}, {"id": "release"}, {"id": "glossary"}],
+    "edges": [
+      {"from": "design", "to": "spec"}, {"from": "impl", "to": "spec"}, {"from": "tests", "to": "impl"},
+      {"from": "release", "to": "tests"}, {"from": "spec", "to": "glossary"}]
+  },
+  "queries": [
+    {"query": {"op": "blast_radius", "source": "spec", "direction": "cited_by", "max_hops": 0},
+     "expected": {"hops": {"spec": 0, "design": 1, "impl": 1, "tests": 2, "release": 3}, "ring_sizes": [1, 2, 1, 1]},
+     "why": "Following links backwards: design and impl at 1, tests at 2, release at 3. glossary is not affected by a change to spec."},
+    {"query": {"op": "blast_radius", "source": "spec", "direction": "cited_by", "max_hops": 2},
+     "expected": {"hops": {"spec": 0, "design": 1, "impl": 1, "tests": 2}, "ring_sizes": [1, 2, 1]},
+     "why": "The same search stopped after two hops."},
+    {"query": {"op": "blast_radius", "source": "spec", "direction": "cites", "max_hops": 0},
+     "expected": {"hops": {"spec": 0, "glossary": 1}, "ring_sizes": [1, 1]},
+     "why": "Following links as written, spec relies only on glossary."},
+    {"query": {"op": "blast_radius", "source": "spec", "direction": "undirected", "max_hops": 1},
+     "expected": {"hops": {"spec": 0, "design": 1, "glossary": 1, "impl": 1}, "ring_sizes": [1, 3]},
+     "why": "Ignoring direction, spec's neighbours are design, glossary and impl."},
+    {"query": {"op": "distances", "source": "glossary"},
+     "expected": {"hops": {"glossary": 0, "spec": 1, "design": 2, "impl": 2, "tests": 3, "release": 4}},
+     "why": "Undirected hop distances from glossary."},
+    {"query": {"op": "blast_radius", "source": "nowhere", "direction": "cited_by", "max_hops": 0},
+     "expected": {"error": "unknown_node"},
+     "why": "A query naming a note outside the graph is an error, not an empty radius."}
+  ]
+}

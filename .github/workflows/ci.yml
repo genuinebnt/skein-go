@@ -31,8 +31,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: libs/crdt/go.mod
-      - run: go install github.com/bufbuild/buf/cmd/buf@v1.47.2
-      - run: make proto-check
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # The same pinned versions as the Makefile, so regeneration is exact.
+      - run: make proto-tools
+      - run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Lint, format and breaking changes
+        run: make proto-check PROTO_BASE=origin/${{ github.base_ref || 'main' }}
+      - name: Generated code matches the contracts
+        run: make proto-stale
+      - name: Python bindings install and import
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install -e 'gen/python[test]'
+          /tmp/venv/bin/pytest gen/python
 
   compose:
     runs-on: ubuntu-latest

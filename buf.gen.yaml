@@ -1,0 +1,42 @@
+# Code generation for Skein's contracts: `make proto` (or `buf generate` from
+# the repository root). Every plugin is a local binary at a pinned version so
+# output is reproducible and CI can fail when committed code is stale:
+#
+#   protoc-gen-go           v1.35.2  google.golang.org/protobuf/cmd/protoc-gen-go
+#   protoc-gen-go-grpc      v1.5.1   google.golang.org/grpc/cmd/protoc-gen-go-grpc
+#   protoc-gen-grpc-gateway v2.24.0  github.com/grpc-ecosystem/grpc-gateway/v2/...
+#   protoc-gen-openapiv2    v2.24.0  github.com/grpc-ecosystem/grpc-gateway/v2/...
+#
+# Python is generated separately by scripts/gen-python.sh (grpcio-tools).
+version: v2
+inputs:
+  - directory: proto
+    # Third-party protos are imported, not generated: their Go code comes from
+    # genproto and grpc-gateway (see proto/third_party/README.md).
+    paths:
+      - proto/skein
+plugins:
+  - local: protoc-gen-go
+    out: gen/go
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: gen/go
+    opt: paths=source_relative
+  - local: protoc-gen-grpc-gateway
+    out: gen/go
+    opt:
+      - paths=source_relative
+      # Only RPCs with a google.api.http annotation get REST handlers; the
+      # internal and streaming RPCs are deliberately left out.
+      - generate_unbound_methods=false
+  - local: protoc-gen-openapiv2
+    out: gen/openapi
+    opt:
+      - allow_merge=true
+      - merge_file_name=skein
+      - output_format=json
+      # Definition names without the package prefix ("Note", not "v1Note").
+      - openapi_naming_strategy=simple
+      - json_names_for_fields=true
+      - generate_unbound_methods=false
+      - disable_service_tags=false

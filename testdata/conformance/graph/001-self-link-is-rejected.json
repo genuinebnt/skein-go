@@ -1,0 +1,10 @@
+{
+  "name": "a note linking to itself is rejected",
+  "why": "Self-loops are rejected at construction: a self-link relates a note to nothing, and keeping it would force a convention on every algorithm (is it a cycle, is the note unplaceable, does it add one or two to its degree). The projection building the graph must drop self-links first.",
+  "graph": {
+    "nodes": [{"id": "a"}, {"id": "b"}],
+    "edges": [{"from": "a", "to": "b"}, {"from": "b", "to": "b"}]
+  },
+  "build_error": "self_loop",
+  "queries": []
+}
