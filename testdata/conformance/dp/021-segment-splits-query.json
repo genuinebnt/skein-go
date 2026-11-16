@@ -1,0 +1,22 @@
+{
+  "name": "segmentation picks the most probable split under the unigram model",
+  "why": "N = 1950. Costs in micro-nats: rust = round(1e6 ln(1950/400)) = 1584120, async = round(1e6 ln(1950/300)) = 1871802; total 3455922. rust + a + sync costs 1584120 + 773190 + 2564949 = 4922259, more. Every split with an unknown piece costs at least ln 1950 = 7575585 for that piece alone.",
+  "kind": "segment",
+  "input": {
+    "frequencies": {
+      "rust": 400,
+      "async": 300,
+      "a": 900,
+      "as": 200,
+      "sync": 150
+    },
+    "text": "rustasync"
+  },
+  "expect": {
+    "words": [
+      "rust",
+      "async"
+    ],
+    "cost": 3455922
+  }
+}

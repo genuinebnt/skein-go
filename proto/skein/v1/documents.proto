@@ -3,46 +3,165 @@ syntax = "proto3";
 // Notes, live sync, history, diff and undo (ADR-0005, ADR-0006).
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes are listed in docs/api/documents.md. Sync is bidirectional
+// streaming, which grpc-gateway cannot serve; the gateway serves it as a
+// WebSocket (docs/api/websocket.md) and it has no HTTP mapping here.
+//
+// History reads that take a version vector (GetTextAt, Diff) are POST custom
+// methods because a repeated message cannot be encoded in a query string;
+// they are safe and may be retried freely.
 service DocumentService {
-  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
-  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
-  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Documents"
+    description: "Notes, their history, diff, blame, undo and redo."
+  };
+
+  // Create a note
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse) {
+    option (google.api.http) = {
+      post: "/v1/workspaces/{workspace_id}/notes"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Get a note
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // List notes in a workspace
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/notes"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Move a note to the trash
+  //
   // Moves a note to the trash. Restorable until purged.
-  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
-  rpc RestoreNote(RestoreNoteRequest) returns (RestoreNoteResponse);
-  rpc RenameNote(RenameNoteRequest) returns (RenameNoteResponse);
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse) {
+    option (google.api.http) = {delete: "/v1/notes/{note_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Restore a note from the trash
+  //
+  // Takes a note out of the trash.
+  rpc RestoreNote(RestoreNoteRequest) returns (RestoreNoteResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:restore"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Rename a note
+  rpc RenameNote(RenameNoteRequest) returns (RenameNoteResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:rename"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Apply a batch of CRDT operations
+  //
   // Applies a batch of CRDT operations from a client that is not streaming
-  // (the agent, imports, tests).
-  rpc ApplyOps(ApplyOpsRequest) returns (ApplyOpsResponse);
+  // (the agent, imports, tests). Operations are idempotent: re-sending a
+  // batch already applied changes nothing, so a retry is always safe. The
+  // whole batch is refused with PERMISSION_DENIED if the caller may not edit
+  // the note.
+  rpc ApplyOps(ApplyOpsRequest) returns (ApplyOpsResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}/ops"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
 
   // Live sync for one note. The client sends its version vector first, then
   // operations; the server sends missing operations, then live ones from
-  // other replicas, and presence.
+  // other replicas, and presence. Served to browsers as the WebSocket
+  // /v1/notes/{note_id}/sync.
   rpc Sync(stream SyncRequest) returns (stream SyncResponse);
 
-  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse);
-  rpc GetTextAt(GetTextAtRequest) returns (GetTextAtResponse);
-  rpc Diff(DiffRequest) returns (DiffResponse);
-  rpc Blame(BlameRequest) returns (BlameResponse);
+  // List a note's versions
+  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}/versions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Get a note's text at a version
+  //
+  // The note's Markdown as it was at a version.
+  rpc GetTextAt(GetTextAtRequest) returns (GetTextAtResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:textAt"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Diff two versions of a note
+  //
+  // Text differences between two versions of a note.
+  rpc Diff(DiffRequest) returns (DiffResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:diff"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Blame a note
+  //
+  // Who wrote each span of the current text.
+  rpc Blame(BlameRequest) returns (BlameResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}/blame"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Undo the caller's last change
+  //
   // Generates operations that undo the caller's last change group in a note,
-  // leaving other people's edits alone.
-  rpc Undo(UndoRequest) returns (UndoResponse);
-  rpc Redo(RedoRequest) returns (RedoResponse);
+  // leaving other people's edits alone, applies them and returns them. Not
+  // idempotent: each call undoes one more change group, so send an
+  // Idempotency-Key when retrying.
+  rpc Undo(UndoRequest) returns (UndoResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:undo"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
+  // Redo the caller's last undone change
+  //
+  // Re-applies the change group most recently undone by Undo.
+  rpc Redo(RedoRequest) returns (RedoResponse) {
+    option (google.api.http) = {
+      post: "/v1/notes/{note_id}:redo"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Documents"};
+  }
 }
 
 message Note {
-  string id = 1;
-  string workspace_id = 2;
-  string title = 3;
-  string created_by = 4;
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp updated_at = 6;
-  bool trashed = 7;
+  // UUIDv7.
+  string id = 1 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f40-2b3c-7d4e-9f50-6a7b8c9d0e1f\""}
+  ];
+  string workspace_id = 2 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"01936f3e-1a2b-7c3d-8e4f-5a6b7c8d9e0f\""}
+  ];
+  string title = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Raft log compaction\""}];
+  // User ID of the author.
+  string created_by = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp created_at = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp updated_at = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // True while the note is in the trash.
+  bool trashed = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // Version vector entries, sorted by replica_id.
@@ -50,21 +169,26 @@ message VersionVector {
   repeated VersionEntry entries = 1;
 }
 message VersionEntry {
-  uint64 replica_id = 1;
-  uint64 counter = 2;
+  // JSON string: uint64 does not fit a JavaScript number.
+  uint64 replica_id = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107\""}];
+  // Highest operation counter seen from that replica. JSON string.
+  uint64 counter = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"42\""}];
 }
 
 message CreateNoteRequest {
-  string workspace_id = 1;
-  string title = 2;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string title = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Raft log compaction\""}
+  ];
   // Optional initial content as Markdown.
-  string markdown = 3;
+  string markdown = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"# Raft log compaction\\nSnapshots bound the log.\""}];
 }
 message CreateNoteResponse {
   Note note = 1;
 }
 message GetNoteRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
   // When true, the response includes the current text as Markdown.
   bool include_markdown = 2;
 }
@@ -74,8 +198,9 @@ message GetNoteResponse {
   VersionVector version = 3;
 }
 message ListNotesRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
   PageRequest page = 2;
+  // Also list notes in the trash.
   bool include_trashed = 3;
 }
 message ListNotesResponse {
@@ -83,23 +208,33 @@ message ListNotesResponse {
   PageResponse page = 2;
 }
 message DeleteNoteRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message DeleteNoteResponse {}
 message RestoreNoteRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message RestoreNoteResponse {}
 message RenameNoteRequest {
-  string note_id = 1;
-  string title = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string title = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"Raft snapshots\""}
+  ];
 }
 message RenameNoteResponse {}
 message ApplyOpsRequest {
-  string note_id = 1;
-  uint64 replica_id = 2;
-  // A batch in the wire format of docs/spec/crdt-sequence.md.
-  bytes ops = 3;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // A replica registered by the caller (RegisterReplica). JSON string.
+  uint64 replica_id = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107\""}
+  ];
+  // A batch in the wire format of docs/spec/crdt-sequence.md. Base64 in JSON.
+  bytes ops = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"AQIDBAUGBwgJCgsMDQ4PEA==\""}
+  ];
 }
 message ApplyOpsResponse {
   VersionVector version = 1;
@@ -140,13 +275,14 @@ message Presence {
 }
 
 message ListVersionsRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
   PageRequest page = 2;
 }
 message ListVersionsResponse {
   repeated NoteVersion versions = 1;
   PageResponse page = 2;
 }
+
 // A version is a point in history: everything up to a version vector,
 // grouped by author and time for display.
 message NoteVersion {
@@ -155,16 +291,16 @@ message NoteVersion {
   google.protobuf.Timestamp at = 3;
 }
 message GetTextAtRequest {
-  string note_id = 1;
-  VersionVector version = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  VersionVector version = 2 [(google.api.field_behavior) = REQUIRED];
 }
 message GetTextAtResponse {
   string markdown = 1;
 }
 message DiffRequest {
-  string note_id = 1;
-  VersionVector from = 2;
-  VersionVector to = 3;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  VersionVector from = 2 [(google.api.field_behavior) = REQUIRED];
+  VersionVector to = 3 [(google.api.field_behavior) = REQUIRED];
 }
 message DiffResponse {
   repeated DiffHunk hunks = 1;
@@ -180,29 +316,44 @@ message DiffHunk {
   string text = 2;
 }
 message BlameRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message BlameResponse {
   repeated BlameSpan spans = 1;
 }
 message BlameSpan {
-  uint32 start = 1; // code points
+  // Half-open range [start, end) in code points of the current text
+  // (ADR-0003); the browser converts to UTF-16.
+  uint32 start = 1;
   uint32 end = 2;
   string user_id = 3;
+  // Set when an agent run made the edit for user_id.
   string agent_run_id = 4;
   google.protobuf.Timestamp at = 5;
 }
 message UndoRequest {
-  string note_id = 1;
-  uint64 replica_id = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // The replica whose change groups to undo or redo. JSON string.
+  uint64 replica_id = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107\""}
+  ];
 }
 message UndoResponse {
+  // The operations generated and applied, in the CRDT wire format. Base64 in
+  // JSON.
   bytes ops = 1;
 }
 message RedoRequest {
-  string note_id = 1;
-  uint64 replica_id = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // The replica whose change groups to undo or redo. JSON string.
+  uint64 replica_id = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"4831727201934127107\""}
+  ];
 }
 message RedoResponse {
+  // The operations generated and applied, in the CRDT wire format. Base64 in
+  // JSON.
   bytes ops = 1;
 }

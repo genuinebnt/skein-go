@@ -1,7 +1,7 @@
 # Skein developer commands. Every target works without the cloud; only `up`,
 # `down` and `logs` need Docker.
 
-GO_MODULES := $(shell find libs services -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null | sort)
+GO_MODULES := $(shell find libs services gen platform tools -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null | sort)
 FUZZTIME   ?= 30s
 COMPOSE    := docker compose -f deploy/compose/docker-compose.yml
 # Libraries that must stay buildable for the browser (ADR-0007).
@@ -12,7 +12,7 @@ PROFILE    ?= medium
 SEED       ?= 1234
 SEED_OUT   ?= bin/seed/$(PROFILE)
 
-.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto-check up down logs ci seed seed-small seed-check
+.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up down logs ci seed seed-small seed-check
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -31,8 +31,10 @@ fmt-check: ## Fail if any Go file is not gofmt-formatted
 
 fuzz: ## Run every fuzz target for FUZZTIME (default 30s)
 	@for m in $(GO_MODULES); do \
-	  for t in $$(cd $$m && go test -list '^Fuzz' ./... | grep '^Fuzz'); do \
-	    echo "== $$m $$t"; (cd $$m && go test -run='^$$' -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) .) || exit 1; \
+	  for p in $$(cd $$m && go list ./...); do \
+	    for t in $$(cd $$m && go test -list '^Fuzz' $$p | grep '^Fuzz'); do \
+	      echo "== $$p $$t"; (cd $$m && go test -run='^$$' -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) $$p) || exit 1; \
+	    done; \
 	  done; \
 	done
 
@@ -45,11 +47,51 @@ wasm-check: ## Build browser-bound libraries for js/wasm and wasip1
 	  echo "$$m builds for wasm"; \
 	done
 
-proto-check: ## Lint contracts and check for breaking changes against main
+# Code generation (buf.gen.yaml, scripts/gen-python.sh). The plugin versions
+# are pinned here, in buf.gen.yaml and in CI; generated code is committed, and
+# CI fails if it differs from what these versions produce.
+BUF_VERSION                := v1.47.2
+PROTOC_GEN_GO_VERSION      := v1.35.2
+PROTOC_GEN_GO_GRPC_VERSION := v1.5.1
+GRPC_GATEWAY_VERSION       := v2.24.0
+GRPCIO_TOOLS_VERSION       := 1.85.1
+
+proto-tools: ## Install the pinned buf, protoc plugins and grpcio-tools
+	go install github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION)
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@$(GRPC_GATEWAY_VERSION)
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(GRPC_GATEWAY_VERSION)
+	python3 -m pip install grpcio-tools==$(GRPCIO_TOOLS_VERSION)
+
+proto: ## Format and lint contracts, then generate Go, OpenAPI and Python into gen/
+	cd proto && buf format -w --path skein && buf lint
+	@# Generated directories are removed first so a deleted proto leaves no
+	@# stale output; gen/go/go.mod and the hand-written tests are kept.
+	rm -rf gen/go/skein gen/openapi
+	buf generate
+	./scripts/gen-python.sh
+
+# Base for the breaking-change check; CI and local runs default to main.
+PROTO_BASE ?= origin/main
+
+proto-check: ## Check formatting, lint and breaking changes against PROTO_BASE
+	cd proto && buf format -d --exit-code --path skein
 	cd proto && buf lint
-	@if git cat-file -e origin/main:proto/buf.yaml 2>/dev/null; then \
-	  cd proto && buf breaking --against '../.git#branch=origin/main,subdir=proto'; \
-	else echo "no contracts on main yet; skipping breaking check"; fi
+	@# Both sides are built to single images and compared on skein/ only, so
+	@# the check works across changes to the module layout (the vendored
+	@# third_party module) and ignores upgrades of vendored files.
+	@if git cat-file -e $(PROTO_BASE):proto/buf.yaml 2>/dev/null; then \
+	  tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && cd proto && \
+	  buf build -o "$$tmp/head.binpb" && \
+	  buf build '../.git#ref=$(PROTO_BASE),subdir=proto' -o "$$tmp/base.binpb" && \
+	  buf breaking "$$tmp/head.binpb" --against "$$tmp/base.binpb" --path skein && \
+	  echo "no breaking changes against $(PROTO_BASE)"; \
+	else echo "no contracts on $(PROTO_BASE) yet; skipping breaking check"; fi
+
+proto-stale: proto ## Regenerate and fail if the committed gen/ differs
+	@git add -N gen && git diff --exit-code --stat gen || \
+	  { echo "gen/ is stale: run 'make proto' and commit the result"; exit 1; }
 
 up: ## Start the local stack
 	$(COMPOSE) up -d --wait

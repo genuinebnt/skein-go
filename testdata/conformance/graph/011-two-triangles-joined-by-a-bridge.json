@@ -1,0 +1,26 @@
+{
+  "name": "two triangles joined by one link split into two communities",
+  "why": "Triangles a-b-c and d-e-f, joined by c -> d. m = 7 undirected edges; degrees a, b, e, f are 2 and c, d are 3.",
+  "graph": {
+    "nodes": [{"id": "f"}, {"id": "e"}, {"id": "d"}, {"id": "c"}, {"id": "b"}, {"id": "a"}],
+    "edges": [
+      {"from": "a", "to": "b"}, {"from": "b", "to": "c"}, {"from": "c", "to": "a"},
+      {"from": "d", "to": "e"}, {"from": "e", "to": "f"}, {"from": "f", "to": "d"}, {"from": "c", "to": "d"}]
+  },
+  "queries": [
+    {"query": {"op": "louvain"}, "expected": {"of": {"a": 0, "b": 0, "c": 0, "d": 1, "e": 1, "f": 1}, "modularity": 0.3571428571428571},
+     "why": "Local moving (nodes in ID order, ties to the smallest label) gives {a,b,c}, {d}, {e,f} after one pass and {a,b,c}, {d,e,f} after the second; merging the two would lower Q. Q = 2 * (3/7 - (7/14)^2) = 6/7 - 1/2."},
+    {"query": {"op": "modularity", "partition": {"a": 7, "b": 7, "c": 7, "d": 7, "e": 7, "f": 7}}, "expected": {"modularity": 0},
+     "why": "One community holds every edge and all the degree: 7/7 - 1 = 0. Labels are arbitrary integers."},
+    {"query": {"op": "modularity", "partition": {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5}}, "expected": {"modularity": -0.17346938775510204},
+     "why": "Singletons have no inside edges: -(4*(2/14)^2 + 2*(3/14)^2) = -34/196."},
+    {"query": {"op": "modularity", "partition": {"a": -1, "b": -1, "c": -1, "d": -1, "e": 2, "f": 2}}, "expected": {"modularity": 0.12244897959183673},
+     "why": "{a,b,c,d} holds 4 edges and degree 10, {e,f} holds 1 edge and degree 4: 5/7 - (100 + 16)/196 = 24/196."},
+    {"query": {"op": "modularity", "partition": {"a": 0, "b": 0}}, "expected": {"error": "invalid_argument"},
+     "why": "A partition must assign every node."},
+    {"query": {"op": "betweenness"}, "expected": {"scores": {"a": 0, "b": 0, "c": 0.6, "d": 0.6, "e": 0, "f": 0}},
+     "why": "Each of the 6 pairs between {a,b} and {d,e,f} routes through c (and symmetrically d), out of (5*4)/2 = 10 pairs of other nodes."},
+    {"query": {"op": "diameter"}, "expected": {"length": 3, "from": "a", "to": "e"},
+     "why": "a-c-d-e is the longest shortest path; (a,e) is the smallest of the four pairs at distance 3."}
+  ]
+}

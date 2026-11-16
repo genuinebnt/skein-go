@@ -57,6 +57,9 @@ Rules that keep the services independent ([ADR-0001](adr/0001-microservices-from
 - **To the browser:** REST/JSON for requests, WebSockets for the live sync
   stream, presence and agent output. The gateway is the only public entry
   point.
+  Each user-facing RPC carries its REST route (`google.api.http`); routes,
+  conventions and WebSocket framing are documented in [`api/`](api/README.md),
+  and generated Go, Python and OpenAPI live in `gen/` (`make proto`).
 - **Events:** Protocol Buffers messages wrapped in a common `Event` envelope
   (`events.proto`), published to Pub/Sub topics. Locally the Pub/Sub emulator
   runs the same client code as production.
@@ -127,6 +130,7 @@ through the gateway and sends email according to preferences.
   with trace IDs.
 - **Health and shutdown:** gRPC health checks, readiness that waits for
   database and Pub/Sub, graceful drain on SIGTERM.
+- **Shared Go infrastructure:** the `platform` module implements all of the above for the Go services ([platform.md](platform.md)).
 
 ## 6. Environments ([ADR-0014](adr/0014-deployment.md))
 
@@ -146,6 +150,7 @@ local implementation selected by configuration.
 libs/            pure Go libraries, one module each (crdt, graph, dp, ...)
 services/        one directory per service; Go services are modules, Python ones are packages
 proto/skein/v1/  gRPC and event contracts
+gen/             generated Go module, Python package and OpenAPI document (committed; `make proto`)
 deploy/          compose/, k8s/, terraform/
 testdata/        conformance fixtures shared with the Rust port
 docs/            architecture, decision records, specs, guides
