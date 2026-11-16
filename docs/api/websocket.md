@@ -40,7 +40,7 @@ extra subprotocol entry, `bearer.<access token>`, after the real one:
 GET /v1/notes/01936f40-2b3c-7d4e-9f50-6a7b8c9d0e1f/sync HTTP/1.1
 Upgrade: websocket
 Connection: Upgrade
-Sec-WebSocket-Protocol: skein.v1.proto, bearer.eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl
+Sec-WebSocket-Protocol: skein.v1.proto, bearer.EXAMPLE_ACCESS_TOKEN
 X-Request-Id: 01936f80-6f70-7a81-9ba3-1e2f30415263
 ```
 

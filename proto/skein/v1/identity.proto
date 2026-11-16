@@ -227,7 +227,7 @@ message User {
 // keep refresh_token secret and use it only with Refresh and SignOut.
 message Session {
   // Short-lived signed token (minutes).
-  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl\""}];
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"EXAMPLE_ACCESS_TOKEN\""}];
   google.protobuf.Timestamp access_expires_at = 2;
   // Opaque rotating token (days). Each refresh returns a new one.
   string refresh_token = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"rt_9mQ2xV7kLp3sT8wZ\""}];

@@ -173,7 +173,7 @@ contents or secrets.
 Send the access token from sign-in, sign-up or refresh on every request:
 
 ```
-Authorization: Bearer eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl
+Authorization: Bearer EXAMPLE_ACCESS_TOKEN
 ```
 
 Only `POST /v1/users`, `POST /v1/sessions`, `POST /v1/sessions:oauth`,

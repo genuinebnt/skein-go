@@ -4293,7 +4293,7 @@
       "properties": {
         "accessToken": {
           "type": "string",
-          "example": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl",
+          "example": "EXAMPLE_ACCESS_TOKEN",
           "description": "Short-lived signed token (minutes)."
         },
         "accessExpiresAt": {
