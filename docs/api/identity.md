@@ -49,7 +49,7 @@ use is `ALREADY_EXISTS`.
     "createdAt": "2026-11-16T09:00:00Z"
   },
   "session": {
-    "accessToken": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl",
+    "accessToken": "EXAMPLE_ACCESS_TOKEN",
     "accessExpiresAt": "2026-11-16T09:15:00Z",
     "refreshToken": "rt_9mQ2xV7kLp3sT8wZ",
     "refreshExpiresAt": "2026-12-16T09:00:00Z"
@@ -75,7 +75,7 @@ same message for both.
     "createdAt": "2026-11-16T09:00:00Z"
   },
   "session": {
-    "accessToken": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl",
+    "accessToken": "EXAMPLE_ACCESS_TOKEN",
     "accessExpiresAt": "2026-11-16T09:15:00Z",
     "refreshToken": "rt_9mQ2xV7kLp3sT8wZ",
     "refreshExpiresAt": "2026-12-16T09:00:00Z"
@@ -107,7 +107,7 @@ true when this sign-in created the account.
     "createdAt": "2026-11-16T09:00:00Z"
   },
   "session": {
-    "accessToken": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSJ9.c2lnbmF0dXJl",
+    "accessToken": "EXAMPLE_ACCESS_TOKEN",
     "accessExpiresAt": "2026-11-16T09:15:00Z",
     "refreshToken": "rt_9mQ2xV7kLp3sT8wZ",
     "refreshExpiresAt": "2026-12-16T09:00:00Z"
@@ -129,7 +129,7 @@ the session; the user must sign in again.
 ```json skein.v1.RefreshResponse
 {
   "session": {
-    "accessToken": "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIwMTkzNmYzZSIsIm4iOjJ9.c2lnbmF0dXJl",
+    "accessToken": "EXAMPLE_ACCESS_TOKEN",
     "accessExpiresAt": "2026-11-16T09:30:00Z",
     "refreshToken": "rt_Hq8sZ3vB1mX6nK4p",
     "refreshExpiresAt": "2026-12-16T09:15:00Z"
