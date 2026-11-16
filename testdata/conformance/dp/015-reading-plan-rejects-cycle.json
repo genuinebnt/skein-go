@@ -1,0 +1,42 @@
+{
+  "name": "cyclic prerequisites are rejected and the cycle is reported starting at its smallest ID",
+  "why": "a is a prerequisite of b, b of c, and c of a. The cycle is reported in prerequisite order, rotated to start at a.",
+  "kind": "reading_plan",
+  "input": {
+    "budget": 10,
+    "notes": [
+      {
+        "id": "c",
+        "minutes": 1,
+        "value": 1,
+        "prerequisites": [
+          "b"
+        ]
+      },
+      {
+        "id": "a",
+        "minutes": 1,
+        "value": 1,
+        "prerequisites": [
+          "c"
+        ]
+      },
+      {
+        "id": "b",
+        "minutes": 1,
+        "value": 1,
+        "prerequisites": [
+          "a"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "error": "cyclic_prerequisites",
+    "cycle": [
+      "a",
+      "b",
+      "c"
+    ]
+  }
+}

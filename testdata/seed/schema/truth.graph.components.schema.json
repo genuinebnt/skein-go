@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.components.schema.json",
+  "title": "One line of truth/graph/components.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "index",
+    "size",
+    "has_root",
+    "orphan",
+    "planted",
+    "members"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "has_root": {
+      "type": "boolean"
+    },
+    "orphan": {
+      "type": "boolean"
+    },
+    "planted": {
+      "type": "boolean"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/uuid"
+      },
+      "minItems": 1
+    }
+  }
+}

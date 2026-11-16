@@ -1,0 +1,777 @@
+{
+  "uid": "skein-outbox-pubsub",
+  "title": "Skein / Outbox and Pub/Sub",
+  "description": "Transactional outbox relays and Pub/Sub consumers (ADR-0006): how far behind publishing is, how fast relays publish, how long consumers take, and what is dead-lettered. Metric definitions: docs/observability.md.",
+  "tags": [
+    "skein",
+    "events"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "timezone": "browser",
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Skein dashboards",
+      "type": "dashboards",
+      "tags": [
+        "skein"
+      ],
+      "asDropdown": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(target_info{deployment_environment_name!=\"\"}, job)",
+          "refId": "var-service",
+          "qryType": 1
+        },
+        "definition": "label_values(target_info{deployment_environment_name!=\"\"}, job)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "hide": 0
+      },
+      {
+        "name": "topic",
+        "label": "Topic",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(skein_outbox_pending, messaging_destination_name)",
+          "refId": "var-topic",
+          "qryType": 1
+        },
+        "definition": "label_values(skein_outbox_pending, messaging_destination_name)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "hide": 0
+      },
+      {
+        "name": "subscription",
+        "label": "Subscription",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(skein_consumer_process_duration_seconds_count, messaging_destination_subscription_name)",
+          "refId": "var-subscription",
+          "qryType": 1
+        },
+        "definition": "label_values(skein_consumer_process_duration_seconds_count, messaging_destination_subscription_name)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Outbox relays (producer side)",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox lag",
+      "description": "Age of the oldest unpublished outbox row. Grows when the relay is down or Pub/Sub refuses publishes; a healthy relay keeps it near the poll interval.",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "max by (job, messaging_destination_name) (skein_outbox_lag_seconds{job=~\"$service\", messaging_destination_name=~\"$topic\"})",
+          "legendFormat": "{{job}} {{messaging_destination_name}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Unpublished rows",
+      "description": "Outbox rows written but not yet published.",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (job, messaging_destination_name) (skein_outbox_pending{job=~\"$service\", messaging_destination_name=~\"$topic\"})",
+          "legendFormat": "{{job}} {{messaging_destination_name}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Relay publish rate",
+      "description": "Messages published per second, from the _count of skein.outbox.relay.publish.duration; failures stacked separately.",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (job, messaging_destination_name) (rate(skein_outbox_relay_publish_duration_seconds_count{job=~\"$service\", messaging_destination_name=~\"$topic\", error_type=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} {{messaging_destination_name}} ok",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "sum by (job, messaging_destination_name, error_type) (rate(skein_outbox_relay_publish_duration_seconds_count{job=~\"$service\", messaging_destination_name=~\"$topic\", error_type!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} {{messaging_destination_name}} {{error_type}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Relay publish latency p50 / p95 / p99",
+      "description": "Time for one publish call to be acknowledged by Pub/Sub.",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (job, le) (rate(skein_outbox_relay_publish_duration_seconds_bucket{job=~\"$service\", messaging_destination_name=~\"$topic\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} p50",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (job, le) (rate(skein_outbox_relay_publish_duration_seconds_bucket{job=~\"$service\", messaging_destination_name=~\"$topic\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} p95",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (job, le) (rate(skein_outbox_relay_publish_duration_seconds_bucket{job=~\"$service\", messaging_destination_name=~\"$topic\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} p99",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Consumers",
+      "id": 6,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Messages handled by outcome",
+      "description": "applied: effect committed; duplicate: already processed, acked; retry: nacked for redelivery; dead_lettered: given up on.",
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (messaging_destination_subscription_name, skein_consumer_outcome) (rate(skein_consumer_process_duration_seconds_count{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval]))",
+          "legendFormat": "{{messaging_destination_subscription_name}} {{skein_consumer_outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Processing time p50 / p95 / p99",
+      "description": "Handler time per message, including the idempotency check and the transaction that records the effect.",
+      "id": 8,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (messaging_destination_subscription_name, le) (rate(skein_consumer_process_duration_seconds_bucket{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval])))",
+          "legendFormat": "{{messaging_destination_subscription_name}} p50",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (messaging_destination_subscription_name, le) (rate(skein_consumer_process_duration_seconds_bucket{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval])))",
+          "legendFormat": "{{messaging_destination_subscription_name}} p95",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (messaging_destination_subscription_name, le) (rate(skein_consumer_process_duration_seconds_bucket{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval])))",
+          "legendFormat": "{{messaging_destination_subscription_name}} p99",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Event age at processing p95",
+      "description": "Time from Event.occurred_at to the start of processing: end-to-end lag across outbox, relay, Pub/Sub and the consumer queue.",
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (messaging_destination_subscription_name, le) (rate(skein_consumer_event_age_seconds_bucket{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval])))",
+          "legendFormat": "{{messaging_destination_subscription_name}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Dead letters in range",
+      "description": "Messages consumers gave up on during the selected time range. Anything above zero needs a look at the .dead-letter topic.",
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (messaging_destination_subscription_name) (increase(skein_consumer_process_duration_seconds_count{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\", skein_consumer_outcome=\"dead_lettered\"}[$__range]))",
+          "legendFormat": "{{messaging_destination_subscription_name}}",
+          "range": false,
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Dead letters over time",
+      "description": "",
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (messaging_destination_subscription_name, error_type) (rate(skein_consumer_process_duration_seconds_count{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\", skein_consumer_outcome=\"dead_lettered\"}[$__rate_interval]))",
+          "legendFormat": "{{messaging_destination_subscription_name}} {{error_type}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Duplicate and retry ratio",
+      "description": "Duplicates are normal after relay crashes (at-least-once); a rising retry ratio means handlers are failing.",
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (messaging_destination_subscription_name, skein_consumer_outcome) (rate(skein_consumer_process_duration_seconds_count{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\", skein_consumer_outcome=~\"duplicate|retry\"}[$__rate_interval])) / ignoring(skein_consumer_outcome) group_left sum by (messaging_destination_subscription_name) (rate(skein_consumer_process_duration_seconds_count{job=~\"$service\", messaging_destination_subscription_name=~\"$subscription\"}[$__rate_interval]))",
+          "legendFormat": "{{messaging_destination_subscription_name}} {{skein_consumer_outcome}}",
+          "range": true
+        }
+      ]
+    }
+  ]
+}

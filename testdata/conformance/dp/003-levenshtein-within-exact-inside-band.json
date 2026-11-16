@@ -1,0 +1,14 @@
+{
+  "name": "the banded distance is exact when the distance is at most k",
+  "why": "Same pair as 002 with max_distance 3: the true distance 3 is inside the band, so it is returned exactly with within = true.",
+  "kind": "levenshtein_within",
+  "input": {
+    "a": "kitten",
+    "b": "sitting",
+    "max_distance": 3
+  },
+  "expect": {
+    "distance": 3,
+    "within": true
+  }
+}

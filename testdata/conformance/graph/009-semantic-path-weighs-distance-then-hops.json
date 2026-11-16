@@ -1,0 +1,23 @@
+{
+  "name": "the semantic path minimises total distance, then hops, then walks back by ID",
+  "why": "Weights are 1 - cosine similarity. Three two-hop routes from a to d each cost exactly 1 (0.5+0.5, 0.25+0.75, 0.625+0.375, all exact in binary), the direct link costs 1.5, and a zero-weight link from d to f makes a three-hop route of equal cost.",
+  "graph": {
+    "nodes": [{"id": "a"}, {"id": "b"}, {"id": "c"}, {"id": "d"}, {"id": "e"}, {"id": "f"}],
+    "edges": [
+      {"from": "a", "to": "b", "weight": 0.5}, {"from": "b", "to": "d", "weight": 0.5},
+      {"from": "a", "to": "c", "weight": 0.25}, {"from": "c", "to": "d", "weight": 0.75},
+      {"from": "a", "to": "e", "weight": 0.625}, {"from": "e", "to": "d", "weight": 0.375},
+      {"from": "a", "to": "d", "weight": 1.5},
+      {"from": "d", "to": "f", "weight": 0}, {"from": "a", "to": "f", "weight": 1}]
+  },
+  "queries": [
+    {"query": {"op": "weighted_path", "from": "a", "to": "d"}, "expected": {"found": true, "path": ["a", "b", "d"], "cost": 1},
+     "why": "The direct link (1.5) loses on cost. Routes through b, c, e and f all cost 1 in 2 hops; walking back from d, b is the smallest neighbour on such a route."},
+    {"query": {"op": "weighted_path", "from": "a", "to": "f"}, "expected": {"found": true, "path": ["a", "f"], "cost": 1},
+     "why": "a-f costs 1 in one hop; a-b-d-f also costs 1 but in three. Equal cost prefers fewer hops."},
+    {"query": {"op": "weighted_path", "from": "d", "to": "a"}, "expected": {"found": true, "path": ["d", "b", "a"], "cost": 1},
+     "why": "Direction is ignored. Walking back from a, b is the smallest neighbour one hop closer at matching cost."},
+    {"query": {"op": "shortest_path", "from": "a", "to": "d"}, "expected": {"found": true, "path": ["a", "d"], "cost": 1},
+     "why": "Counting hops instead of weight, the direct link wins."}
+  ]
+}

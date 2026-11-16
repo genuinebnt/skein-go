@@ -36,7 +36,7 @@ identity  documents   search       ml         agent      notifications
 | `identity` | Go | `identity` schema | Users, Argon2id passwords, Google and GitHub OAuth, sessions and refresh tokens, workspaces, memberships, note roles, share links, the `Authorize` check, delegated tokens for the agent |
 | `documents` | Go | `documents` schema, snapshot store | Notes, the CRDT op log and snapshots, live sync streams, version history, diff, blame, undo, comments; publishes document events through its outbox |
 | `search` | Go | `search` schema | Trigram index and regex code search, the link graph projection, graph analysis (blast radius, strongly connected components, shortest paths, centrality, PageRank, reading paths), dynamic programming features (reading plans, fuzzy ranking, snippets) |
-| `ml` | Python | `ml` schema, vector files | Embeddings, vector indexes (brute force, IVF, HNSW, with library baselines), clustering (K-means++, Elkan, mini-batch, Gaussian mixtures by EM), discovery signals, the benchmark harness |
+| `ml` | Python | `ml` schema, vector files | Embeddings, vector indexes (brute force, IVF, HNSW, with library baselines), clustering (K-means++, Elkan, mini-batch, e-means, Gaussian mixtures by EM), discovery signals, the benchmark harness |
 | `agent` | Python | `agent` schema | Chat sessions, the LangGraph agent, tools that call the other services on the user's behalf, confirmation gates, run traces and evaluations |
 | `notifications` | Go | `notifications` schema | Inbox, email, live push through the gateway, user notification preferences |
 
@@ -57,6 +57,9 @@ Rules that keep the services independent ([ADR-0001](adr/0001-microservices-from
 - **To the browser:** REST/JSON for requests, WebSockets for the live sync
   stream, presence and agent output. The gateway is the only public entry
   point.
+  Each user-facing RPC carries its REST route (`google.api.http`); routes,
+  conventions and WebSocket framing are documented in [`api/`](api/README.md),
+  and generated Go, Python and OpenAPI live in `gen/` (`make proto`).
 - **Events:** Protocol Buffers messages wrapped in a common `Event` envelope
   (`events.proto`), published to Pub/Sub topics. Locally the Pub/Sub emulator
   runs the same client code as production.
@@ -125,8 +128,10 @@ through the gateway and sends email according to preferences.
 - **Observability:** OpenTelemetry traces and metrics from every service, with
   a collector and Jaeger locally and Cloud Trace in GCP. Structured JSON logs
   with trace IDs.
+- **Observability contract:** signals, resource attributes, log fields, metric names, sampling and the GCP mapping are in [observability.md](observability.md).
 - **Health and shutdown:** gRPC health checks, readiness that waits for
   database and Pub/Sub, graceful drain on SIGTERM.
+- **Shared Go infrastructure:** the `platform` module implements all of the above for the Go services ([platform.md](platform.md)).
 
 ## 6. Environments ([ADR-0014](adr/0014-deployment.md))
 
@@ -146,6 +151,7 @@ local implementation selected by configuration.
 libs/            pure Go libraries, one module each (crdt, graph, dp, ...)
 services/        one directory per service; Go services are modules, Python ones are packages
 proto/skein/v1/  gRPC and event contracts
+gen/             generated Go module, Python package and OpenAPI document (committed; `make proto`)
 deploy/          compose/, k8s/, terraform/
 testdata/        conformance fixtures shared with the Rust port
 docs/            architecture, decision records, specs, guides

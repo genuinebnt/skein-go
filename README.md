@@ -30,7 +30,9 @@ the `ml` and `agent` services, when they land).
 make test        # all Go tests, race detector on; no Docker needed
 make test-lib LIB=crdt
 make fuzz        # fuzz every target for 30s
-make up          # start Postgres, Redis, the Pub/Sub emulator and Mailpit
+make up          # Postgres, Redis, Pub/Sub emulator, Mailpit, plus telemetry, Grafana and Swagger UI
+make up-min      # infrastructure only
+make urls        # every local URL
 make help        # everything else
 ```
 
@@ -54,4 +56,6 @@ docs/            architecture, decisions, specs, guides
 - [Testing guide](docs/testing.md)
 - [Porting guide](docs/porting-to-rust.md)
 - [Performance log](docs/PERF.md)
+- [Seed data](docs/seed-data.md): deterministic datasets with ground truth (`make seed PROFILE=medium`)
+- [e-means research notes](docs/research/e-means.md)
 - [Contributor and agent rules](AGENTS.md)

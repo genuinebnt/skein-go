@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.search.title_prefixes.schema.json",
+  "title": "One line of truth/search/title_prefixes.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "prefix",
+    "typo",
+    "expected",
+    "intended_note_id",
+    "edit_distance"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "prefix": {
+      "type": "string",
+      "minLength": 1
+    },
+    "typo": {
+      "type": "boolean"
+    },
+    "expected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "note_id",
+          "title"
+        ],
+        "properties": {
+          "note_id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "intended_note_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "edit_distance": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

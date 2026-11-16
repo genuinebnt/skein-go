@@ -3,25 +3,72 @@ syntax = "proto3";
 // The agent: chat sessions and runs that act as the user (ADR-0009).
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes are listed in docs/api/agent.md. SendMessage streams its
+// response, so the gateway serves it as the WebSocket
+// /v1/chats/{chat_id}/messages (docs/api/websocket.md) and it has no HTTP
+// mapping here.
 service AgentService {
-  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse);
-  rpc ListChats(ListChatsRequest) returns (ListChatsResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Agent"
+    description: "Chats with the agent, its runs and confirmations (ADR-0009)."
+  };
+
+  // Start a chat
+  rpc CreateChat(CreateChatRequest) returns (CreateChatResponse) {
+    option (google.api.http) = {
+      post: "/v1/workspaces/{workspace_id}/chats"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
+  }
+  // List chats
+  rpc ListChats(ListChatsRequest) returns (ListChatsResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/chats"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
+  }
   // Sends a user message and streams the run: steps, tool calls, text,
   // confirmation requests and the final answer.
   rpc SendMessage(SendMessageRequest) returns (stream SendMessageResponse);
+  // Answer a confirmation request
+  //
   // Answers a confirmation request; the paused run continues or stops.
-  rpc Confirm(ConfirmRequest) returns (ConfirmResponse);
-  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
-  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // Answering the same confirmation twice returns FAILED_PRECONDITION.
+  rpc Confirm(ConfirmRequest) returns (ConfirmResponse) {
+    option (google.api.http) = {
+      post: "/v1/runs/{run_id}:confirm"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
+  }
+  // Cancel a run
+  //
+  // Stops a run at its next step. Cancelling a finished run does nothing.
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse) {
+    option (google.api.http) = {
+      post: "/v1/runs/{run_id}:cancel"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
+  }
+  // Get a run's trace
+  //
+  // The stored trace of a run: every event it streamed, in order.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse) {
+    option (google.api.http) = {get: "/v1/runs/{run_id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Agent"};
+  }
 }
 
 message CreateChatRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
   // Optional note the chat is about.
   string note_id = 2;
 }
@@ -29,7 +76,7 @@ message CreateChatResponse {
   string chat_id = 1;
 }
 message ListChatsRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
   PageRequest page = 2;
 }
 message ListChatsResponse {
@@ -42,8 +89,8 @@ message ChatSummary {
   google.protobuf.Timestamp updated_at = 3;
 }
 message SendMessageRequest {
-  string chat_id = 1;
-  string text = 2;
+  string chat_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string text = 2 [(google.api.field_behavior) = REQUIRED];
 }
 message SendMessageResponse {
   string run_id = 1;
@@ -68,6 +115,7 @@ message ToolResult {
   string summary = 2;
   bool is_error = 3;
 }
+
 // Sent before a destructive or outward-facing action. The run is paused
 // until Confirm is called.
 message ConfirmationRequest {
@@ -94,17 +142,19 @@ message RunFinished {
   uint64 output_tokens = 4;
 }
 message ConfirmRequest {
-  string run_id = 1;
-  string confirmation_id = 2;
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // From the ConfirmationRequest event the run streamed.
+  string confirmation_id = 2 [(google.api.field_behavior) = REQUIRED];
+  // False stops the run without performing the action.
   bool approved = 3;
 }
 message ConfirmResponse {}
 message CancelRunRequest {
-  string run_id = 1;
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message CancelRunResponse {}
 message GetRunRequest {
-  string run_id = 1;
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message GetRunResponse {
   string run_id = 1;

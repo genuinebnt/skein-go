@@ -1,0 +1,289 @@
+{
+  "format_version": 1,
+  "generator_version": "1.0.0",
+  "profile": "small",
+  "seed": 1234,
+  "reference_time": "2026-11-01T00:00:00.000Z",
+  "block_marker": "\u001e",
+  "embedder": "skein-hash-v1",
+  "counts": {
+    "acl.jsonl": 25,
+    "batches.jsonl": 1276,
+    "blocks": 3923,
+    "blocks.jsonl": 3923,
+    "chats.jsonl": 40,
+    "comments.jsonl": 530,
+    "links.jsonl": 763,
+    "memberships.jsonl": 35,
+    "notes": 300,
+    "notes.jsonl": 300,
+    "notifications.jsonl": 930,
+    "ops": 432002,
+    "rejected_batches": 13,
+    "rejected_ops.jsonl": 13,
+    "replicas.jsonl": 70,
+    "share_links.jsonl": 8,
+    "tags.jsonl": 440,
+    "truth/agent/evals.jsonl": 29,
+    "truth/clustering/block_embeddings.jsonl": 3854,
+    "truth/clustering/note_topics.jsonl": 300,
+    "truth/crdt/conflicts.jsonl": 8,
+    "truth/crdt/final.jsonl": 300,
+    "truth/discovery/near_duplicates.jsonl": 4,
+    "truth/discovery/suggested_links.jsonl": 4,
+    "truth/graph/blast_radius.jsonl": 54,
+    "truth/graph/bridges.jsonl": 242,
+    "truth/graph/communities.jsonl": 298,
+    "truth/graph/components.jsonl": 17,
+    "truth/graph/cycles.jsonl": 26,
+    "truth/graph/dangling.jsonl": 10,
+    "truth/graph/hubs.jsonl": 60,
+    "truth/graph/sccs.jsonl": 22,
+    "truth/graph/shortest_paths.jsonl": 30,
+    "truth/graph/summary.jsonl": 3,
+    "truth/permissions/matrix.jsonl": 6256,
+    "truth/search/regex_queries.jsonl": 40,
+    "truth/search/text_queries.jsonl": 52,
+    "truth/search/title_prefixes.jsonl": 47,
+    "truth/search/typo_queries.jsonl": 22,
+    "users": 25,
+    "users.jsonl": 25,
+    "workspaces": 3,
+    "workspaces.jsonl": 3
+  },
+  "files": [
+    {
+      "path": "acl.jsonl",
+      "bytes": 5230,
+      "records": 25,
+      "sha256": "f90af10e6de2163b1029dc3a405725e89c241b44ce9ddd9794d693d81f0b7d31"
+    },
+    {
+      "path": "batches.jsonl",
+      "bytes": 529550,
+      "records": 1276,
+      "sha256": "01f9d6f5c412414354e5f3a90d86c771cab8962edd7eaa51cece901555cd5065"
+    },
+    {
+      "path": "blocks.jsonl",
+      "bytes": 1453879,
+      "records": 3923,
+      "sha256": "7c774a8dc576e7887da56aedabffc9447529bb660fba34babc9f65b96bdd4acd"
+    },
+    {
+      "path": "chats.jsonl",
+      "bytes": 107263,
+      "records": 40,
+      "sha256": "8772afd5d9a25babd45623f4686c27f269aeadd69d8473660f240051e79d4dcf"
+    },
+    {
+      "path": "comments.jsonl",
+      "bytes": 233646,
+      "records": 530,
+      "sha256": "1dc1bc99683d90cd6112be9ade438ff9847b06ac4a3e3146c3d449a01edc0dc0"
+    },
+    {
+      "path": "links.jsonl",
+      "bytes": 230198,
+      "records": 763,
+      "sha256": "70f6249c03141e45565d5701d1cc130328d33c122e03eb845c7f385214685af5"
+    },
+    {
+      "path": "memberships.jsonl",
+      "bytes": 8005,
+      "records": 35,
+      "sha256": "67e2f59279e4e0f0312e7634ad36b35db82bd45ed11e4c43f75fc77561febf39"
+    },
+    {
+      "path": "notes.jsonl",
+      "bytes": 197141,
+      "records": 300,
+      "sha256": "433964c7e049519921ff145b1ea56d63a4c1df368516d22559ab06f3286d0fc1"
+    },
+    {
+      "path": "notifications.jsonl",
+      "bytes": 484462,
+      "records": 930,
+      "sha256": "2b1ad0ecca5bee895eb47045e5b57ddb17835548ed60b4b3d405a4a57036e067"
+    },
+    {
+      "path": "rejected_ops.jsonl",
+      "bytes": 23094,
+      "records": 13,
+      "sha256": "cc09885465907a3c91fce7ad88458b595c234f23968d33581549462315e1fa4e"
+    },
+    {
+      "path": "replicas.jsonl",
+      "bytes": 13324,
+      "records": 70,
+      "sha256": "3ec9157b8a3af810c3c91f835bda89b190e107c566de561b9b35ed1c2c0fcf94"
+    },
+    {
+      "path": "share_links.jsonl",
+      "bytes": 3104,
+      "records": 8,
+      "sha256": "4a2c77127beff29967aa54215bdb4cab2268d9b72f90f585149e46a997f81050"
+    },
+    {
+      "path": "tags.jsonl",
+      "bytes": 52773,
+      "records": 440,
+      "sha256": "007ad7e953b076addee47ecb0dbdb16bd4d4e4182be4c44edafc2d6079c74d50"
+    },
+    {
+      "path": "truth/agent/evals.jsonl",
+      "bytes": 17199,
+      "records": 29,
+      "sha256": "5e8d96cda7236d3b7ef1b46caafd86b2dab8d4a7c063d5060848dc5fd5a2423a"
+    },
+    {
+      "path": "truth/clustering/block_embeddings.jsonl",
+      "bytes": 1355794,
+      "records": 3854,
+      "sha256": "44227319250b2cf2ea218746b958a5cb3eabf3ab043e8bd5ef0e8de1be8eeaa7"
+    },
+    {
+      "path": "truth/clustering/note_topics.jsonl",
+      "bytes": 52294,
+      "records": 300,
+      "sha256": "f3b65b77b75de334098f929e62fae6158b4ea487dc97547ba59aabb0c9667cdc"
+    },
+    {
+      "path": "truth/clustering/topics.json",
+      "bytes": 15143,
+      "records": 1,
+      "sha256": "d06af444d297f9cd64b5bc7e3764f6a48f4749112c974603cfd189e9871f9dbd"
+    },
+    {
+      "path": "truth/crdt/conflicts.jsonl",
+      "bytes": 7950,
+      "records": 8,
+      "sha256": "07efe36d2734b2971c60b6a9c69dcb02b2ef4c9ebe9f05c1976e73a3a693d02a"
+    },
+    {
+      "path": "truth/crdt/final.jsonl",
+      "bytes": 586702,
+      "records": 300,
+      "sha256": "50c26a7c5fb8b6718d68733dbad0ee74ecc88e3bbe81972e65a57c6038a2dac8"
+    },
+    {
+      "path": "truth/discovery/near_duplicates.jsonl",
+      "bytes": 1186,
+      "records": 4,
+      "sha256": "18c68b20f02e95b01a4347b550899db8c21e310db74d13549719485859282f0d"
+    },
+    {
+      "path": "truth/discovery/suggested_links.jsonl",
+      "bytes": 993,
+      "records": 4,
+      "sha256": "5447441c24c31f045adad726cc40a11c66a7e8c0c3756eef6c2913bbdd156003"
+    },
+    {
+      "path": "truth/graph/blast_radius.jsonl",
+      "bytes": 57863,
+      "records": 54,
+      "sha256": "ab2ebc34de1e7c32479078338d51f13ca7e9f21067ed307013a9886993bb8285"
+    },
+    {
+      "path": "truth/graph/bridges.jsonl",
+      "bytes": 48324,
+      "records": 242,
+      "sha256": "e0ea7f59c8842e93fa4aaa893834b6689618dd525a996f3af0951a947c48cec2"
+    },
+    {
+      "path": "truth/graph/communities.jsonl",
+      "bytes": 38129,
+      "records": 298,
+      "sha256": "c61e4b396844a6a715159b1659df13408fa139102ae8893e8458380d2f6737b9"
+    },
+    {
+      "path": "truth/graph/components.jsonl",
+      "bytes": 13897,
+      "records": 17,
+      "sha256": "edc39755a0966888908a7c6ca2bdcf9a8b365dcf2e06e0e95d1c467bd4fa900f"
+    },
+    {
+      "path": "truth/graph/cycles.jsonl",
+      "bytes": 7248,
+      "records": 26,
+      "sha256": "e4153eab1043783066b7ea959ee0bb197508f018a77a656782a6bb7b2712c5a9"
+    },
+    {
+      "path": "truth/graph/dangling.jsonl",
+      "bytes": 1889,
+      "records": 10,
+      "sha256": "39d62ff0aa1c0ff973632394f8cdefc9d89aa739882b5a7bae4981d3088c87db"
+    },
+    {
+      "path": "truth/graph/hubs.jsonl",
+      "bytes": 12605,
+      "records": 60,
+      "sha256": "e775251cb84ec397fd43ff94dae641b08fdaef696822ff735f6424d9784df439"
+    },
+    {
+      "path": "truth/graph/sccs.jsonl",
+      "bytes": 6652,
+      "records": 22,
+      "sha256": "f069c0b81401258549403a595daec357baa400249f089814119c44805a250a54"
+    },
+    {
+      "path": "truth/graph/shortest_paths.jsonl",
+      "bytes": 11557,
+      "records": 30,
+      "sha256": "febc605a60f0134ca5bbe1df6fc4657047f53a5b6c9bacafd6528d27c5287750"
+    },
+    {
+      "path": "truth/graph/summary.jsonl",
+      "bytes": 618,
+      "records": 3,
+      "sha256": "7d42c508e5e818a23c37644c9ae71ae151bd6982a96fc22c0beada87a3aaac1d"
+    },
+    {
+      "path": "truth/permissions/matrix.jsonl",
+      "bytes": 2026116,
+      "records": 6256,
+      "sha256": "6a530fb08c928687eacd1f3ff6d65b1779197677ed6fd08f3d0a130ecd38feb2"
+    },
+    {
+      "path": "truth/search/regex_queries.jsonl",
+      "bytes": 30408,
+      "records": 40,
+      "sha256": "bc132d75fd7b450c0170491d9c642ecc2039803bdec457f4342893fe43dc5c86"
+    },
+    {
+      "path": "truth/search/text_queries.jsonl",
+      "bytes": 29179,
+      "records": 52,
+      "sha256": "dda74d0bcf8f54c0c303479f4fae1ab5dcaee538be945316dcc73b404320db2f"
+    },
+    {
+      "path": "truth/search/title_prefixes.jsonl",
+      "bytes": 13407,
+      "records": 47,
+      "sha256": "869cb327fa4a13eac69b614f6550337e532d87621ca31020110007e7b24e4597"
+    },
+    {
+      "path": "truth/search/typo_queries.jsonl",
+      "bytes": 9392,
+      "records": 22,
+      "sha256": "5af1fb6312bb179acc285a3432804e4c27c00995f567b154e9a19d1e06f78afa"
+    },
+    {
+      "path": "users.jsonl",
+      "bytes": 6858,
+      "records": 25,
+      "sha256": "1e70d1bcd50a88781ba328876bcb09ae2443ffafebed34f3dc4eab65b121f10d"
+    },
+    {
+      "path": "workspaces.jsonl",
+      "bytes": 634,
+      "records": 3,
+      "sha256": "6a29194b5d765b3dac5f51f18457e86bb873e34e6fd584120a1a05629aec0aac"
+    }
+  ],
+  "ops": {
+    "files": 300,
+    "bytes": 11794712,
+    "digest": "dcdc835a10fbd267000deb749a6108487be15d3ac4c206da8d74b62b9656de0e"
+  }
+}

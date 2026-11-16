@@ -1,0 +1,13 @@
+{
+  "name": "Hirschberg splits b at the smallest column that maximises forward + backward",
+  "why": "ab and ba share two LCSs of length 1, a and b. a splits at mid = 1 into a | b. forward(a vs b prefixes) = [0,0,1], backward(b vs b suffixes) = [1,0,0]; sums [1,0,1]; the smallest maximising column is 0, so a gets the empty prefix of b and b is matched inside ba. Result b.",
+  "kind": "lcs",
+  "input": {
+    "a": "ab",
+    "b": "ba"
+  },
+  "expect": {
+    "length": 1,
+    "lcs": "b"
+  }
+}

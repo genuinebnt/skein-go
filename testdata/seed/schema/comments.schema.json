@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "comments.schema.json",
+  "title": "One line of comments.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "note_id",
+    "block_id",
+    "start",
+    "end",
+    "quote",
+    "parent_id",
+    "author_id",
+    "body",
+    "mentions",
+    "created_at",
+    "resolved"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "block_id": {
+      "$ref": "common.schema.json#/$defs/blockId"
+    },
+    "start": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "end": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "quote": {
+      "type": "string"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "author_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mentions": {
+      "$ref": "common.schema.json#/$defs/noteIdList"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "resolved": {
+      "type": "boolean"
+    }
+  }
+}

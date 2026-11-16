@@ -16,3 +16,4 @@ Date: 2026-11-16. Status: accepted.
   algorithm has a brute-force oracle in its tests.
 - `search` serves them over gRPC; the graph explorer UI shows their results
   with the numbers behind them.
+- Blast radius takes a direction (`BlastDirection` in `search.proto`): the default, `CITED_BY`, follows inbound links ("if this note changes, these notes are affected"); `CITES` follows outbound links as described above.

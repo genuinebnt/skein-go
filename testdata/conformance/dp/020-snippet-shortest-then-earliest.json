@@ -1,0 +1,33 @@
+{
+  "name": "among spans with the most terms, the shortest wins, then the earliest",
+  "why": "Window 10. Both terms are covered by 0..5 (term 0 at 0..2, term 1 at 3..5) and by 3..8 (term 1 at 3..5, term 0 at 6..8), both 5 code points long. The earlier one wins.",
+  "kind": "snippet",
+  "input": {
+    "window": 10,
+    "matches": [
+      {
+        "term": 0,
+        "start": 0,
+        "end": 2
+      },
+      {
+        "term": 1,
+        "start": 3,
+        "end": 5
+      },
+      {
+        "term": 0,
+        "start": 6,
+        "end": 8
+      }
+    ]
+  },
+  "expect": {
+    "found": true,
+    "span": {
+      "start": 0,
+      "end": 5
+    },
+    "terms": 2
+  }
+}

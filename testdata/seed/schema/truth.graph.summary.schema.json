@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.graph.summary.schema.json",
+  "title": "One line of truth/graph/summary.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_id",
+    "nodes",
+    "edges",
+    "nontrivial_sccs",
+    "trivial_sccs",
+    "largest_scc",
+    "components",
+    "orphan_components",
+    "dangling_links",
+    "acyclic"
+  ],
+  "properties": {
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "nodes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nontrivial_sccs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trivial_sccs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "largest_scc": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "components": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "orphan_components": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dangling_links": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "acyclic": {
+      "type": "boolean"
+    }
+  }
+}

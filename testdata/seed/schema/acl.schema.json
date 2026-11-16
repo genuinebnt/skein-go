@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "acl.schema.json",
+  "title": "One line of acl.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "note_id",
+    "user_id",
+    "role",
+    "granted_by",
+    "created_at"
+  ],
+  "properties": {
+    "note_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/noteRole"
+    },
+    "granted_by": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

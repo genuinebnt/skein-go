@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.agent.evals.schema.json",
+  "title": "One line of truth/agent/evals.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "workspace_id",
+    "user_id",
+    "cast_key",
+    "prompt",
+    "outcome",
+    "must_include",
+    "must_not_include",
+    "citations",
+    "expected_tools",
+    "forbidden_tools",
+    "confirmation",
+    "why"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "workspace_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "user_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "cast_key": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "outcome": {
+      "enum": [
+        "answer",
+        "act",
+        "confirm",
+        "refuse"
+      ]
+    },
+    "must_include": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "must_not_include": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "note_id",
+          "block_id",
+          "start",
+          "end",
+          "quote"
+        ],
+        "properties": {
+          "note_id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          },
+          "block_id": {
+            "$ref": "common.schema.json#/$defs/blockId"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "expected_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confirmation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tool",
+            "target_note_ids"
+          ],
+          "properties": {
+            "tool": {
+              "type": "string"
+            },
+            "target_note_ids": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/$defs/uuid"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "why": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "if": {
+    "properties": {
+      "outcome": {
+        "const": "confirm"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "confirmation": {
+        "type": "object"
+      }
+    }
+  }
+}

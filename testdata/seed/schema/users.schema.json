@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "users.schema.json",
+  "title": "One line of users.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "email",
+    "display_name",
+    "handle",
+    "locale",
+    "time_zone",
+    "company",
+    "created_at",
+    "cast_key"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "email": {
+      "type": "string",
+      "pattern": "^[a-z0-9.]+@[a-z0-9.-]+\\.example$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "handle": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.]*$"
+    },
+    "locale": {
+      "type": "string"
+    },
+    "time_zone": {
+      "type": "string"
+    },
+    "company": {
+      "type": "string"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "cast_key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "squared slack prefers two half-full chunks to one full and one nearly empty",
+  "why": "Limit 10, blocks [4, 2, 4, 2]. Greedy [4 2 4] [2] costs 0 + 8^2 = 64. [4 2] [4 2] costs 4^2 + 4^2 = 32. [4] [2 4 2] costs 36 + 4 = 40. The last chunk's slack counts, unlike text justification.",
+  "kind": "chunk",
+  "input": {
+    "tokens": [
+      4,
+      2,
+      4,
+      2
+    ],
+    "limit": 10
+  },
+  "expect": {
+    "ends": [
+      2,
+      4
+    ],
+    "cost": 32
+  }
+}

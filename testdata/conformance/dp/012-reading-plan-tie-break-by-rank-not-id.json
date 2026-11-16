@@ -1,0 +1,37 @@
+{
+  "name": "plans equal in value and minutes are decided by canonical rank, not by ID",
+  "why": "{m} and {z, a} both have value 4 and take 3 minutes. Canonical rank: roots in ID order (m = 0, z = 1), then z's dependent a = 2. The two plans differ on {m, z, a}; the lowest-ranked of those is m, so the plan containing m wins. Ordering by ID instead would have picked {z, a} because a < m.",
+  "kind": "reading_plan",
+  "input": {
+    "budget": 3,
+    "notes": [
+      {
+        "id": "z",
+        "minutes": 1,
+        "value": 1
+      },
+      {
+        "id": "a",
+        "minutes": 2,
+        "value": 3,
+        "prerequisites": [
+          "z"
+        ]
+      },
+      {
+        "id": "m",
+        "minutes": 3,
+        "value": 4
+      }
+    ]
+  },
+  "expect": {
+    "notes": [
+      "m"
+    ],
+    "total_minutes": 3,
+    "total_value": 4,
+    "method": "tree-dp",
+    "optimal": true
+  }
+}

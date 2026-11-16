@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "truth.clustering.topics.schema.json",
+  "title": "truth/clustering/topics.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "topics",
+    "embedder"
+  ],
+  "properties": {
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "vocab"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/topic"
+          },
+          "name": {
+            "type": "string"
+          },
+          "vocab": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 10
+          }
+        }
+      },
+      "minItems": 20,
+      "maxItems": 20
+    },
+    "embedder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "dim",
+        "note",
+        "stopwords"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dim": {
+          "const": 64
+        },
+        "note": {
+          "type": "string"
+        },
+        "stopwords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

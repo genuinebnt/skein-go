@@ -1,5 +1,10 @@
-go 1.24
+go 1.24.0
 
 use (
+	./gen/go
 	./libs/crdt
+	./libs/dp
+	./libs/graph
+	./platform
+	./tools/seed
 )
