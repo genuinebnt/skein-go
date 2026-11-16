@@ -125,6 +125,7 @@ through the gateway and sends email according to preferences.
 - **Observability:** OpenTelemetry traces and metrics from every service, with
   a collector and Jaeger locally and Cloud Trace in GCP. Structured JSON logs
   with trace IDs.
+- **Observability contract:** signals, resource attributes, log fields, metric names, sampling and the GCP mapping are in [observability.md](observability.md).
 - **Health and shutdown:** gRPC health checks, readiness that waits for
   database and Pub/Sub, graceful drain on SIGTERM.
 
