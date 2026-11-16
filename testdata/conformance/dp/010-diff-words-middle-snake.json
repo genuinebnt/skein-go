@@ -1,0 +1,39 @@
+{
+  "name": "word diff over words, spaces and punctuation, with the middle snake fixing which comma matches",
+  "why": "Words: a = [foo ( bar , ' ' 2 )], b = [foo ( baz , 2 )]. Prefix [foo (] and suffix [2 )] are stripped, leaving [bar , ' '] vs [baz ,]: delta 1 (odd), and the forward pass at d = 2 on diagonal 0 slides over the comma and overlaps the backward frontier, so the comma is the middle snake. Left [bar] vs [baz] becomes delete bar, insert baz; right [' '] vs [] deletes the space. That is 3 edits, the minimum: 3 + 2 - 2 x LCS(1).",
+  "kind": "diff",
+  "input": {
+    "a": "foo(bar, 2)",
+    "b": "foo(baz,2)",
+    "tokens": "words",
+    "algorithm": "myers"
+  },
+  "expect": {
+    "hunks": [
+      {
+        "kind": "equal",
+        "text": "foo("
+      },
+      {
+        "kind": "delete",
+        "text": "bar"
+      },
+      {
+        "kind": "insert",
+        "text": "baz"
+      },
+      {
+        "kind": "equal",
+        "text": ","
+      },
+      {
+        "kind": "delete",
+        "text": " "
+      },
+      {
+        "kind": "equal",
+        "text": "2)"
+      }
+    ]
+  }
+}

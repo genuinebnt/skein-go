@@ -4,28 +4,90 @@ syntax = "proto3";
 // (ADR-0010, ADR-0011). Every result is limited to notes the subject can read.
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes are listed in docs/api/search.md.
 service SearchService {
-  rpc Search(SearchRequest) returns (SearchResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Search"
+    description: "Text, regular-expression and code search; title completion."
+  };
+
+  // Search a workspace
+  //
+  // Searches block text in one workspace. Text mode is typo-tolerant word
+  // and phrase search. Regex mode runs an RE2 regular expression over block
+  // text, using the trigram index to pick candidate blocks; candidates and
+  // matched in the response show how selective the index was.
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/search"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Search"};
+  }
+  // Suggest note titles
+  //
   // Typo-tolerant title completion for the command palette and [[links]].
-  rpc SuggestTitles(SuggestTitlesRequest) returns (SuggestTitlesResponse);
+  rpc SuggestTitles(SuggestTitlesRequest) returns (SuggestTitlesResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/title-suggestions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Search"};
+  }
 }
 
+// REST routes are listed in docs/api/graph.md.
 service GraphService {
-  rpc GetLinkGraph(GetLinkGraphRequest) returns (GetLinkGraphResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "Graph"
+    description: "The note link graph, graph algorithms and reading plans."
+  };
+
+  // Get the link graph
+  rpc GetLinkGraph(GetLinkGraphRequest) returns (GetLinkGraphResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/graph"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
+  // Analyze the link graph
+  //
   // Algorithms that need no parameter, over the whole readable graph.
-  rpc AnalyzeGraph(AnalyzeGraphRequest) returns (AnalyzeGraphResponse);
-  // Everything reachable from a note by following outbound links, by hop.
-  rpc BlastRadius(BlastRadiusRequest) returns (BlastRadiusResponse);
-  rpc ShortestPath(ShortestPathRequest) returns (ShortestPathResponse);
+  rpc AnalyzeGraph(AnalyzeGraphRequest) returns (AnalyzeGraphResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/graph/analysis"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
+  // Get a note's blast radius
+  //
+  // The notes within reach of a note, by hop, in the requested direction. By
+  // default the direction is BLAST_DIRECTION_CITED_BY: the notes that link to
+  // this one, directly or transitively, which are the notes affected if this
+  // one changes.
+  rpc BlastRadius(BlastRadiusRequest) returns (BlastRadiusResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}/blast-radius"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
+  // Find the shortest path between two notes
+  //
+  // The cheapest path between two notes under a metric.
+  rpc ShortestPath(ShortestPathRequest) returns (ShortestPathResponse) {
+    option (google.api.http) = {get: "/v1/notes/{from}/shortest-path/{to}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
+  // Get the reading path to a note
+  //
   // What to read before a note, in order.
-  rpc ReadingPath(ReadingPathRequest) returns (ReadingPathResponse);
+  rpc ReadingPath(ReadingPathRequest) returns (ReadingPathResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}/reading-path"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
+  // Plan reading on a topic within a time budget
+  //
   // The best set of notes on a topic for a time budget, respecting
   // prerequisites (a knapsack solved by dynamic programming).
-  rpc ReadingPlan(ReadingPlanRequest) returns (ReadingPlanResponse);
+  rpc ReadingPlan(ReadingPlanRequest) returns (ReadingPlanResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/reading-plan"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "Graph"};
+  }
 }
 
 enum SearchMode {
@@ -37,13 +99,19 @@ enum SearchMode {
 }
 
 message SearchRequest {
-  string workspace_id = 1;
-  string query = 2;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Words in text mode; an RE2 expression in regex mode.
+  string query = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"func \\\\w+\\\\(ctx context\\\\.Context\""}
+  ];
+  // Unspecified means SEARCH_MODE_TEXT.
   SearchMode mode = 3;
   bool case_sensitive = 4;
   bool whole_word = 5;
   // Only code blocks in these languages, for example "go" or "rust".
-  repeated string languages = 6;
+  repeated string languages = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "[\"go\", \"rust\"]"}];
+  // Only code blocks, in any language.
   bool code_only = 7;
   PageRequest page = 8;
 }
@@ -69,8 +137,13 @@ message Range {
   uint32 end = 2;
 }
 message SuggestTitlesRequest {
-  string workspace_id = 1;
-  string prefix = 2;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // What the user has typed so far; may contain typos.
+  string prefix = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"raft lgo\""}
+  ];
+  // Maximum suggestions. 0 means the server default.
   uint32 limit = 3;
 }
 message SuggestTitlesResponse {
@@ -79,27 +152,33 @@ message SuggestTitlesResponse {
 message TitleSuggestion {
   string note_id = 1;
   string title = 2;
+  // Edit distance between the typed prefix and the title; 0 is an exact
+  // prefix match.
   uint32 edit_distance = 3;
 }
 
 message GraphNode {
   string note_id = 1;
   string title = 2;
+  // A designated entry point of the workspace. Components that contain no
+  // root are reported as orphans by AnalyzeGraph.
   bool is_root = 3;
 }
+
+// A link: the note `from` contains a [[link]] to the note `to`.
 message GraphEdge {
   string from = 1;
   string to = 2;
 }
 message GetLinkGraphRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message GetLinkGraphResponse {
   repeated GraphNode nodes = 1;
   repeated GraphEdge edges = 2;
 }
 message AnalyzeGraphRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message AnalyzeGraphResponse {
   // Connected component of each note, ignoring link direction.
@@ -123,13 +202,28 @@ message AnalyzeGraphResponse {
   double modularity = 11;
   uint32 diameter = 12;
 }
+
+// Which links a blast radius follows.
+enum BlastDirection {
+  // Treated as BLAST_DIRECTION_CITED_BY.
+  BLAST_DIRECTION_UNSPECIFIED = 0;
+  // Follow links backwards, to the notes that link to the source: "if this
+  // note changes, these notes are affected".
+  BLAST_DIRECTION_CITED_BY = 1;
+  // Follow links forwards, to the notes the source links to: "this note
+  // depends on these".
+  BLAST_DIRECTION_CITES = 2;
+}
 message BlastRadiusRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
   // 0 means no limit.
-  uint32 max_hops = 2;
+  uint32 max_hops = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "3"}];
+  // Unspecified means BLAST_DIRECTION_CITED_BY.
+  BlastDirection direction = 3;
 }
 message BlastRadiusResponse {
-  // Notes reached, with their hop distance from the source.
+  // Notes reached, with their hop distance from the source; the source
+  // itself is included at distance 0.
   map<string, uint32> hops = 1;
   // Number of notes at each distance; ring_sizes[0] is the source itself.
   repeated uint32 ring_sizes = 2;
@@ -142,17 +236,23 @@ enum PathMetric {
   PATH_METRIC_SEMANTIC = 2;
 }
 message ShortestPathRequest {
-  string from = 1;
-  string to = 2;
+  // Note ID where the path starts.
+  string from = 1 [(google.api.field_behavior) = REQUIRED];
+  // Note ID where the path ends.
+  string to = 2 [(google.api.field_behavior) = REQUIRED];
+  // Unspecified means PATH_METRIC_HOPS.
   PathMetric metric = 3;
 }
 message ShortestPathResponse {
+  // False when no path exists; path is then empty.
   bool found = 1;
+  // Note IDs from `from` to `to`, both included.
   repeated string path = 2;
+  // Total cost under the requested metric.
   double cost = 3;
 }
 message ReadingPathRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message ReadingPathResponse {
   repeated ReadingStep steps = 1;
@@ -164,9 +264,17 @@ message ReadingStep {
   uint32 depth = 3;
 }
 message ReadingPlanRequest {
-  string workspace_id = 1;
-  string topic = 2;
-  uint32 minutes = 3;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Free text matched semantically against notes.
+  string topic = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"consensus protocols\""}
+  ];
+  // The time budget, in minutes of estimated reading time.
+  uint32 minutes = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "45"}
+  ];
 }
 message ReadingPlanResponse {
   repeated PlannedNote notes = 1;

@@ -1,0 +1,18 @@
+{
+  "name": "two notes linking only to each other form an orphan component",
+  "why": "Orphans are components with no root, not notes with no backlinks. x and y each have a backlink, yet nothing a reader can navigate to reaches them. The isolated note z is an orphan too.",
+  "graph": {
+    "nodes": [{"id": "y"}, {"id": "home", "root": true}, {"id": "z"}, {"id": "x"}, {"id": "guide"}],
+    "edges": [{"from": "x", "to": "y"}, {"from": "home", "to": "guide"}, {"from": "y", "to": "x"}]
+  },
+  "queries": [
+    {"query": {"op": "components"}, "expected": {"of": {"guide": 0, "home": 0, "x": 1, "y": 1, "z": 2}, "members": [["guide", "home"], ["x", "y"], ["z"]], "orphans": [1, 2]},
+     "why": "Sorted IDs are guide, home, x, y, z. The component holding guide is 0, then x's, then z's. Only component 0 holds the root home."},
+    {"query": {"op": "scc"}, "expected": {"of": {"guide": 0, "home": 1, "x": 2, "y": 2, "z": 3}, "members": [["guide"], ["home"], ["x", "y"], ["z"]]},
+     "why": "home -> guide is one-way, so they are separate strongly connected components; x and y reach each other."},
+    {"query": {"op": "cycle"}, "expected": {"cycle": ["x", "y", "x"]},
+     "why": "The search starts at guide (no links), then home (to guide, already black), then x -> y -> x, where x is grey."},
+    {"query": {"op": "blast_radius", "source": "x", "direction": "cited_by", "max_hops": 0}, "expected": {"hops": {"x": 0, "y": 1}, "ring_sizes": [1, 1]},
+     "why": "Changing x affects y, which cites it, and nothing else."}
+  ]
+}

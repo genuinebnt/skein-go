@@ -1,0 +1,10 @@
+{
+  "name": "a link to a note that is not in the graph is rejected",
+  "why": "Every edge endpoint must be a node. A dangling link (its target note does not exist) is not an edge; the projection leaves it out instead of inventing a node.",
+  "graph": {
+    "nodes": [{"id": "a"}],
+    "edges": [{"from": "a", "to": "ghost"}]
+  },
+  "build_error": "unknown_node",
+  "queries": []
+}

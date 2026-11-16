@@ -9,7 +9,7 @@ They are added one milestone at a time; see `docs/architecture.md` section 8.
 | `identity` | Go | planned |
 | `documents` | Go | planned |
 | `search` | Go | planned |
-| `ml` | Python | planned |
+| `ml` | Python | phase 1: algorithms, benchmark, gRPC service (`services/ml/README.md`) |
 | `agent` | Python (LangGraph) | planned |
 | `notifications` | Go | planned |
 

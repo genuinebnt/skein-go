@@ -1,0 +1,23 @@
+{
+  "name": "an unknown run stays one word instead of being cut into characters",
+  "why": "qzx is unknown. As one word it costs round(1e6 ln 1950) + 2 round(1e6 ln 10) = 7575585 + 4605170; as three single characters it would cost 3 x 7575585, more. Total 1584120 + 12180755 + 1871802 = 15636677.",
+  "kind": "segment",
+  "input": {
+    "frequencies": {
+      "rust": 400,
+      "async": 300,
+      "a": 900,
+      "as": 200,
+      "sync": 150
+    },
+    "text": "rustqzxasync"
+  },
+  "expect": {
+    "words": [
+      "rust",
+      "qzx",
+      "async"
+    ],
+    "cost": 15636677
+  }
+}

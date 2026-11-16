@@ -1,0 +1,12 @@
+{
+  "name": "Levenshtein distance counts Unicode code points, not bytes: the four-byte emoji is one unit",
+  "why": "naive🙂 -> naïve🙂!: substitute i with ï (one code point, two bytes) and insert ! at the end. The emoji is equal on both sides. Two edits; a byte-based implementation would report 3 or more.",
+  "kind": "levenshtein",
+  "input": {
+    "a": "naive🙂",
+    "b": "naïve🙂!"
+  },
+  "expect": {
+    "distance": 2
+  }
+}

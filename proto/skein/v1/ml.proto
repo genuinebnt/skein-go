@@ -3,17 +3,51 @@ syntax = "proto3";
 // Embeddings, semantic search, discovery and clustering (ADR-0010, ADR-0015).
 package skein.v1;
 
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
 
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
+// REST routes are listed in docs/api/ml.md.
 service MLService {
-  rpc SemanticSearch(SemanticSearchRequest) returns (SemanticSearchResponse);
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    name: "ML"
+    description: "Semantic search, related-note discovery and clustering."
+  };
+
+  // Semantic search
+  //
+  // Nearest blocks by embedding, using the requested vector index.
+  rpc SemanticSearch(SemanticSearchRequest) returns (SemanticSearchResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/semantic-search"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
+  }
+  // Discover related notes
+  //
   // Related notes with three separate signals, never one blended score.
-  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
-  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse);
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse) {
+    option (google.api.http) = {get: "/v1/notes/{note_id}/related"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
+  }
+  // List topic clusters
+  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse) {
+    option (google.api.http) = {get: "/v1/workspaces/{workspace_id}/clusters"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
+  }
+  // Benchmark clustering algorithms
+  //
   // Runs clustering algorithms side by side on the workspace's embeddings.
-  rpc BenchmarkClustering(BenchmarkClusteringRequest) returns (BenchmarkClusteringResponse);
+  // Expensive (every algorithm runs `runs` times), so it counts against the
+  // agent rate-limit budget.
+  rpc BenchmarkClustering(BenchmarkClusteringRequest) returns (BenchmarkClusteringResponse) {
+    option (google.api.http) = {
+      post: "/v1/workspaces/{workspace_id}/clusters:benchmark"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {tags: "ML"};
+  }
 }
 
 enum IndexKind {
@@ -42,10 +76,17 @@ enum ClusteringAlgorithm {
 }
 
 message SemanticSearchRequest {
-  string workspace_id = 1;
-  string query = 2;
-  uint32 k = 3;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Natural-language query, embedded with the same model as the notes.
+  string query = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"how do followers catch up after a partition\""}
+  ];
+  // Number of hits. 0 means the server default.
+  uint32 k = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "10"}];
+  // Unspecified means the server's default index.
   IndexKind index = 4;
+  // Only blocks of notes carrying all of these tags.
   repeated string tags = 5;
   // Also run an exact scan and report recall against it.
   bool measure_recall = 6;
@@ -57,11 +98,13 @@ message SemanticSearchResponse {
 }
 message SemanticHit {
   BlockRef location = 1;
+  // Cosine similarity between query and block embeddings, in [-1, 1].
   double cosine = 2;
 }
 message DiscoverRequest {
-  string note_id = 1;
-  uint32 k = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Number of related notes. 0 means the server default.
+  uint32 k = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "5"}];
 }
 message DiscoverResponse {
   repeated RelatedNote related = 1;
@@ -77,7 +120,7 @@ message RelatedNote {
   bool suggest_link = 6;
 }
 message ListClustersRequest {
-  string workspace_id = 1;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 message ListClustersResponse {
   repeated Cluster clusters = 1;
@@ -89,11 +132,19 @@ message Cluster {
   repeated string note_ids = 4;
 }
 message BenchmarkClusteringRequest {
-  string workspace_id = 1;
-  repeated ClusteringAlgorithm algorithms = 2;
-  uint32 k = 3;
-  uint32 runs = 4;
-  uint64 seed = 5;
+  string workspace_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Empty means every algorithm.
+  repeated ClusteringAlgorithm algorithms = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "[\"CLUSTERING_ALGORITHM_KMEANS_PLUS_PLUS\", \"CLUSTERING_ALGORITHM_E_MEANS\"]"}];
+  // Number of clusters.
+  uint32 k = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "8"}
+  ];
+  // Repetitions per algorithm; means are reported. 0 means 1.
+  uint32 runs = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "3"}];
+  // Seed for every random choice, so a benchmark can be replayed. JSON
+  // string.
+  uint64 seed = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"20261116\""}];
 }
 message BenchmarkClusteringResponse {
   repeated ClusteringResult results = 1;

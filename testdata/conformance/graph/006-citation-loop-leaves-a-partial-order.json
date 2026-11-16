@@ -1,0 +1,31 @@
+{
+  "name": "a citation loop leaves a partial order and a reported cycle",
+  "why": "a -> b -> c -> a is a loop. a also cites base, top cites a, side cites base. Kahn's algorithm places what it can and reports the rest instead of failing; the reading path keeps the loop together.",
+  "graph": {
+    "nodes": [{"id": "top"}, {"id": "c"}, {"id": "side"}, {"id": "base"}, {"id": "b"}, {"id": "a"}],
+    "edges": [
+      {"from": "c", "to": "a"}, {"from": "a", "to": "base"}, {"from": "top", "to": "a"},
+      {"from": "b", "to": "c"}, {"from": "side", "to": "base"}, {"from": "a", "to": "b"}]
+  },
+  "queries": [
+    {"query": {"op": "topological_order"}, "expected": {"order": ["base", "side"], "unplaced": ["a", "b", "c", "top"], "layers": [["base"], ["side"]]},
+     "why": "base links to nothing and goes first; that frees side. a still waits on b, b on c, c on a, and top on a, so those four are unplaced: the loop and everything citing into it."},
+    {"query": {"op": "scc"}, "expected": {"of": {"a": 0, "b": 0, "c": 0, "base": 1, "side": 2, "top": 3}, "members": [["a", "b", "c"], ["base"], ["side"], ["top"]]},
+     "why": "Sorted IDs are a, b, base, c, side, top. The loop holds the smallest ID a, so it is component 0."},
+    {"query": {"op": "cycle"}, "expected": {"cycle": ["a", "b", "c", "a"]},
+     "why": "From a the search tries b before base (ID order), then c, whose link to a meets a grey node."},
+    {"query": {"op": "reading_path", "note": "top"}, "expected": {"steps": [
+        {"note": "base", "layer": 0, "hops": 2, "via": "a"},
+        {"note": "a", "layer": 1, "hops": 1, "via": "top"},
+        {"note": "b", "layer": 1, "hops": 2, "via": "a"},
+        {"note": "c", "layer": 1, "hops": 3, "via": "b"},
+        {"note": "top", "layer": 2, "hops": 0, "via": ""}], "cycles": [["a", "b", "c"]]},
+     "why": "top reaches a, b, c and base. The loop collapses into one group that depends on base, so base comes first, then the loop in ID order, then top."},
+    {"query": {"op": "reading_path", "note": "b"}, "expected": {"steps": [
+        {"note": "base", "layer": 0, "hops": 3, "via": "a"},
+        {"note": "a", "layer": 1, "hops": 2, "via": "c"},
+        {"note": "c", "layer": 1, "hops": 1, "via": "b"},
+        {"note": "b", "layer": 1, "hops": 0, "via": ""}], "cycles": [["a", "b", "c"]]},
+     "why": "When the target is on the loop, its group is last and the target is moved to the end of the group: a, c, then b."}
+  ]
+}
