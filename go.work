@@ -4,4 +4,5 @@ use (
 	./gen/go
 	./libs/crdt
 	./libs/dp
+	./libs/graph
 )
