@@ -36,7 +36,7 @@ Where it and this guide disagree, the Go code and the ADRs are newer.
 | 2 | `libs/dp` | `skein-dp` | none |
 | 3 | `libs/graph` | `skein-graph` | none |
 | 4 | `libs/blocks` (block markers, Markdown) | `skein-blocks` | crdt |
-| 5 | `libs/trigram` | `skein-trigram` | none |
+| 5 | `libs/trigram` | `skein-trigram` | dp |
 | 6 | service domain and app layers | one crate per service | the libraries |
 | 7 | service adapters (gRPC, Postgres, Pub/Sub) | in the service crates | tonic, sqlx, google-cloud-pubsub |
 
