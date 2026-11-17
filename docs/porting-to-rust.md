@@ -5,7 +5,9 @@ behaviour drift. The Go code was written for this (ADR-0012), so most of the
 port is mechanical. The parts that need thought are listed first.
 
 The original design for the Rust version (crate layout, document engine,
-labs, milestones) is in [design/skein-rust-design.html](design/skein-rust-design.html).
+labs, milestones) is in [design/index.html](design/index.html), with a later
+revision adding the agent and Phase 3 in
+[design/skein-rust-design.html](design/skein-rust-design.html).
 Where it and this guide disagree, the Go code and the ADRs are newer.
 
 ## 1. How to port a package
