@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"maps"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -222,4 +223,12 @@ func publishSpan(ctx context.Context, tracer trace.Tracer, system, topic string,
 			attribute.String("messaging.destination.name", topic),
 			attribute.String("messaging.message.id", e.ID),
 		))
+}
+
+// sortedKeys returns m's keys in order, so wire encodings never depend on
+// map order (ADR-0012).
+func sortedKeys[V any](m map[string]V) []string {
+	keys := slices.Collect(maps.Keys(m))
+	slices.Sort(keys)
+	return keys
 }

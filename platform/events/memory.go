@@ -43,6 +43,7 @@ type Memory struct {
 type memorySubscription struct {
 	topic       string
 	maxAttempts int
+	deadLetter  string // topic that receives dead letters; "" keeps them only in dead
 	queue       []*Message
 	dead        []Message
 	delivering  sync.Mutex // one pass at a time per subscription
@@ -94,6 +95,34 @@ func (m *Memory) CreateSubscription(name, topic string, maxAttempts int) error {
 	return nil
 }
 
+// Provision creates the topology's topics and subscriptions, skipping
+// those that exist, so every service can call it at startup. A
+// subscription with a dead-letter topic forwards each message it gives up
+// on to that topic, as Pub/Sub does.
+func (m *Memory) Provision(_ context.Context, t Topology) error {
+	if err := t.Validate(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, topic := range t.Topics {
+		if _, ok := m.topics[topic]; !ok {
+			m.topics[topic] = nil
+		}
+	}
+	for _, spec := range t.Subscriptions {
+		if _, exists := m.subs[spec.Name]; exists {
+			continue
+		}
+		m.topics[spec.Topic] = append(m.topics[spec.Topic], spec.Name)
+		m.subs[spec.Name] = &memorySubscription{topic: spec.Topic, maxAttempts: spec.MaxDeliveryAttempts, deadLetter: spec.DeadLetterTopic}
+	}
+	return nil
+}
+
+// Close implements Bus; Memory holds nothing to release.
+func (m *Memory) Close() error { return nil }
+
 // Publish implements Publisher.
 func (m *Memory) Publish(ctx context.Context, topic string, e Envelope) error {
 	if err := e.Validate(); err != nil {
@@ -109,6 +138,12 @@ func (m *Memory) Publish(ctx context.Context, topic string, e Envelope) error {
 	if !ok {
 		return fmt.Errorf("%w: %q", ErrUnknownTopic, topic)
 	}
+	m.enqueueLocked(topic, subs, e)
+	return nil
+}
+
+// enqueueLocked records e on topic and queues it for each subscription.
+func (m *Memory) enqueueLocked(topic string, subs []string, e Envelope) {
 	m.published[topic] = append(m.published[topic], e.Clone())
 	now := m.now()
 	for _, name := range subs {
@@ -117,7 +152,6 @@ func (m *Memory) Publish(ctx context.Context, topic string, e Envelope) error {
 	}
 	close(m.wake)
 	m.wake = make(chan struct{})
-	return nil
 }
 
 // Deliver runs one pass over the subscription's queue, in publish order,
@@ -176,6 +210,11 @@ func (m *Memory) Deliver(ctx context.Context, subscription string, h Handler) (i
 	}
 	s.queue = kept
 	s.dead = append(s.dead, dead...)
+	if subs, ok := m.topics[s.deadLetter]; ok && s.deadLetter != "" {
+		for _, msg := range dead {
+			m.enqueueLocked(s.deadLetter, subs, msg.Envelope)
+		}
+	}
 	return acked, nil
 }
 

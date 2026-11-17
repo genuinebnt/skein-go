@@ -1,0 +1,51 @@
+{
+  "why": "Every Redis events publisher and consumer (Go platform/events, Python skein_events, the Rust port) must send a key to the same partition stream, or per-key order breaks silently. Partition = FNV-1a 32-bit of the UTF-8 ordering key (or of the event ID when the key is empty) modulo 8. docs/spec/events-redis.md.",
+  "partitions": 8,
+  "cases": [
+    {
+      "ordering_key": "",
+      "id": "0193a5b0-7c1e-7000-8000-000000000001",
+      "partition": 6
+    },
+    {
+      "ordering_key": "",
+      "id": "0193a5b0-7c1e-7000-8000-000000000002",
+      "partition": 3
+    },
+    {
+      "ordering_key": "note-1",
+      "id": "",
+      "partition": 3
+    },
+    {
+      "ordering_key": "note-2",
+      "id": "",
+      "partition": 6
+    },
+    {
+      "ordering_key": "0193a5b0-7c1e-7000-8000-00000000abcd",
+      "id": "ignored-when-keyed",
+      "partition": 1
+    },
+    {
+      "ordering_key": "user:42",
+      "id": "",
+      "partition": 2
+    },
+    {
+      "ordering_key": "ünïcødé-ключ",
+      "id": "",
+      "partition": 3
+    },
+    {
+      "ordering_key": "a",
+      "id": "",
+      "partition": 4
+    },
+    {
+      "ordering_key": "k0",
+      "id": "",
+      "partition": 6
+    }
+  ]
+}
