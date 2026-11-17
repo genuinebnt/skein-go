@@ -67,3 +67,12 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
 # RUF200: ruff cannot parse Hatch's {root:...} context formatting in the local
 # gen/python dependency, which Hatch itself resolves correctly.
 ignore = ["N803", "N806", "N818", "RUF001", "RUF002", "RUF003", "RUF200", "SIM905"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Frozen dataclasses used as argument defaults: immutable, so sharing one
+# instance across calls is safe (B008 cannot see the frozen=True).
+extend-immutable-calls = [
+    "skein_ml.app.service.Settings",
+    "skein_ml.app.vectors.IndexSettings",
+    "skein_ml.bench.harness.BenchOptions",
+]
