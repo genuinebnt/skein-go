@@ -1,6 +1,6 @@
 # 0020. A deployment profile that fits the Google Cloud free trial
 
-Date: 2026-11-17. Status: accepted. Complements [0017](0017-gcp-service-map-and-iam.md) and [0018](0018-compute-gke-cloud-run-functions.md).
+Date: 2026-11-17. Status: accepted; refined by [0021](0021-ephemeral-learning-environments.md) (environments are ephemeral, the `full` profile is allowed for short sessions). Complements [0017](0017-gcp-service-map-and-iam.md) and [0018](0018-compute-gke-cloud-run-functions.md).
 
 ## Context
 The first real deployment will run on a Google Cloud Free Trial account:

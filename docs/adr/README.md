@@ -26,3 +26,4 @@ records are kept and marked superseded, never rewritten.
 | [0018](0018-compute-gke-cloud-run-functions.md) | Compute: GKE, Cloud Run and Cloud Run functions | Accepted |
 | [0019](0019-cloud-storage-and-firestore.md) | Cloud Storage and Firestore | Accepted |
 | [0020](0020-free-trial-profile.md) | A deployment profile that fits the Google Cloud free trial | Accepted |
+| [0021](0021-ephemeral-learning-environments.md) | Ephemeral learning environments with a $30 cap | Accepted |
