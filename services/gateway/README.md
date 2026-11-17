@@ -108,7 +108,7 @@ Besides the platform variables (`SKEIN_ENV`, `SKEIN_VERSION`, `REDIS_URL`,
 | `DOCUMENTS_SYNC_ADDR` | `documents:9090` | headless Service host:port for sync routing |
 | `GRPC_INSECURE` | `true` | plaintext gRPC inside the cluster |
 | `IDENTITY_JWKS_URL` | `http://identity:8080/.well-known/jwks.json` | identity's public key set |
-| `CORS_ALLOWED_ORIGINS` | none | exact origins, comma separated; also the WebSocket origin allow-list |
+| `CORS_ALLOWED_ORIGINS` | none; `http://localhost:5173` (the web dev server) in dev and test | exact origins, comma separated; also the WebSocket origin allow-list. Cross-origin responses expose `X-Request-ID`, `RateLimit-*`, `Retry-After` and `Idempotent-Replayed` |
 | `TRUSTED_PROXIES` | none | CIDRs whose `X-Forwarded-For` is believed |
 | `GATEWAY_HSTS` | `false` | send Strict-Transport-Security |
 | `GATEWAY_DRAIN_DELAY` | `5s` | readiness-off time before the listener closes |

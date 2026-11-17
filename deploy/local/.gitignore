@@ -1,0 +1,2 @@
+# Runtime state of make up-native: data, logs, pids, binaries, virtualenvs.
+/.run/

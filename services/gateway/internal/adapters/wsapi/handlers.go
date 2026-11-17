@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,7 +134,7 @@ func (h *Handlers) upgrade(w http.ResponseWriter, r *http.Request, kind domain.S
 	o := parseOffer(r.Header.Values(protocolHeader))
 	ctx, claims, err := edge.VerifyBearer(r.Context(), h.cfg.Verifier, o.token)
 	if err != nil {
-		edge.WriteError(w, r, h.cfg.Logger, err)
+		h.refuse(w, r, o, err)
 		return nil, nil, false
 	}
 	ip := h.cfg.ClientIP(r)
@@ -142,12 +143,12 @@ func (h *Handlers) upgrade(w http.ResponseWriter, r *http.Request, kind domain.S
 		edge.WriteRateLimitHeaders(w, verdict.Decision)
 	}
 	if verdict.Limited() {
-		edge.WriteError(w, r.WithContext(ctx), h.cfg.Logger, edge.RateLimited(verdict.Key, verdict.Decision))
+		h.refuse(w, r.WithContext(ctx), o, edge.RateLimited(verdict.Key, verdict.Decision))
 		return nil, nil, false
 	}
 	info, err := prepare(ctx, claims)
 	if err != nil {
-		edge.WriteError(w, r.WithContext(ctx), h.cfg.Logger, err)
+		h.refuse(w, r.WithContext(ctx), o, err)
 		return nil, nil, false
 	}
 	// The request's context ends when the handler returns or the server
@@ -160,7 +161,7 @@ func (h *Handlers) upgrade(w http.ResponseWriter, r *http.Request, kind domain.S
 		if errors.Is(err, app.ErrDraining) {
 			err = status.Error(codes.Unavailable, "gateway is restarting")
 		}
-		edge.WriteError(w, r.WithContext(ctx), h.cfg.Logger, err)
+		h.refuse(w, r.WithContext(ctx), o, err)
 		return nil, nil, false
 	}
 	var protocols []string
@@ -210,6 +211,13 @@ func closeForStreamEnd(s *socket, err error) {
 		s.Close(domain.CloseNormal, "stream finished")
 		return
 	}
+	s.Close(closeFor(err))
+}
+
+// closeFor is the close code and reason for a failure: the documented
+// mapping from its gRPC status, a generic reason for server faults, and the
+// seconds to wait for rate limits.
+func closeFor(err error) (domain.CloseCode, string) {
 	st := edge.StatusOf(err)
 	code := domain.CloseCodeForStatus(st.Code())
 	reason := st.Message()
@@ -225,7 +233,47 @@ func closeForStreamEnd(s *socket, err error) {
 		}
 		reason = edge.SecondsUntil(wait)
 	}
-	s.Close(code, reason)
+	return code, reason
+}
+
+// refuse reports why a socket cannot be opened. Browsers never see the HTTP
+// status of a failed upgrade (the WebSocket API only reports "error" and
+// close code 1006), so a real upgrade request is accepted and closed at once
+// with the documented close code (4401, 4403, 4404, 4429, ...) and reason.
+// Anything else, or an origin the gateway refuses, gets the usual
+// google.rpc.Status response.
+func (h *Handlers) refuse(w http.ResponseWriter, r *http.Request, o offer, err error) {
+	if !isUpgrade(r) {
+		edge.WriteError(w, r, h.cfg.Logger, err)
+		return
+	}
+	var protocols []string
+	if o.accept != "" {
+		protocols = []string{o.accept}
+	}
+	conn, acceptErr := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: protocols, OriginPatterns: h.cfg.OriginPatterns})
+	if acceptErr != nil {
+		return // Accept has written the response (403 for a foreign origin).
+	}
+	code, reason := closeFor(err)
+	h.cfg.Logger.InfoContext(r.Context(), "websocket refused",
+		slog.Int("close_code", int(code)), slog.String("close_reason", reason))
+	ctx, cancel := context.WithTimeout(context.Background(), h.cfg.Options.WriteTimeout)
+	defer cancel()
+	// Close waits for the client's close frame; CloseNow is the fallback
+	// when the client never answers.
+	done := make(chan struct{})
+	go func() { _ = conn.Close(websocket.StatusCode(code), reason); close(done) }()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		_ = conn.CloseNow()
+	}
+}
+
+// isUpgrade reports whether r asks for a WebSocket.
+func isUpgrade(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
 func (h *Handlers) serveSync(w http.ResponseWriter, r *http.Request) {
@@ -250,8 +298,18 @@ func (h *Handlers) serveSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer finish()
-	stream, err := route.Client.Sync(c.streams)
+	// The stream outlives the socket briefly: a client that sends an edit
+	// and closes at once (a closed tab) must not lose it. Cancelling the
+	// stream when the socket closes aborted frames documents had not
+	// applied yet, so the stream has its own context; syncFrames half-closes
+	// it, and drainSync cancels it once documents has finished or
+	// StreamDrain after the socket began closing.
+	streamCtx, cancelStream := context.WithCancel(context.WithoutCancel(c.streams))
+	recvDone := make(chan struct{})
+	go h.drainSync(c, noteID, recvDone, cancelStream)
+	stream, err := route.Client.Sync(streamCtx)
 	if err != nil {
+		close(recvDone)
 		closeForStreamEnd(c.socket, err)
 	}
 	code := c.serve(c.claims.ExpiresAt, func() {
@@ -260,6 +318,7 @@ func (h *Handlers) serveSync(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		go func() {
+			defer close(recvDone)
 			for {
 				resp, err := stream.Recv()
 				if err != nil {
@@ -272,6 +331,27 @@ func (h *Handlers) serveSync(w http.ResponseWriter, r *http.Request) {
 		h.syncFrames(c, r, noteID, stream)
 	})
 	h.finished(c, domain.SocketSync, code)
+}
+
+// drainSync owns the cancellation of a sync socket's documents stream: once
+// the socket starts closing, the stream gets StreamDrain to end by itself
+// (documents ends it on the half-close, after applying what it received).
+// The clock starts at the close, not when the socket's goroutines finish,
+// because a client that stops reading can hold the closing handshake for
+// seconds.
+func (h *Handlers) drainSync(c *connection, noteID string, recvDone <-chan struct{}, cancel context.CancelFunc) {
+	defer cancel()
+	select {
+	case <-recvDone:
+		return
+	case <-c.closing:
+	}
+	select {
+	case <-recvDone:
+	case <-time.After(h.cfg.Options.StreamDrain):
+		h.cfg.Logger.WarnContext(c.ctx, "sync stream did not finish after the socket closed; cancelling",
+			slog.String("note_id", noteID))
+	}
 }
 
 // syncFrames forwards client frames to the Sync stream.

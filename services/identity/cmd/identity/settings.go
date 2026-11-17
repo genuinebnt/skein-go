@@ -47,6 +47,12 @@ func loadSettings(l *config.Loader) settings {
 	s.App.DecisionTTL = l.Duration("IDENTITY_DECISION_CACHE_TTL", s.App.DecisionTTL)
 	s.App.OAuthRedirectURIs = l.List("IDENTITY_OAUTH_REDIRECT_URIS", nil)
 	s.App.AllowUnauthenticatedInternalCalls = l.Bool("IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS", false)
+	// Signs anyone in without a credential: never outside dev and test, so
+	// a production deploy that sets it fails to start instead of serving it.
+	s.App.DevSessions = l.Bool("IDENTITY_DEV_SESSIONS", false)
+	if s.App.DevSessions && !s.Service.Env.IsDev() {
+		l.Fail("IDENTITY_DEV_SESSIONS", "only allowed in dev and test")
+	}
 
 	d := credential.DefaultParams
 	s.Argon2 = credential.Params{

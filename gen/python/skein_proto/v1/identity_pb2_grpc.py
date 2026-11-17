@@ -118,6 +118,11 @@ class IdentityServiceStub:
                 request_serializer=skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenRequest.SerializeToString,
                 response_deserializer=skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenResponse.FromString,
                 _registered_method=True)
+        self.RegisterNote = channel.unary_unary(
+                '/skein.v1.IdentityService/RegisterNote',
+                request_serializer=skein_dot_v1_dot_identity__pb2.RegisterNoteRequest.SerializeToString,
+                response_deserializer=skein_dot_v1_dot_identity__pb2.RegisterNoteResponse.FromString,
+                _registered_method=True)
         self.RegisterReplica = channel.unary_unary(
                 '/skein.v1.IdentityService/RegisterReplica',
                 request_serializer=skein_dot_v1_dot_identity__pb2.RegisterReplicaRequest.SerializeToString,
@@ -266,6 +271,19 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RegisterNote(self, request, context):
+        """Internal. Records a note documents has just created in identity's note
+        projection, so its creator and workspace can use it at once instead of
+        after the NoteCreated event arrives (read-your-writes). Called by
+        documents with the creator's token; the caller must be allowed to create
+        notes in the workspace. Registering a note identity already knows in the
+        same workspace succeeds and changes nothing; in another workspace it is
+        ALREADY_EXISTS.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RegisterReplica(self, request, context):
         """Register a CRDT replica
 
@@ -363,6 +381,11 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.IssueDelegatedToken,
                     request_deserializer=skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenRequest.FromString,
                     response_serializer=skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenResponse.SerializeToString,
+            ),
+            'RegisterNote': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterNote,
+                    request_deserializer=skein_dot_v1_dot_identity__pb2.RegisterNoteRequest.FromString,
+                    response_serializer=skein_dot_v1_dot_identity__pb2.RegisterNoteResponse.SerializeToString,
             ),
             'RegisterReplica': grpc.unary_unary_rpc_method_handler(
                     servicer.RegisterReplica,
@@ -806,6 +829,33 @@ class IdentityService:
             '/skein.v1.IdentityService/IssueDelegatedToken',
             skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenRequest.SerializeToString,
             skein_dot_v1_dot_identity__pb2.IssueDelegatedTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterNote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/skein.v1.IdentityService/RegisterNote',
+            skein_dot_v1_dot_identity__pb2.RegisterNoteRequest.SerializeToString,
+            skein_dot_v1_dot_identity__pb2.RegisterNoteResponse.FromString,
             options,
             channel_credentials,
             insecure,

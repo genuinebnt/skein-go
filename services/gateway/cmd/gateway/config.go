@@ -29,7 +29,12 @@ type gatewayConfig struct {
 	RedisNamespace string
 }
 
-func loadConfig(l *config.Loader) gatewayConfig {
+// devOrigins are allowed when CORS_ALLOWED_ORIGINS is unset in dev and test:
+// the web frontend's Vite dev server (web/), so `npm run dev` works against
+// a local gateway without configuration. Never applied in staging or prod.
+var devOrigins = []string{"http://localhost:5173"}
+
+func loadConfig(l *config.Loader, env config.Env) gatewayConfig {
 	cfg := gatewayConfig{
 		HTTPAddr: l.String("GATEWAY_HTTP_ADDR", ":8080"),
 		Targets: backends.Targets{
@@ -49,6 +54,9 @@ func loadConfig(l *config.Loader) gatewayConfig {
 		RequestTimeout: l.Duration("GATEWAY_REQUEST_TIMEOUT", 30*time.Second),
 		RedisNamespace: l.String("GATEWAY_REDIS_NAMESPACE", "gw"),
 		Limits:         domain.DefaultLimits(),
+	}
+	if cfg.CORSOrigins == nil && env.IsDev() {
+		cfg.CORSOrigins = devOrigins
 	}
 	proxies, err := domain.ParsePrefixes(l.List("TRUSTED_PROXIES", nil))
 	if err != nil {

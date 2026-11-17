@@ -42,6 +42,9 @@ def _jsonb(value: Any) -> Any:
     return Jsonb(value)
 
 
+SCHEMA_EXISTS = "SELECT 1 FROM pg_namespace WHERE nspname = %s"
+
+
 def _read_migrations(directory: Path) -> list[tuple[str, str]]:
     return [(path.name, path.read_text()) for path in sorted(directory.glob("*.sql"))]
 
@@ -52,7 +55,11 @@ async def migrate(conn: Any, directory: Path = MIGRATIONS) -> list[str]:
     files = await asyncio.to_thread(_read_migrations, directory)
     applied = []
     async with conn.transaction():
-        await conn.execute("CREATE SCHEMA IF NOT EXISTS agent")
+        # CREATE SCHEMA IF NOT EXISTS checks the database's CREATE privilege
+        # before it checks existence, and the service's role owns only its
+        # schema (deploy/compose/postgres/init.sql), so ask first.
+        if await (await conn.execute(SCHEMA_EXISTS, ("agent",))).fetchone() is None:
+            await conn.execute("CREATE SCHEMA agent")
         await conn.execute(
             "CREATE TABLE IF NOT EXISTS agent.schema_migrations"
             " (name text PRIMARY KEY, applied_at timestamptz DEFAULT now())"

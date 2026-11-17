@@ -158,7 +158,9 @@ func (w *Workspace) put(next *NoteState, seq int64) {
 	case isVisible:
 		changed = w.index(old, wasVisible, next)
 	}
-	if wasVisible != isVisible || isVisible && (!slices.Equal(old.Links, next.Links) || old.Root != next.Root) {
+	// Links resolve by title (LinkGraph), so a rename can add or remove
+	// edges into this note as well.
+	if wasVisible != isVisible || isVisible && (!slices.Equal(old.Links, next.Links) || old.Root != next.Root || old.Title != next.Title) {
 		w.GraphVersion = seq
 		changed = true
 	}
@@ -276,10 +278,23 @@ func (w *Workspace) putTitle(note, title string) {
 // allows (nil allows all): an edge for every link between two of them. The
 // graph never contains a note the caller cannot read, so nothing computed
 // from it can reveal one.
+//
+// A note's Links are the titles inside its [[...]] (LinksChanged carries
+// them as typed). They are resolved here, against the titles of the visible
+// notes, exactly and within the workspace, as docs/seed-data.md defines an
+// edge. Resolving when the graph is built, not when the event arrives,
+// keeps edges right when the target is created, renamed or trashed later.
+// Titles that match no visible note are dangling and make no edge; a title
+// shared by several notes resolves to the smallest note ID, so the choice
+// is deterministic.
 func (w *Workspace) LinkGraph(readable func(note string) bool) (*graph.Graph, error) {
 	var nodes []graph.Node
 	in := map[string]bool{}
+	byTitle := map[string]string{}
 	for _, id := range w.VisibleNotes() {
+		if _, taken := byTitle[w.notes[id].Title]; !taken {
+			byTitle[w.notes[id].Title] = id
+		}
 		if readable == nil || readable(id) {
 			nodes = append(nodes, graph.Node{ID: id, Root: w.notes[id].Root})
 			in[id] = true
@@ -287,8 +302,11 @@ func (w *Workspace) LinkGraph(readable func(note string) bool) (*graph.Graph, er
 	}
 	var edges []graph.Edge
 	for _, n := range nodes {
-		for _, to := range w.notes[n.ID].Links {
-			if in[to] {
+		seen := map[string]bool{}
+		for _, title := range w.notes[n.ID].Links {
+			to, ok := byTitle[title]
+			if ok && in[to] && to != n.ID && !seen[to] {
+				seen[to] = true
 				edges = append(edges, graph.Edge{From: n.ID, To: to})
 			}
 		}

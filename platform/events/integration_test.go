@@ -5,6 +5,8 @@ package events
 import (
 	"context"
 	"errors"
+	"os"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,16 +14,31 @@ import (
 	"cloud.google.com/go/pubsub/v2/apiv1/pubsubpb"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-const emulatorProject = "skein-it"
+// emulatorProject is the project the test creates its topics in. Against a
+// shared emulator it is unique per run, so reruns and the stack's own
+// skein-local topics never collide.
+var emulatorProject = "skein-it"
 
 // startEmulator runs the same emulator image as deploy/compose and points
 // the client library at it through PUBSUB_EMULATOR_HOST, the documented
-// local path.
+// local path. SKEIN_TEST_PUBSUB_EMULATOR_HOST names a running emulator
+// (make up-native's) to use instead of a container.
 func startEmulator(t *testing.T) *PubSub {
 	t.Helper()
 	ctx := context.Background()
+	if host := os.Getenv("SKEIN_TEST_PUBSUB_EMULATOR_HOST"); host != "" {
+		emulatorProject = "skein-it-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+		t.Setenv("PUBSUB_EMULATOR_HOST", host)
+		ps, err := NewPubSub(ctx, PubSubConfig{Project: emulatorProject})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ps.Close() })
+		return ps
+	}
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators",
@@ -62,7 +79,10 @@ func TestEmulatorDeadLettersAfterMaxAttempts(t *testing.T) {
 			Name: project + "/subscriptions/search.documents-events", Topic: project + "/topics/documents.events",
 			EnableMessageOrdering: true, AckDeadlineSeconds: 10,
 			DeadLetterPolicy: &pubsubpb.DeadLetterPolicy{DeadLetterTopic: project + "/topics/documents.events.dead-letter", MaxDeliveryAttempts: 5},
-			RetryPolicy:      &pubsubpb.RetryPolicy{},
+			// An empty RetryPolicy means Pub/Sub's defaults (10 s to 600 s),
+			// which put five attempts past the 60 s budget; this is the
+			// shape of deploy/compose/pubsub-init.sh's policy, shortened.
+			RetryPolicy: &pubsubpb.RetryPolicy{MinimumBackoff: durationpb.New(time.Second), MaximumBackoff: durationpb.New(4 * time.Second)},
 		},
 		{Name: project + "/subscriptions/dead-letters", Topic: project + "/topics/documents.events.dead-letter", AckDeadlineSeconds: 10},
 	} {

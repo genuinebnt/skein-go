@@ -23,16 +23,28 @@ ON CONFLICT (notification_id) WHERE state = 'pending' DO NOTHING`,
 	return nil
 }
 
+// PendingEmails picks recipients by locking the oldest due jobs with SKIP
+// LOCKED, at most recipientLimit of them, and then takes every pending job
+// of those recipients (SKIP LOCKED again), so a recipient's due and not yet
+// due jobs go out in one digest. Choosing recipients without locking (as
+// this did) gave every concurrent sender the same head of the queue: one
+// locked it, the others skipped all its rows and planned nothing, so
+// senders on several replicas starved each other (found by running the
+// integration test against a real database). Locking only the heads lets
+// each sender take different recipients. A job another sender holds is
+// skipped: it goes in a later email, never twice.
 func (t *txn) PendingEmails(ctx context.Context, now time.Time, recipientLimit int) ([]domain.PendingEmail, error) {
 	rows, err := t.tx.Query(ctx, `
-WITH due AS (
-  SELECT recipient_id, min(due_at) AS first_due FROM email_jobs
+WITH heads AS MATERIALIZED (
+  SELECT recipient_id FROM email_jobs
   WHERE state = 'pending' AND due_at <= $1
-  GROUP BY recipient_id ORDER BY first_due, recipient_id LIMIT $2
+  ORDER BY due_at, id
+  LIMIT $2
+  FOR UPDATE SKIP LOCKED
 )
 SELECT j.id::text, j.recipient_id::text, j.notification_id::text, j.created_at, j.due_at, n.read_at IS NOT NULL
-FROM email_jobs j JOIN due USING (recipient_id) JOIN notifications n ON n.id = j.notification_id
-WHERE j.state = 'pending'
+FROM email_jobs j JOIN notifications n ON n.id = j.notification_id
+WHERE j.state = 'pending' AND j.recipient_id IN (SELECT recipient_id FROM heads)
 ORDER BY j.id
 FOR UPDATE OF j SKIP LOCKED`, now, recipientLimit)
 	if err != nil {

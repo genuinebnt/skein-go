@@ -32,6 +32,9 @@ make test-lib LIB=crdt
 make fuzz        # fuzz every target for 30s
 make up          # Postgres, Redis, Pub/Sub emulator, Mailpit, plus telemetry, Grafana and Swagger UI
 make up-min      # infrastructure only
+make up-native   # the same stack without Docker, as local processes on high ports, seed loaded
+make e2e         # end-to-end journeys through the gateway (against make up-native)
+make integration-native  # every integration test against make up-native
 make urls        # every local URL
 make help        # everything else
 ```
@@ -55,6 +58,8 @@ docs/            architecture, decisions, specs, guides
 - [Decision records](docs/adr/README.md)
 - [Sequence CRDT spec](docs/spec/crdt-sequence.md)
 - [Testing guide](docs/testing.md)
+- [Running natively](docs/local-native.md): `make up-native`, ports, the e2e
+  suite, integration tests without Docker, troubleshooting
 - [Porting guide](docs/porting-to-rust.md)
 - [Performance log](docs/PERF.md)
 - [Seed data](docs/seed-data.md): deterministic datasets with ground truth (`make seed PROFILE=medium`)

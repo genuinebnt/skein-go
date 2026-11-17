@@ -420,9 +420,9 @@ func TestSuggestTitlesCompletesPrefixesAndToleratesTypos(t *testing.T) {
 
 func TestLinkGraphHoldsOnlyReadableVisibleNotes(t *testing.T) {
 	p := NewProjection()
-	p.Apply("a", &NoteState{ID: "a", WorkspaceID: "w", Links: []string{"b", "c", "x"}}, 1)
-	p.Apply("b", &NoteState{ID: "b", WorkspaceID: "w", Links: []string{"c"}}, 2)
-	p.Apply("c", &NoteState{ID: "c", WorkspaceID: "w", Trashed: true}, 3)
+	p.Apply("a", &NoteState{ID: "a", WorkspaceID: "w", Title: "A", Links: []string{"B", "C", "X"}}, 1)
+	p.Apply("b", &NoteState{ID: "b", WorkspaceID: "w", Title: "B", Links: []string{"C"}}, 2)
+	p.Apply("c", &NoteState{ID: "c", WorkspaceID: "w", Title: "C", Trashed: true}, 3)
 	w, _ := p.Workspace("w")
 	g, err := w.LinkGraph(Readable{"a": true, "c": true}.Has)
 	if err != nil {
@@ -432,12 +432,47 @@ func TestLinkGraphHoldsOnlyReadableVisibleNotes(t *testing.T) {
 		t.Fatalf("graph %s", g)
 	}
 	before := w.GraphVersion
-	p.Apply("b", &NoteState{ID: "b", WorkspaceID: "w", Title: "renamed", Links: []string{"c"}}, 4)
-	if w.GraphVersion != before {
-		t.Fatal("a rename changed the graph version")
-	}
-	p.Apply("b", &NoteState{ID: "b", WorkspaceID: "w", Links: nil}, 5)
+	p.Apply("b", &NoteState{ID: "b", WorkspaceID: "w", Title: "B", Links: nil}, 4)
 	if w.GraphVersion == before {
 		t.Fatal("a link change kept the graph version")
+	}
+}
+
+// LinksChanged carries the titles inside [[...]]; edges come from resolving
+// them against the workspace's visible notes when the graph is built, so a
+// note created, renamed or trashed later changes which links resolve.
+func TestLinksResolveByTitleWhenTheGraphIsBuilt(t *testing.T) {
+	p := NewProjection()
+	p.Apply("a", &NoteState{ID: "a", WorkspaceID: "w", Title: "Raft", Links: []string{"Snapshots", "Raft", "Nowhere"}}, 1)
+	w, _ := p.Workspace("w")
+	edges := func() string {
+		g, err := w.LinkGraph(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprint(g.EdgeCount())
+	}
+	if got := edges(); got != "0" {
+		t.Fatalf("a link to a title no note has made %s edges", got)
+	}
+	before := w.GraphVersion
+	p.Apply("s", &NoteState{ID: "s", WorkspaceID: "w", Title: "Snapshots"}, 2)
+	if got := edges(); got != "1" {
+		t.Fatalf("creating the target: %s edges, want 1 (self-links never count)", got)
+	}
+	if w.GraphVersion == before {
+		t.Fatal("a new target note kept the graph version")
+	}
+	before = w.GraphVersion
+	p.Apply("s", &NoteState{ID: "s", WorkspaceID: "w", Title: "Log snapshots"}, 3)
+	if got := edges(); got != "0" {
+		t.Fatalf("after renaming the target: %s edges, want 0", got)
+	}
+	if w.GraphVersion == before {
+		t.Fatal("a rename that broke a link kept the graph version")
+	}
+	p.Apply("t", &NoteState{ID: "t", WorkspaceID: "other", Title: "Snapshots"}, 4)
+	if got := edges(); got != "0" {
+		t.Fatalf("a link resolved into another workspace: %s edges", got)
 	}
 }

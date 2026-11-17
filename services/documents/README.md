@@ -19,7 +19,7 @@ internal/adapters/
   grpcapi/                DocumentService, including the Sync stream
   postgres/               op log, snapshots, projection state, outbox (migrations/)
   redis/                  note metadata cache, Authorize cache, presence
-  identity/               Authorize, ListReadableNotes, RegisterReplica over gRPC
+  identity/               Authorize, ListReadableNotes, RegisterReplica, RegisterNote over gRPC
   pubsub/                 identity.events consumer (AccessChanged)
   eventcodec/             domain events <-> skein.v1.Event
   admin/                  /healthz, /readyz
@@ -75,7 +75,7 @@ export) is the pure library [`libs/blocks`](../../libs/blocks), specified in
 | What | Why | Invalidation |
 |---|---|---|
 | Note metadata (`documents-note`, 5 min) | read by every RPC's access path and GetNote; changes rarely | deleted on rename, trash, restore, purge |
-| Authorize decisions (`documents-authorize`, 10 s) | every sync batch is checked; identity would see one call per keystroke batch | tag `user:<id>` dropped on AccessChanged, on every instance (shared cache) |
+| Authorize grants (`documents-authorize`, 10 s; denials are never cached, since identity denies notes its projection has not seen yet) | every sync batch is checked; identity would see one call per keystroke batch | tag `user:<id>` dropped on AccessChanged, on every instance (shared cache) |
 | Presence (hash per note, 30 s TTL) | cursors outlive actor eviction and reach newcomers; no table needed | expiry; cleared when a session closes |
 
 Open sync sessions are re-checked every 30 s, which catches revocations

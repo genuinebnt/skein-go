@@ -42,7 +42,12 @@ type fixture struct {
 
 // newFixture runs the real gRPC server (grpcx interceptors, the keyring as
 // issuer and verifier) over bufconn, with the in-memory store.
-func newFixture(t *testing.T) *fixture {
+func newFixture(t *testing.T) *fixture { return newFixtureWith(t, false) }
+
+// newFixtureWith runs the server with IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS
+// set to allowInternal, in both places it applies: the public method list
+// and the use cases.
+func newFixtureWith(t *testing.T, allowInternal bool) *fixture {
 	t.Helper()
 	key, _ := auth.GenerateKey()
 	ring, err := keys.New(key, keys.Options{RetireAfter: time.Hour})
@@ -50,12 +55,14 @@ func newFixture(t *testing.T) *fixture {
 		t.Fatal(err)
 	}
 	hasher, _ := credential.NewHasher(credential.HasherOptions{Params: credential.Params{MemoryKiB: 64, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32}})
-	svc, err := app.New(app.DefaultConfig(), app.Deps{Store: fakes.NewStore(), Hasher: hasher, Issuer: ring})
+	cfg := app.DefaultConfig()
+	cfg.AllowUnauthenticatedInternalCalls = allowInternal
+	svc, err := app.New(cfg, app.Deps{Store: fakes.NewStore(), Hasher: hasher, Issuer: ring})
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := grpcx.NewServer(grpcx.ServerConfig{Env: config.EnvTest, Verifier: auth.NewVerifier(ring, auth.VerifierOptions{}),
-		PublicMethods: identitygrpc.PublicMethods(false)})
+		PublicMethods: identitygrpc.PublicMethods(allowInternal)})
 	skeinv1.RegisterIdentityServiceServer(srv, identitygrpc.NewServer(svc, nil))
 	lis := bufconn.Listen(1 << 20)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -66,7 +73,7 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jwks := httptest.NewServer(admin.Handler(ring, nil, nil))
+	jwks := httptest.NewServer(admin.Handler(ring, nil, nil, nil))
 	t.Cleanup(func() {
 		jwks.Close()
 		_ = conn.Close()
@@ -229,5 +236,38 @@ func TestDelegatedTokenActsForTheUserWithTheRunID(t *testing.T) {
 	_, err = f.client.IssueDelegatedToken(bearer(res.GetAccessToken()), &skeinv1.IssueDelegatedTokenRequest{UserId: u.GetUser().GetId(), AgentRunId: run})
 	if code(err) != codes.PermissionDenied {
 		t.Fatalf("delegated minting: %v", err)
+	}
+}
+
+// Event consumers (notifications resolving @handles and reading names and
+// addresses) call without a user token. Found end to end: every mention
+// event was dead-lettered on "missing bearer token". With the internal-call
+// flag they get GetUser and ListMembers; without it, nothing.
+func TestTokenlessGetUserAndListMembersNeedTheInternalCallFlag(t *testing.T) {
+	for _, allow := range []bool{false, true} {
+		f := newFixtureWith(t, allow)
+		owner := f.signUp(t, "owner@example.com")
+		ws, err := f.client.CreateWorkspace(bearer(owner.GetSession().GetAccessToken()), &skeinv1.CreateWorkspaceRequest{Name: "W"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		user, userErr := f.client.GetUser(context.Background(), &skeinv1.GetUserRequest{UserId: owner.GetUser().GetId()})
+		members, membersErr := f.client.ListMembers(context.Background(), &skeinv1.ListMembersRequest{WorkspaceId: ws.GetWorkspaceId()})
+		if !allow {
+			if code(userErr) != codes.Unauthenticated || code(membersErr) != codes.Unauthenticated {
+				t.Errorf("flag off: GetUser %v, ListMembers %v; want UNAUTHENTICATED", userErr, membersErr)
+			}
+			continue
+		}
+		if userErr != nil || user.GetUser().GetEmail() != "owner@example.com" {
+			t.Errorf("flag on: GetUser %v %v", user, userErr)
+		}
+		if membersErr != nil || len(members.GetMembers()) != 1 {
+			t.Errorf("flag on: ListMembers %v %v", members, membersErr)
+		}
+		_, err = f.client.ListMembers(context.Background(), &skeinv1.ListMembersRequest{WorkspaceId: "019cc260-0a80-72dd-9e8d-ba3c76c67531"})
+		if code(err) != codes.NotFound {
+			t.Errorf("flag on: an unknown workspace: %v", err)
+		}
 	}
 }

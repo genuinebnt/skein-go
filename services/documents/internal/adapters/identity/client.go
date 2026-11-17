@@ -1,6 +1,7 @@
 // Package identity reaches the identity service through its generated gRPC
 // client: Authorize and ListReadableNotes for permissions, and
-// RegisterReplica for replica ownership. Calls carry the caller's bearer
+// RegisterReplica for replica ownership, and RegisterNote so a new note is
+// usable before identity's projection hears of it. Calls carry the caller's bearer
 // token (grpcx forwards it), so identity sees the same subject documents
 // does (ADR-0008, ADR-0009).
 package identity
@@ -18,7 +19,8 @@ import (
 	"github.com/genuinebnt/skein-go/services/documents/internal/ports"
 )
 
-// Client implements ports.Authorizer and ports.ReplicaRegistry.
+// Client implements ports.Authorizer, ports.NoteRegistry and
+// ports.ReplicaRegistry.
 type Client struct {
 	rpc skeinv1.IdentityServiceClient
 }
@@ -29,7 +31,18 @@ func New(rpc skeinv1.IdentityServiceClient) *Client { return &Client{rpc: rpc} }
 var (
 	_ ports.Authorizer      = (*Client)(nil)
 	_ ports.ReplicaRegistry = (*Client)(nil)
+	_ ports.NoteRegistry    = (*Client)(nil)
 )
+
+// RegisterNote implements ports.NoteRegistry. The caller's token travels
+// with ctx, so identity records the caller as the creator after checking
+// they may create notes in the workspace.
+func (c *Client) RegisterNote(ctx context.Context, _ domain.Subject, note domain.NoteID, ws domain.WorkspaceID) error {
+	if _, err := c.rpc.RegisterNote(ctx, &skeinv1.RegisterNoteRequest{NoteId: string(note), WorkspaceId: string(ws)}); err != nil {
+		return fmt.Errorf("identity: register note: %w", err)
+	}
+	return nil
+}
 
 var actions = map[ports.Action]skeinv1.Action{
 	ports.ActionRead:   skeinv1.Action_ACTION_NOTE_READ,

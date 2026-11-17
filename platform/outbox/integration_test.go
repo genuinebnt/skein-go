@@ -15,19 +15,27 @@ import (
 	"github.com/genuinebnt/skein-go/platform/config"
 	"github.com/genuinebnt/skein-go/platform/events"
 	"github.com/genuinebnt/skein-go/platform/postgres"
+	"github.com/genuinebnt/skein-go/platform/postgres/pgtest"
 )
 
 func startPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
-	container, err := tcpostgres.Run(ctx, "postgres:17-alpine",
-		tcpostgres.WithDatabase("skein"), tcpostgres.WithUsername("skein"), tcpostgres.WithPassword("skein"),
-		tcpostgres.BasicWaitStrategies())
-	if err != nil {
-		t.Fatalf("start postgres: %v", err)
+	// SKEIN_TEST_POSTGRES_DSN runs against an existing server (make
+	// up-native) instead of a container; see platform/postgres/pgtest.
+	url, ok := pgtest.FreshDatabase(t)
+	if !ok {
+		container, err := tcpostgres.Run(ctx, "postgres:17-alpine",
+			tcpostgres.WithDatabase("skein"), tcpostgres.WithUsername("skein"), tcpostgres.WithPassword("skein"),
+			tcpostgres.BasicWaitStrategies())
+		if err != nil {
+			t.Fatalf("start postgres: %v", err)
+		}
+		t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+		if url, err = container.ConnectionString(ctx, "sslmode=disable"); err != nil {
+			t.Fatal(err)
+		}
 	}
-	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
-	url, _ := container.ConnectionString(ctx, "sslmode=disable")
 	pool, err := postgres.Open(ctx, postgres.Config{URL: config.NewSecret(url)})
 	if err != nil {
 		t.Fatal(err)

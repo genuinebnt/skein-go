@@ -4,6 +4,8 @@ package redisx
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,21 +19,26 @@ import (
 // gopher-lua rather than Redis's own interpreter.
 func TestRealRedisMatchesMemoryStore(t *testing.T) {
 	ctx := context.Background()
-	container, err := tcredis.Run(ctx, "redis:7-alpine")
-	if err != nil {
-		t.Fatalf("start redis: %v", err)
-	}
-	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
-	url, err := container.ConnectionString(ctx)
-	if err != nil {
-		t.Fatal(err)
+	// SKEIN_TEST_REDIS_URL runs against an existing server (make up-native)
+	// instead of a container. Keys get a per-run prefix, so a shared server
+	// (and the stack's own keys) is left alone.
+	url := os.Getenv("SKEIN_TEST_REDIS_URL")
+	if url == "" {
+		container, err := tcredis.Run(ctx, "redis:7-alpine")
+		if err != nil {
+			t.Fatalf("start redis: %v", err)
+		}
+		t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+		if url, err = container.ConnectionString(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	client, err := Open(ctx, Config{URL: config.NewSecret(url)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = client.Close() }()
-	store := NewRedisStore(client, "itest")
+	store := NewRedisStore(client, "itest-"+strconv.FormatInt(time.Now().UnixNano(), 36))
 
 	_ = store.Set(ctx, "a", []byte("1"), time.Minute, "t1", "t2")
 	_ = store.Set(ctx, "b", []byte("2"), time.Minute, "t1")

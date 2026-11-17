@@ -37,6 +37,7 @@ const (
 	IdentityService_Authorize_FullMethodName           = "/skein.v1.IdentityService/Authorize"
 	IdentityService_ListReadableNotes_FullMethodName   = "/skein.v1.IdentityService/ListReadableNotes"
 	IdentityService_IssueDelegatedToken_FullMethodName = "/skein.v1.IdentityService/IssueDelegatedToken"
+	IdentityService_RegisterNote_FullMethodName        = "/skein.v1.IdentityService/RegisterNote"
 	IdentityService_RegisterReplica_FullMethodName     = "/skein.v1.IdentityService/RegisterReplica"
 )
 
@@ -103,6 +104,14 @@ type IdentityServiceClient interface {
 	// Internal. Issues a short-lived token for an agent run acting as the user
 	// (ADR-0009). Only the agent service may call it.
 	IssueDelegatedToken(ctx context.Context, in *IssueDelegatedTokenRequest, opts ...grpc.CallOption) (*IssueDelegatedTokenResponse, error)
+	// Internal. Records a note documents has just created in identity's note
+	// projection, so its creator and workspace can use it at once instead of
+	// after the NoteCreated event arrives (read-your-writes). Called by
+	// documents with the creator's token; the caller must be allowed to create
+	// notes in the workspace. Registering a note identity already knows in the
+	// same workspace succeeds and changes nothing; in another workspace it is
+	// ALREADY_EXISTS.
+	RegisterNote(ctx context.Context, in *RegisterNoteRequest, opts ...grpc.CallOption) (*RegisterNoteResponse, error)
 	// Register a CRDT replica
 	//
 	// Records that a CRDT replica ID belongs to the calling user (ADR-0004).
@@ -283,6 +292,16 @@ func (c *identityServiceClient) IssueDelegatedToken(ctx context.Context, in *Iss
 	return out, nil
 }
 
+func (c *identityServiceClient) RegisterNote(ctx context.Context, in *RegisterNoteRequest, opts ...grpc.CallOption) (*RegisterNoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterNoteResponse)
+	err := c.cc.Invoke(ctx, IdentityService_RegisterNote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *identityServiceClient) RegisterReplica(ctx context.Context, in *RegisterReplicaRequest, opts ...grpc.CallOption) (*RegisterReplicaResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterReplicaResponse)
@@ -356,6 +375,14 @@ type IdentityServiceServer interface {
 	// Internal. Issues a short-lived token for an agent run acting as the user
 	// (ADR-0009). Only the agent service may call it.
 	IssueDelegatedToken(context.Context, *IssueDelegatedTokenRequest) (*IssueDelegatedTokenResponse, error)
+	// Internal. Records a note documents has just created in identity's note
+	// projection, so its creator and workspace can use it at once instead of
+	// after the NoteCreated event arrives (read-your-writes). Called by
+	// documents with the creator's token; the caller must be allowed to create
+	// notes in the workspace. Registering a note identity already knows in the
+	// same workspace succeeds and changes nothing; in another workspace it is
+	// ALREADY_EXISTS.
+	RegisterNote(context.Context, *RegisterNoteRequest) (*RegisterNoteResponse, error)
 	// Register a CRDT replica
 	//
 	// Records that a CRDT replica ID belongs to the calling user (ADR-0004).
@@ -423,6 +450,9 @@ func (UnimplementedIdentityServiceServer) ListReadableNotes(context.Context, *Li
 }
 func (UnimplementedIdentityServiceServer) IssueDelegatedToken(context.Context, *IssueDelegatedTokenRequest) (*IssueDelegatedTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IssueDelegatedToken not implemented")
+}
+func (UnimplementedIdentityServiceServer) RegisterNote(context.Context, *RegisterNoteRequest) (*RegisterNoteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterNote not implemented")
 }
 func (UnimplementedIdentityServiceServer) RegisterReplica(context.Context, *RegisterReplicaRequest) (*RegisterReplicaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterReplica not implemented")
@@ -736,6 +766,24 @@ func _IdentityService_IssueDelegatedToken_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityService_RegisterNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterNoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).RegisterNote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_RegisterNote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).RegisterNote(ctx, req.(*RegisterNoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _IdentityService_RegisterReplica_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterReplicaRequest)
 	if err := dec(in); err != nil {
@@ -824,6 +872,10 @@ var IdentityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IssueDelegatedToken",
 			Handler:    _IdentityService_IssueDelegatedToken_Handler,
+		},
+		{
+			MethodName: "RegisterNote",
+			Handler:    _IdentityService_RegisterNote_Handler,
 		},
 		{
 			MethodName: "RegisterReplica",

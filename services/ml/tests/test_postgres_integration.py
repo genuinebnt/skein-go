@@ -61,3 +61,12 @@ def test_processed_events_are_recorded_once(store):
     store.processed.record("e1")
     store.processed.record("e1")
     assert store.processed.contains("e1")
+
+
+def test_migrate_runs_again_as_the_service_role(store):
+    """The store fixture already migrated; as the ``ml`` role of init.sql,
+    which cannot create schemas, a second run must apply nothing and not
+    fail."""
+    from skein_ml.adapters.postgres import migrate
+
+    assert migrate(store._connection) == []

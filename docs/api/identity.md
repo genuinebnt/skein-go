@@ -22,7 +22,7 @@ registration ([ADR-0008](../adr/0008-identity-and-roles.md)). Conventions
 | `DELETE` | `/v1/share-links/{linkId}` | RevokeShareLink | bearer, may share |
 | `POST` | `/v1/replicas` | RegisterReplica | bearer |
 
-Not exposed: `Authorize`, `ListReadableNotes` and `IssueDelegatedToken` are
+Not exposed: `Authorize`, `ListReadableNotes`, `IssueDelegatedToken` and `RegisterNote` are
 internal RPCs that only other services call.
 
 ## Sessions

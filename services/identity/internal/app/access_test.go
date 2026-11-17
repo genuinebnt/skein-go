@@ -494,3 +494,81 @@ func TestGetUserOnlyShowsPeopleYouShareAWorkspaceWith(t *testing.T) {
 	_, err = h.svc.GetUser(ctx, domain.Subject{}, tm.owner.ID)
 	wantErr(t, err, domain.ErrUnauthenticated)
 }
+
+// Documents registers a note right after creating it, so nobody depends on
+// the NoteCreated event having reached the projection to use it.
+func TestRegisteredNoteIsUsableAtOnceAndCannotBeMoved(t *testing.T) {
+	h := newHarness(t)
+	owner, _ := h.signUp("owner@example.com")
+	member, _ := h.signUp("member@example.com")
+	guest, _ := h.signUp("guest@example.com")
+	ws := h.workspace(owner)
+	other := h.workspace(owner)
+	h.setRole(owner, ws, member, domain.WorkspaceRoleMember)
+	h.setRole(owner, ws, guest, domain.WorkspaceRoleGuest)
+	id, _ := domain.NewID()
+	note := domain.NoteID(id)
+
+	if h.can(subj(member), domain.ActionNoteRead, string(note)) {
+		t.Fatal("an unknown note is readable")
+	}
+	if err := h.svc.RegisterNote(ctx, subj(member), note, ws); err != nil {
+		t.Fatal(err)
+	}
+	h.check()
+	for _, u := range []domain.User{member, owner} {
+		if !h.can(subj(u), domain.ActionNoteEdit, string(note)) {
+			t.Errorf("%s cannot edit the note just registered", u.Email)
+		}
+	}
+	if h.can(subj(guest), domain.ActionNoteRead, string(note)) {
+		t.Error("a guest can read a note nobody shared")
+	}
+	if !h.can(subj(member), domain.ActionNoteDelete, string(note)) {
+		t.Error("the registering member is not the creator")
+	}
+
+	// Idempotent in the same workspace, refused in another, and the event
+	// arriving later agrees with the registration.
+	if err := h.svc.RegisterNote(ctx, subj(owner), note, ws); err != nil {
+		t.Fatalf("registering again: %v", err)
+	}
+	wantErr(t, h.svc.RegisterNote(ctx, subj(owner), note, other), domain.ErrAlreadyExists)
+	if _, err := h.svc.ApplyNoteEvent(ctx, "identity.documents-events", "evt-"+id, app.NoteEvent{
+		Kind: app.NoteCreated, NoteID: note, WorkspaceID: ws, Actor: member.ID, OccurredAt: h.clock.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !h.can(subj(member), domain.ActionNoteDelete, string(note)) {
+		t.Error("the NoteCreated event changed the registered note")
+	}
+
+	id2, _ := domain.NewID()
+	wantErr(t, h.svc.RegisterNote(ctx, subj(guest), domain.NoteID(id2), ws), domain.ErrPermissionDenied)
+	if h.can(subj(owner), domain.ActionNoteRead, id2) {
+		t.Error("a refused registration recorded the note")
+	}
+}
+
+// The token-less variants are for event consumers only, and only when the
+// internal-call flag is on.
+func TestInternalReadsAreRefusedUnlessTheFlagIsSet(t *testing.T) {
+	h := newHarness(t)
+	owner, _ := h.signUp("owner@example.com")
+	ws := h.workspace(owner)
+	if _, err := h.svc.GetUserInternal(ctx, owner.ID); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Errorf("GetUserInternal: %v", err)
+	}
+	if _, err := h.svc.ListMembersInternal(ctx, ws, 0, ""); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Errorf("ListMembersInternal: %v", err)
+	}
+	on := newHarness(t, withConfig(func(c *app.Config) { c.AllowUnauthenticatedInternalCalls = true }))
+	owner, _ = on.signUp("owner@example.com")
+	ws = on.workspace(owner)
+	if u, err := on.svc.GetUserInternal(ctx, owner.ID); err != nil || u.ID != owner.ID {
+		t.Errorf("GetUserInternal with the flag: %v %v", u, err)
+	}
+	if p, err := on.svc.ListMembersInternal(ctx, ws, 0, ""); err != nil || len(p.Members) != 1 {
+		t.Errorf("ListMembersInternal with the flag: %+v %v", p, err)
+	}
+}

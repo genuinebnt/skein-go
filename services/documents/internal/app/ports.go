@@ -12,6 +12,7 @@ type (
 	Authorizer      = ports.Authorizer
 	AuthCache       = ports.AuthCache
 	ReplicaRegistry = ports.ReplicaRegistry
+	NoteRegistry    = ports.NoteRegistry
 	NoteCache       = ports.NoteCache
 	Presence        = ports.Presence
 	PresenceStore   = ports.PresenceStore

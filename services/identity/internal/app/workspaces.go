@@ -36,6 +36,23 @@ func (s *Service) GetUser(ctx context.Context, caller domain.Subject, id domain.
 	return u, err
 }
 
+// GetUserInternal is GetUser for a token-less internal caller (the
+// notifications consumer reading names and addresses for an event). It is
+// refused unless AllowUnauthenticatedInternalCalls is set; see
+// CheckInternalCaller.
+func (s *Service) GetUserInternal(ctx context.Context, id domain.UserID) (domain.User, error) {
+	if !s.cfg.AllowUnauthenticatedInternalCalls {
+		return domain.User{}, domain.ErrUnauthenticated
+	}
+	var u domain.User
+	err := s.store.InTx(ctx, func(ctx context.Context, tx Tx) error {
+		var err error
+		u, err = tx.UserByID(ctx, id)
+		return err
+	})
+	return u, err
+}
+
 // CreateWorkspace creates a workspace owned by the caller.
 func (s *Service) CreateWorkspace(ctx context.Context, caller domain.Subject, name string) (domain.WorkspaceID, error) {
 	if err := requireUser(caller); err != nil {
@@ -120,6 +137,36 @@ func (s *Service) ListMembers(ctx context.Context, caller domain.Subject, ws dom
 	if err := requireUser(caller); err != nil {
 		return MemberPage{}, err
 	}
+	now := s.now()
+	return s.listMembers(ctx, ws, pageSize, pageToken, func(ctx context.Context, tx Tx) error {
+		role, err := workspaceRole(ctx, tx, ws, caller.UserID, now)
+		if err != nil {
+			return err
+		}
+		if role == domain.WorkspaceRoleNone {
+			return domain.ErrNotFound
+		}
+		return nil
+	})
+}
+
+// ListMembersInternal is ListMembers for a token-less internal caller (the
+// notifications consumer resolving @handles while handling an event). It
+// is refused unless AllowUnauthenticatedInternalCalls is set; see
+// CheckInternalCaller.
+func (s *Service) ListMembersInternal(ctx context.Context, ws domain.WorkspaceID, pageSize uint32, pageToken string) (MemberPage, error) {
+	if !s.cfg.AllowUnauthenticatedInternalCalls {
+		return MemberPage{}, domain.ErrUnauthenticated
+	}
+	return s.listMembers(ctx, ws, pageSize, pageToken, func(ctx context.Context, tx Tx) error {
+		_, err := tx.Workspace(ctx, ws)
+		return err
+	})
+}
+
+// listMembers pages through a workspace's active members after allowed
+// (run in the same transaction) lets the caller see them.
+func (s *Service) listMembers(ctx context.Context, ws domain.WorkspaceID, pageSize uint32, pageToken string, allowed func(context.Context, Tx) error) (MemberPage, error) {
 	after, err := decodeMemberCursor(ws, pageToken)
 	if err != nil {
 		return MemberPage{}, err
@@ -128,15 +175,10 @@ func (s *Service) ListMembers(ctx context.Context, caller domain.Subject, ws dom
 	if size == 0 {
 		size = DefaultPageSize
 	}
-	now := s.now()
 	var page MemberPage
 	err = s.store.InTx(ctx, func(ctx context.Context, tx Tx) error {
-		role, err := workspaceRole(ctx, tx, ws, caller.UserID, now)
-		if err != nil {
+		if err := allowed(ctx, tx); err != nil {
 			return err
-		}
-		if role == domain.WorkspaceRoleNone {
-			return domain.ErrNotFound
 		}
 		members, err := tx.ListActiveMembers(ctx, ws, after, size+1)
 		if err != nil {

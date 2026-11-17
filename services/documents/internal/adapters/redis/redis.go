@@ -93,8 +93,8 @@ func decisionKey(s domain.Subject, c ports.Check) string {
 	return s.UserID + "|" + s.AgentRunID + "|" + strconv.Itoa(int(c.Action)) + "|" + c.Resource
 }
 
-// Authorize implements ports.Authorizer: cached decisions are reused and
-// only the rest go to identity, in one call.
+// Authorize implements ports.Authorizer: cached grants are reused and only
+// the rest go to identity, in one call. Denials are never cached.
 func (a *AuthCache) Authorize(ctx context.Context, s domain.Subject, checks []ports.Check) ([]bool, error) {
 	out := make([]bool, len(checks))
 	var missing []ports.Check
@@ -118,7 +118,14 @@ func (a *AuthCache) Authorize(ctx context.Context, s domain.Subject, checks []po
 	}
 	for k, i := range where {
 		out[i] = got[k]
-		_ = a.cache.Set(ctx, decisionKey(s, missing[k]), got[k], "user:"+s.UserID)
+		// Only grants are cached. A denial can come from identity not having
+		// seen a new note yet (its projection follows documents.events), and
+		// nothing invalidates it when the projection catches up, so a cached
+		// denial locked a workspace owner out of a member's new note for the
+		// whole TTL. Grants are what AccessChanged invalidates.
+		if got[k] {
+			_ = a.cache.Set(ctx, decisionKey(s, missing[k]), true, "user:"+s.UserID)
+		}
 	}
 	return out, nil
 }

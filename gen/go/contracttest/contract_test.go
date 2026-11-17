@@ -29,6 +29,7 @@ var internalMethods = map[protoreflect.FullName]bool{
 	"skein.v1.IdentityService.Authorize":           true,
 	"skein.v1.IdentityService.ListReadableNotes":   true,
 	"skein.v1.IdentityService.IssueDelegatedToken": true,
+	"skein.v1.IdentityService.RegisterNote":        true,
 }
 
 // servicePages maps each service to its page in docs/api. A new service

@@ -342,6 +342,18 @@ class IssueDelegatedTokenRequest(_message.Message):
     expires_at: _timestamp_pb2.Timestamp
     def __init__(self, user_id: _Optional[str] = ..., agent_run_id: _Optional[str] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
+class RegisterNoteRequest(_message.Message):
+    __slots__ = ("note_id", "workspace_id")
+    NOTE_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    note_id: str
+    workspace_id: str
+    def __init__(self, note_id: _Optional[str] = ..., workspace_id: _Optional[str] = ...) -> None: ...
+
+class RegisterNoteResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class IssueDelegatedTokenResponse(_message.Message):
     __slots__ = ("access_token",)
     ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]

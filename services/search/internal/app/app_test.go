@@ -237,7 +237,7 @@ func TestRestartFromSnapshotReplaysOnlyLaterChangesAndMatchesAFullLoad(t *testin
 		t.Fatal(err)
 	}
 	h.send(created("b", "w", "Raft snapshots"))
-	h.send(links("a", "b"))
+	h.send(links("a", "Raft snapshots"))
 
 	restarted := app.NewIndex(h.store, app.IndexConfig{})
 	if err := restarted.Bootstrap(context.Background()); err != nil {
@@ -405,8 +405,9 @@ func TestBlastRadiusOfAnUnreadableNoteIsNotFound(t *testing.T) {
 	h.send(created("a", "w", "A"))
 	h.send(created("b", "w", "B"))
 	h.send(created("c", "w", "C"))
-	h.send(links("a", "c"))
-	h.send(links("b", "c"))
+	// LinksChanged carries the titles typed inside [[...]].
+	h.send(links("a", "C"))
+	h.send(links("b", "C"))
 	h.catchUp()
 	h.dir.Grant("alice", "w", "a", "c")
 	rings, err := h.grapher.BlastRadius(context.Background(), alice, "c", 0, graph.CitedBy)
@@ -426,8 +427,8 @@ func TestSlowMetricsOfLargeGraphsComeFromTheBackgroundWithTheirVersion(t *testin
 	h.send(created("a", "w", "A"))
 	h.send(created("b", "w", "B"))
 	h.send(created("c", "w", "C"))
-	h.send(links("a", "b"))
-	h.send(links("b", "c"))
+	h.send(links("a", "B"))
+	h.send(links("b", "C"))
 	h.catchUp()
 	h.dir.Grant("alice", "w", "a", "b", "c")
 	first, err := h.grapher.AnalyzeGraph(context.Background(), alice, "w")
@@ -442,7 +443,7 @@ func TestSlowMetricsOfLargeGraphsComeFromTheBackgroundWithTheirVersion(t *testin
 	if second.SlowPending || second.SlowVersion != 5 || second.Diameter != 2 || second.Betweenness["b"] != 1 {
 		t.Fatalf("after the job %+v", second)
 	}
-	h.send(links("c", "a"))
+	h.send(links("c", "A"))
 	h.catchUp()
 	third, _ := h.grapher.AnalyzeGraph(context.Background(), alice, "w")
 	if !third.SlowPending || third.SlowVersion != 5 || third.GraphVersion != 6 || len(third.Cycle) == 0 {
@@ -455,7 +456,7 @@ func TestReadingPlanIncludesPrerequisitesFirst(t *testing.T) {
 	h.send(created("overview", "w", "Consensus overview"))
 	h.send(blocks("overview", "words "))
 	h.send(created("raft", "w", "Raft snapshots"))
-	h.send(links("raft", "overview"))
+	h.send(links("raft", "Consensus overview"))
 	h.send(created("other", "w", "Gardening"))
 	h.catchUp()
 	h.dir.Grant("alice", "w", "overview", "raft", "other")

@@ -66,7 +66,12 @@ verified bearer token, so a forged header cannot change who is acting.
 The response carries `Cache-Control: public, max-age=300`: verifiers may
 cache it for 5 minutes (C in the rotation procedure). `RemoteKeySet` also
 refetches at once when it meets an unknown `kid`. `GET /livez` and
-`GET /readyz` (database reachable) are the probes; `identity healthcheck`
+`GET /readyz` (database reachable) are the probes. With
+`IDENTITY_DEV_SESSIONS=true` (refused outside dev and test) the admin port
+also serves `POST /dev/sessions` with `{"userId": "..."}`, answering a
+`SignInResponse` for that user: seed users have no passwords, so this is how
+the end-to-end suite signs in as them. The gateway never routes the admin
+port; `identity healthcheck`
 runs the readiness probe from inside the distroless image.
 
 ### Key rotation
@@ -110,8 +115,9 @@ Platform variables: `SKEIN_ENV`, `SKEIN_VERSION`, `DATABASE_URL`,
 | `IDENTITY_OAUTH_REDIRECT_URIS` | none | the only redirect URIs an OAuth flow may use (exact match) |
 | `IDENTITY_GOOGLE_CLIENT_ID`, `IDENTITY_GOOGLE_CLIENT_SECRET` | unset | enables Google (secret required with the ID) |
 | `IDENTITY_GITHUB_CLIENT_ID`, `IDENTITY_GITHUB_CLIENT_SECRET` | unset | enables GitHub |
-| `IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS` | `false` | lets token-less callers use Authorize and ListReadableNotes (see Decisions) |
+| `IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS` | `false` (`true` in the local stack) | lets token-less callers use Authorize, ListReadableNotes, GetUser and ListMembers (see Decisions) |
 | `IDENTITY_FIXED_NOW` | unset | dev/test only: fix the clock (set to a seed's `reference_time`) |
+| `IDENTITY_DEV_SESSIONS` | `false` | dev/test only (startup fails otherwise): serves `POST /dev/sessions` on the admin port, which signs in any existing user without a credential, for end-to-end tests of seed users ([docs/local-native.md](../../docs/local-native.md)) |
 
 ## Design
 
@@ -164,7 +170,12 @@ grant editor: creation refuses it and the policy clamps stored ones.
 Identity needs note metadata it does not own (workspace, creator, trash
 state). It keeps a projection fed by `documents.events` (`NoteCreated`,
 `NoteTrashed`, `NoteRestored`, `NotePurged`) on the
-`identity.documents-events` subscription, consumed idempotently.
+`identity.documents-events` subscription, consumed idempotently. Because
+that event arrives a moment after the note exists, documents also calls the
+internal `RegisterNote` right after creating a note, with the creator's
+token: identity checks the caller may create notes in the workspace and
+inserts the projection row if it is missing (never moving a known note), so
+the creator and the workspace can open the note at once.
 
 ### Caching and rate limits
 
@@ -203,8 +214,13 @@ as drop caches.
 - **Internal RPCs without a token.** `Authorize` and `ListReadableNotes`
   require a token by default, and a caller may only ask about itself. Event
   consumers (notifications deciding whether a mentioned user can read a
-  note) have no user token, so `IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS`
-  opens them to token-less callers until services have their own identity.
+  note, resolving `@handles` to members, reading names and addresses) have
+  no user token, so `IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS` opens
+  `Authorize`, `ListReadableNotes`, `GetUser` and `ListMembers` to
+  token-less callers until services have their own identity. The local
+  stack turns it on (without it notifications dead-letters every mention);
+  the gateway authenticates every route, so token-less calls only come from
+  inside the cluster.
 - **IssueDelegatedToken** cannot tell that the agent service is calling
   (there is no service identity yet). It requires the user's own,
   non-delegated token and only mints tokens for that user, so the token

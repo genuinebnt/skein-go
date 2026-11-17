@@ -1,7 +1,9 @@
 -- ml service schema: the note projection, block embeddings and processed
 -- event ids. Rebuildable from documents.events; nothing here is a source of
 -- truth for note content.
-CREATE SCHEMA IF NOT EXISTS ml;
+-- The ml schema itself is created by migrate() when missing: CREATE SCHEMA
+-- IF NOT EXISTS would need the database CREATE privilege, which the
+-- service role does not have (deploy/compose/postgres/init.sql).
 
 CREATE TABLE IF NOT EXISTS ml.notes (
     note_id      text PRIMARY KEY,

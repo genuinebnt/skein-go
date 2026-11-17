@@ -18,6 +18,7 @@ import (
 	"github.com/genuinebnt/skein-go/platform/config"
 	"github.com/genuinebnt/skein-go/platform/logging"
 	"github.com/genuinebnt/skein-go/platform/postgres"
+	"github.com/genuinebnt/skein-go/platform/postgres/pgtest"
 	"github.com/genuinebnt/skein-go/services/documents/internal/app"
 	"github.com/genuinebnt/skein-go/services/documents/internal/domain"
 	"github.com/genuinebnt/skein-go/services/documents/internal/fakes"
@@ -26,12 +27,17 @@ import (
 )
 
 // startPostgres returns a migrated pool on a fresh schema. With
-// SKEIN_TEST_DATABASE_URL set it uses that server (no Docker needed);
-// otherwise it starts the compose image with testcontainers.
+// SKEIN_TEST_DATABASE_URL set it uses that database, with
+// SKEIN_TEST_POSTGRES_DSN a fresh database on that server
+// (platform/postgres/pgtest), so no Docker is needed; otherwise it starts
+// the compose image with testcontainers.
 func startPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
 	url := os.Getenv("SKEIN_TEST_DATABASE_URL")
+	if url == "" {
+		url, _ = pgtest.FreshDatabase(t)
+	}
 	if url == "" {
 		container, err := tcpostgres.Run(ctx, "postgres:17-alpine",
 			tcpostgres.WithDatabase("skein"), tcpostgres.WithUsername("skein"), tcpostgres.WithPassword("skein"),

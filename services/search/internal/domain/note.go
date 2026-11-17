@@ -32,8 +32,10 @@ type NoteState struct {
 	// for it is ignored, so a late or replayed event cannot bring erased
 	// text back. A tombstone holds nothing else.
 	Purged bool
-	Blocks []Block  // ascending Ordinal
-	Links  []string // outbound link targets, ascending, distinct, never ID
+	Blocks []Block // ascending Ordinal
+	// Links are the titles inside the note's [[...]] links (LinksChanged),
+	// ascending and distinct; LinkGraph resolves them to notes.
+	Links []string
 }
 
 // Visible reports whether the note belongs in search results and the link

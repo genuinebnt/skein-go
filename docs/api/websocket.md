@@ -49,9 +49,19 @@ new WebSocket(url, ["skein.v1.proto", `bearer.${accessToken}`]);
 ```
 
 The gateway verifies the token before upgrading and never echoes the
-`bearer.` entry. A missing or invalid token fails the upgrade with HTTP 401
-and a `google.rpc.Status` body, like any REST request; a forbidden resource
-fails with 403 or 404. Cookies and query-string tokens are not accepted.
+`bearer.` entry. Cookies and query-string tokens are not accepted.
+
+Browsers cannot see the HTTP status of a refused upgrade (the WebSocket API
+reports only an `error` event and close code `1006`), so the gateway
+**completes the handshake and closes at once** with the close code of the
+refusal: `4401` for a missing, invalid or expired token, `4403` for a
+forbidden resource, `4404` for a note that does not exist or that the
+caller cannot read, `4429` over the rate limit (the reason is the seconds to
+wait), `1012` while the gateway is restarting. The close reason is the
+status message. Nothing is bridged on such a socket and no frame is read
+from it. A request to these paths that is not a WebSocket upgrade gets an
+HTTP status and a `google.rpc.Status` body like any REST request, and an
+`Origin` outside the allow-list gets HTTP 403.
 
 A connection is authorized once, at upgrade, and lives until the access
 token expires. The gateway then closes it with `4401`; the client refreshes

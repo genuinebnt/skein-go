@@ -30,6 +30,9 @@ MIGRATIONS = Path(
 )
 
 
+SCHEMA_EXISTS = "SELECT 1 FROM pg_namespace WHERE nspname = %s"
+
+
 def _connect(url: str):
     try:
         import psycopg
@@ -44,7 +47,11 @@ def migrate(connection, directory: Path = MIGRATIONS) -> list[str]:
     """Apply pending ``*.sql`` migrations in order; returns the names applied."""
     applied = []
     with connection.transaction():
-        connection.execute("CREATE SCHEMA IF NOT EXISTS ml")
+        # CREATE SCHEMA IF NOT EXISTS checks the database's CREATE privilege
+        # before it checks existence, and the service's role owns only its
+        # schema (deploy/compose/postgres/init.sql), so ask first.
+        if connection.execute(SCHEMA_EXISTS, ("ml",)).fetchone() is None:
+            connection.execute("CREATE SCHEMA ml")
         connection.execute(
             "CREATE TABLE IF NOT EXISTS ml.schema_migrations "
             "(name text PRIMARY KEY, applied_at timestamptz DEFAULT now())"

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -642,4 +643,45 @@ func TestCreateNoteImportsMarkdownBlocks(t *testing.T) {
 	if _, got, _, _ := e.svc.GetNote(ctx, alice, id, true); got != md {
 		t.Fatalf("markdown %q", got)
 	}
+}
+
+// Identity learns of notes from documents.events, a moment after they are
+// created; CreateNote registers the note with identity at once so its
+// creator can open it immediately (found end to end: GET and sync of a
+// just-created note were NOT_FOUND).
+func TestCreatorCanReadANewNoteBeforeIdentityHearsTheEvent(t *testing.T) {
+	e := newEnv(t, Config{})
+	e.auth.AllowCreate(workspace, alice.UserID)
+	n, err := e.svc.CreateNote(context.Background(), alice, workspace, "Fresh", "Hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := e.auth.Registrations(); len(got) != 1 || got[0] != string(n.ID) {
+		t.Fatalf("registrations %v, want the new note", got)
+	}
+	if _, md, _, err := e.svc.GetNote(context.Background(), alice, n.ID, true); err != nil || md == "" {
+		t.Fatalf("the creator cannot read the note just created: %v", err)
+	}
+}
+
+// A failed registration is not a failed create: the note is committed and
+// identity catches up from NoteCreated.
+func TestCreateNoteSucceedsWhenRegistrationFails(t *testing.T) {
+	e := newEnv(t, Config{})
+	registry := failingRegistry{}
+	e.svc.registry = registry
+	e.auth.AllowCreate(workspace, alice.UserID)
+	n, err := e.svc.CreateNote(context.Background(), alice, workspace, "Fresh", "Hello")
+	if err != nil {
+		t.Fatalf("create failed with the registry down: %v", err)
+	}
+	if _, err := e.store.GetNote(context.Background(), n.ID); err != nil {
+		t.Fatalf("note not stored: %v", err)
+	}
+}
+
+type failingRegistry struct{}
+
+func (failingRegistry) RegisterNote(context.Context, domain.Subject, domain.NoteID, domain.WorkspaceID) error {
+	return errors.New("identity unavailable")
 }

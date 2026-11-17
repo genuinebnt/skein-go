@@ -26,34 +26,14 @@ func (s *Sequence) CheckInvariants() error {
 		return fail("I1: root missing from the node index")
 	}
 
-	// I2, I3, and the in-order traversal used by I4.
-	var order []*node
-	var walk func(n *node) error
-	walk = func(n *node) error {
-		for side, children := range [2][]*node{n.left, n.right} {
-			for i, c := range children {
-				if c.parent != n || int(c.side) != side {
-					return fail("I2: node %s has wrong parent or side", c.id)
-				}
-				if i > 0 && !children[i-1].id.Less(c.id) {
-					return fail("I3: children of %s not strictly ascending at %s", n.id, c.id)
-				}
-			}
-		}
-		for _, c := range n.left {
-			if err := walk(c); err != nil {
-				return err
-			}
-		}
-		order = append(order, n)
-		for _, c := range n.right {
-			if err := walk(c); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := walk(s.root); err != nil {
+	// I2, I3, and the in-order traversal used by I4. The walk keeps its own
+	// stack: typing builds a chain as deep as the note is long, and a
+	// recursive walk overflows small fixed stacks (TinyGo, WASM) on large
+	// notes. Each node's children are checked when the node is entered,
+	// before its left subtree, as the recursive form did, so the first
+	// error reported is the same.
+	order, err := s.inOrder(fail)
+	if err != nil {
 		return err
 	}
 	if len(order) != len(s.nodes) {
@@ -115,4 +95,55 @@ func (s *Sequence) CheckInvariants() error {
 		return fail("I6: log index has %d entries, log has %d", len(s.logPos), len(s.log))
 	}
 	return nil
+}
+
+// walkFrame is one node on inOrder's explicit stack.
+type walkFrame struct {
+	n     *node
+	phase uint8 // 0: enter, 1: left children, 2: right children
+	next  int   // next child to visit in the current phase
+}
+
+// inOrder returns every node in traversal order (left subtree, node, right
+// subtree), checking I2 and I3 on entry to each node. It uses O(depth) heap
+// memory and no recursion.
+func (s *Sequence) inOrder(fail func(format string, args ...any) error) ([]*node, error) {
+	order := make([]*node, 0, len(s.nodes))
+	stack := []walkFrame{{n: s.root}}
+	for len(stack) > 0 {
+		top := len(stack) - 1
+		f := &stack[top]
+		switch f.phase {
+		case 0:
+			for side, children := range [2][]*node{f.n.left, f.n.right} {
+				for i, c := range children {
+					if c.parent != f.n || int(c.side) != side {
+						return nil, fail("I2: node %s has wrong parent or side", c.id)
+					}
+					if i > 0 && !children[i-1].id.Less(c.id) {
+						return nil, fail("I3: children of %s not strictly ascending at %s", f.n.id, c.id)
+					}
+				}
+			}
+			f.phase = 1
+		case 1:
+			if f.next < len(f.n.left) {
+				child := f.n.left[f.next]
+				f.next++
+				stack = append(stack, walkFrame{n: child})
+				continue
+			}
+			order = append(order, f.n)
+			f.phase, f.next = 2, 0
+		case 2:
+			if f.next < len(f.n.right) {
+				child := f.n.right[f.next]
+				f.next++
+				stack = append(stack, walkFrame{n: child})
+				continue
+			}
+			stack = stack[:top]
+		}
+	}
+	return order, nil
 }

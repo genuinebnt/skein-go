@@ -5,11 +5,13 @@
 //
 // The upgrade request is handled like a REST request until the last step:
 // the bearer token comes from the "bearer.<token>" subprotocol entry (never
-// echoed), is verified, and failures are ordinary google.rpc.Status
-// responses (401, 403, 404, 429, 503). The upgrade spends one unit of the
-// api budget. For sync the gateway also asks identity whether the caller
-// can read the note, so an unreadable note fails with 404 before the
-// upgrade, as documented. The encoding is the first of skein.v1.proto and
+// echoed) and is verified, and the upgrade spends one unit of the api
+// budget. For sync the gateway also asks identity whether the caller can
+// read the note. A browser cannot read the HTTP status of a failed upgrade,
+// so a refusal (bad token, over budget, unreadable note, draining) completes
+// the handshake and closes at once with the close code of its status (4401,
+// 4429, 4404, 1012); nothing is bridged. Only requests that are not
+// upgrades, and foreign origins, get a google.rpc.Status response. The encoding is the first of skein.v1.proto and
 // skein.v1.json that the client offered, JSON when it offered neither (and
 // then no subprotocol is echoed).
 //
@@ -44,7 +46,11 @@
 //
 //   - Sync: one bidirectional DocumentService.Sync stream to the instance
 //     that owns the note (app.SyncRouter). The first client frame must be a
-//     hello for the path's note. The stream's end closes the socket.
+//     hello for the path's note. The stream's end closes the socket. The
+//     socket's close does not cancel the stream: it is half-closed, and
+//     cancelled only when documents has ended it or Options.StreamDrain
+//     after the socket began closing, so frames the client sent just
+//     before closing are still applied.
 //   - Agent: each client frame is one SendMessage call, that is one run,
 //     whose events are relayed as they come. Runs are detached from the
 //     socket: "closing the socket does not cancel a run" (websocket.md),

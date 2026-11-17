@@ -198,7 +198,7 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 		return fail("note cache", err)
 	}
 	documents := app.New(app.Deps{
-		Store: store, Authorizer: authCache, AuthCache: authCache, Replicas: identityClient,
+		Store: store, Authorizer: authCache, AuthCache: authCache, Replicas: identityClient, Notes: identityClient,
 		NoteCache: noteCache, Presence: rediscache.NewPresence(rdb, time.Now), Logger: logger,
 	}, s.app)
 

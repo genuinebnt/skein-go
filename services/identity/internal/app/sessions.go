@@ -102,6 +102,37 @@ func (s *Service) issueRefresh(ctx context.Context, tx Tx, sess domain.Session, 
 	return SessionTokens{AccessToken: access, AccessExpiresAt: accessExp, RefreshToken: raw, RefreshExpiresAt: rt.ExpiresAt}, nil
 }
 
+// ErrDevSessionsDisabled means StartDevSession was called without
+// Config.DevSessions.
+var ErrDevSessionsDisabled = errors.New("identity: dev sessions are disabled")
+
+// StartDevSession starts a session for an existing user without any
+// credential. It exists only so tests against a local stack can act as seed
+// users, who have no passwords; it fails with ErrDevSessionsDisabled unless
+// Config.DevSessions is set, and domain.ErrNotFound for an unknown user.
+// The session is an ordinary one: it refreshes, rotates and signs out like
+// any other.
+func (s *Service) StartDevSession(ctx context.Context, userID string) (domain.User, SessionTokens, error) {
+	if !s.cfg.DevSessions {
+		return domain.User{}, SessionTokens{}, ErrDevSessionsDisabled
+	}
+	var user domain.User
+	var tokens SessionTokens
+	err := s.store.InTx(ctx, func(ctx context.Context, tx Tx) error {
+		var err error
+		if user, err = tx.UserByID(ctx, domain.UserID(userID)); err != nil {
+			return err
+		}
+		tokens, err = s.startSession(ctx, tx, user.ID, s.now())
+		return err
+	})
+	if err != nil {
+		return domain.User{}, SessionTokens{}, err
+	}
+	s.log.WarnContext(ctx, "dev session started", "user_id", userID)
+	return user, tokens, nil
+}
+
 // SignIn checks an email and password and starts a session. Every failure
 // is ErrUnauthenticated with the same message, and the work done is the
 // same whether or not the account exists.
