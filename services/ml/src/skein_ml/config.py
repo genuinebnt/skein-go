@@ -10,8 +10,10 @@
 | ``SKEIN_ML_ONNX_MODEL_DIR`` | | local sentence-transformer export (``onnx``) |
 | ``SKEIN_ML_DATABASE_URL`` | | Postgres; in-memory repositories when empty |
 | ``SKEIN_ML_REDIS_URL`` | | Redis cache; in-memory cache when empty |
-| ``SKEIN_ML_PUBSUB_PROJECT`` | | Pub/Sub project; no consumer when empty |
-| ``SKEIN_ML_PUBSUB_SUBSCRIPTION`` | ``ml.documents-events`` | subscription (``pubsub-init.sh``) |
+| ``EVENTS_BACKEND`` | ``pubsub`` | ``pubsub``, ``redis`` or ``memory`` (docs/local-first.md) |
+| ``SKEIN_ML_PUBSUB_PROJECT`` | ``PUBSUB_PROJECT`` | Pub/Sub project; with ``pubsub``, no consumer when empty |
+| ``EVENTS_REDIS_URL``, ``EVENTS_REDIS_DB`` | ``SKEIN_ML_REDIS_URL``, ``0`` | Redis holding the event streams (``redis``) |
+| ``SKEIN_ML_PUBSUB_SUBSCRIPTION`` | ``ml.documents-events`` | subscription (``pubsub-init.sh``), on any backend |
 | ``SKEIN_ML_SUGGEST_THRESHOLD`` | ``0.70`` | cosine for link suggestions |
 | ``SKEIN_ML_CLUSTER_ALGORITHM`` | ``lloyd`` | ListClusters algorithm (``CLUSTER_ALGORITHMS``) |
 | ``SKEIN_ML_SHUTDOWN_GRACE_SECONDS`` | ``20`` | drain time on SIGTERM |
@@ -27,7 +29,9 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from skein_events import EventsConfig
 
 __all__ = ["CLUSTER_ALGORITHMS", "Config", "ConfigError"]
 
@@ -51,8 +55,8 @@ class Config:
     onnx_model_dir: str = ""
     database_url: str = ""
     redis_url: str = ""
-    pubsub_project: str = ""
     pubsub_subscription: str = "ml.documents-events"
+    events: EventsConfig = field(default_factory=EventsConfig)
     suggest_threshold: float = 0.70
     cluster_algorithm: str = "lloyd"
     shutdown_grace_seconds: float = 20.0
@@ -77,7 +81,16 @@ class Config:
             except ValueError as error:
                 raise ConfigError(f"{name}={raw!r} is not a valid {kind.__name__}") from error
 
+        try:
+            events = EventsConfig.from_env(
+                env,
+                pubsub_project=text("SKEIN_ML_PUBSUB_PROJECT", ""),
+                redis_url=text("SKEIN_ML_REDIS_URL", ""),
+            )
+        except ValueError as error:
+            raise ConfigError(str(error)) from error
         config = cls(
+            events=events,
             address=text("SKEIN_ML_ADDRESS", cls.address),
             admin_address=env.get("SKEIN_ML_ADMIN_ADDRESS", cls.admin_address).strip(),
             workers=number("SKEIN_ML_WORKERS", cls.workers, int),
@@ -86,7 +99,6 @@ class Config:
             onnx_model_dir=text("SKEIN_ML_ONNX_MODEL_DIR", ""),
             database_url=text("SKEIN_ML_DATABASE_URL", ""),
             redis_url=text("SKEIN_ML_REDIS_URL", ""),
-            pubsub_project=text("SKEIN_ML_PUBSUB_PROJECT", ""),
             pubsub_subscription=text("SKEIN_ML_PUBSUB_SUBSCRIPTION", cls.pubsub_subscription),
             suggest_threshold=number("SKEIN_ML_SUGGEST_THRESHOLD", cls.suggest_threshold, float),
             cluster_algorithm=text("SKEIN_ML_CLUSTER_ALGORITHM", cls.cluster_algorithm).lower(),

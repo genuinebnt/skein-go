@@ -9,6 +9,8 @@ dependencies = [
     # The generated messages and stubs, from the repository by path (pip via
     # hatch's {root} formatting, uv via tool.uv.sources); never from PyPI.
     "skein-proto @ {root:parent:parent:uri}/gen/python",
+    # The event transport shared with the agent (platform/events/python).
+    "skein-events @ {root:parent:parent:uri}/platform/events/python",
     "numpy>=2.0",
     "grpcio>=1.85.1",
     "grpcio-health-checking>=1.85.1",
@@ -41,6 +43,7 @@ allow-direct-references = true
 
 [tool.uv.sources]
 skein-proto = { path = "../../gen/python", editable = true }
+skein-events = { path = "../../platform/events/python", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skein_ml"]

@@ -12,9 +12,11 @@ ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /src
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
-# The generated stubs are a path dependency (../../gen/python from the
-# service), so they keep the same relative place here.
+# The generated stubs and skein-events are path dependencies (../../gen/python
+# and ../../platform/events/python from the service), so they keep the same
+# relative places here.
 COPY gen/python gen/python
+COPY platform/events/python platform/events/python
 COPY services/ml/pyproject.toml services/ml/README.md services/ml/
 COPY services/ml/src services/ml/src
 RUN pip install "./services/ml[${EXTRAS}]"

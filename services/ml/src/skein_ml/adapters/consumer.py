@@ -28,7 +28,10 @@ log = logging.getLogger(__name__)
 
 
 def observed_handler(
-    app: MLApp, tracer: trace.Tracer, service_metrics: ServiceMetrics
+    app: MLApp,
+    tracer: trace.Tracer,
+    service_metrics: ServiceMetrics,
+    messaging_system: str = "gcp_pubsub",
 ) -> Callable[[Event | None], None]:
     """An `EventHandler` that applies events through ``app`` with tracing and metrics."""
 
@@ -46,7 +49,7 @@ def observed_handler(
                 context=parent,
                 kind=trace.SpanKind.CONSUMER,
                 attributes={
-                    "messaging.system": "gcp_pubsub",
+                    "messaging.system": messaging_system,
                     "messaging.message.id": event.id,
                     "skein.event.kind": kind,
                 },
