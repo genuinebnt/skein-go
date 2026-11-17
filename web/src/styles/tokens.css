@@ -1,0 +1,75 @@
+/*
+ * The genuine and genuine-light palettes from genuine.dev
+ * frontend/styles/_tokens.scss, on folio.css's variable names (the mapping
+ * is _tokens.scss's theme-vars mixin; the values are the Tokens board's).
+ * One meaning per hue: --acc notes and primary actions, --fnc graph and
+ * info, --vio the agent's voice, --grn discover and insertions, --warn
+ * offline and comments, --bad rejections and deletions, --pink presence.
+ */
+.fx.t-dark,
+.t-dark {
+  --bg: #06080d;
+  --panel: #0a0d12;
+  --raise: #0f1319;
+  --line2: #161a20;
+  --line: #262a32;
+  --fg: #eceff2;
+  --mut: #b6bbc2;
+  --dim: #8e929b;
+  --acc: #e79e6b;
+  --fnc: #67b5e1;
+  --vio: #9e8fe9;
+  --grn: #5abf8d;
+  --warn: #e3b667;
+  --bad: #e2726a;
+  --pink: #e795cc;
+  --grid: #0c0f15;
+  --on-acc: #0b0e13;
+  --shadow: rgb(0 0 0 / 0.5);
+  --acc-bg: color-mix(in srgb, var(--acc) 14%, transparent);
+  --sel: color-mix(in srgb, var(--acc) 7%, transparent);
+  color-scheme: dark;
+}
+
+.fx.t-light,
+.t-light {
+  --bg: #f5f7f9;
+  --panel: #fcfdff;
+  --raise: #ebedf0;
+  --line2: #e0e3e7;
+  --line: #cdd1d6;
+  --fg: #11161d;
+  --mut: #424850;
+  --dim: #585e66;
+  --acc: #9b4805;
+  --fnc: #065da0;
+  --vio: #654abb;
+  --grn: #006f49;
+  --warn: #875400;
+  --bad: #ba2b2e;
+  --pink: #98397e;
+  --grid: #eef0f3;
+  --on-acc: #fcfdff;
+  --shadow: rgb(40 50 60 / 0.14);
+  --acc-bg: color-mix(in srgb, var(--acc) 11%, transparent);
+  --sel: color-mix(in srgb, var(--acc) 6%, transparent);
+  color-scheme: light;
+}
+
+.t-dark,
+.t-light {
+  --fnc-bg: color-mix(in srgb, var(--fnc) 13%, transparent);
+  --vio-bg: color-mix(in srgb, var(--vio) 13%, transparent);
+  --grn-bg: color-mix(in srgb, var(--grn) 13%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
+  --bad-bg: color-mix(in srgb, var(--bad) 13%, transparent);
+  --pink-bg: color-mix(in srgb, var(--pink) 13%, transparent);
+  --kw: var(--vio);
+  --ty: var(--warn);
+  --fn: var(--fnc);
+  --str: var(--grn);
+  --num: var(--acc);
+  --mac: color-mix(in oklab, var(--fnc) 55%, var(--grn));
+  --lt: var(--pink);
+  --com: var(--dim);
+}
