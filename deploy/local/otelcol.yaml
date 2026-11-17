@@ -8,7 +8,7 @@
 # `basic` verbosity prints one summary line per batch, never attributes or
 # bodies, so no note contents or identifiers reach the collector's log.
 # Metrics are re-exported in Prometheus format, with each service's resource
-# (service.name, deployment.environment.name) on target_info, which is what
+# (service.name) in the job label, which is what
 # deploy/local/prod-check.sh uses to prove that every service exports. The
 # collector's own counters (otelcol_receiver_accepted_spans and friends)
 # show how much arrived.
