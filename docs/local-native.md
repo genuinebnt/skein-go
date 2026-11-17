@@ -7,6 +7,12 @@ on high ports, with the small seed loaded. It is the stack `make e2e` and
 (CI runners without a daemon, sandboxes, laptops that would rather not).
 The Docker stack (`make up`) is unchanged; both can run at once.
 
+`just dev` is the same command through the front door;
+[dev-workflow.md](dev-workflow.md) lists every recipe (`just status`,
+`just restart`, `just logs`, `just seed`, `just prod-local` for the
+production-settings variant) and the usual loops. This page covers what
+runs, the ports and troubleshooting.
+
 ## Requirements
 
 | Tool | Why | Notes |
@@ -14,8 +20,8 @@ The Docker stack (`make up`) is unchanged; both can run at once.
 | Go 1.24+ | builds the Go services and seed loaders | |
 | PostgreSQL 16 server binaries | `initdb`, `pg_ctl`, `psql` | looked up in `/usr/lib/postgresql/16/bin` and Homebrew's `postgresql@16`; set `PG_BIN` otherwise |
 | `redis-server` | caches, rate limits, live fan-out | 7.x |
-| Google Cloud CLI with `pubsub-emulator`, and Java | the Pub/Sub emulator | `gcloud components install pubsub-emulator beta` |
-| Python 3.12+ and `uv` | the `ml` and `agent` services | their environments are built in `deploy/local/.run/venv` |
+| Google Cloud CLI with `pubsub-emulator`, and Java | the Pub/Sub emulator | `gcloud components install pubsub-emulator beta`; without it the stack uses `EVENTS_BACKEND=redis` once every service supports it ([dev-workflow.md](dev-workflow.md#the-events-backend)) |
+| Python 3.12+ and `uv` | the `ml` and `agent` services | dev runs them from `services/<name>/.venv` (`just setup`); prod-local builds its own in `deploy/local/.run/prod/venv` |
 | `curl` | health checks, the Mailpit download | |
 
 Mailpit (v1.33.1, the version compose pins) is downloaded once into
@@ -60,6 +66,8 @@ port 281NN.
 | Redis | 26379 | `SKEIN_NATIVE_REDIS_PORT` |
 | Pub/Sub emulator (`PUBSUB_EMULATOR_HOST=127.0.0.1:28085`) | 28085 | `SKEIN_NATIVE_PUBSUB_PORT` |
 | Mailpit SMTP / web UI and API | 21025 / 28025 | `SKEIN_NATIVE_SMTP_PORT`, `SKEIN_NATIVE_MAILPIT_PORT` |
+| Web app, live mode (`just dev web`, `just web-live`) | 25173 | `SKEIN_NATIVE_WEB_PORT` |
+| OpenTelemetry Collector (prod-local): OTLP gRPC / own metrics / service metrics | 24317 / 28888 / 28889 | `SKEIN_NATIVE_OTLP_GRPC`, `SKEIN_NATIVE_OTELCOL_METRICS`, `SKEIN_NATIVE_OTELCOL_PROMETHEUS` |
 
 ## What runs, and how it differs from compose
 
@@ -80,8 +88,9 @@ purpose:
 - PostgreSQL runs with `fsync=off`: the data is disposable.
 
 State lives in `deploy/local/.run` (git-ignored): `pgdata/`, `logs/<name>.log`
-(JSON logs, one file per process), `pids/`, `bin/` (service binaries,
-Mailpit) and `venv/` (ml and agent).
+(JSON logs, one file per process; the previous run's in `logs.previous/`),
+`pids/`, `bin/` (service binaries, Mailpit, the collector), `mode`, and
+`prod/` (prod-local's own data, binaries and virtualenvs).
 
 ## Signing in as a seed user
 
@@ -99,10 +108,11 @@ gateway. The variable is refused at startup outside `SKEIN_ENV=dev` or
 `testdata/seed/small/users.jsonl` (`cast_key` names the anchor cast:
 `owner` is Mira, the anchor workspace's owner).
 
-Alternatively, `SKEIN_SEED_PASSWORD=... make up-native` on a fresh stack
-(`make down-native WIPE=1` first: the loader does not change users it
-already loaded) gives every seed user that password, Argon2id-hashed by
-the identity loader.
+A fresh dev database also gives every seed user a generated password,
+Argon2id-hashed by the identity loader; `just seed-password` prints it
+(for the web app's sign-in). `SKEIN_SEED_PASSWORD=... just reset` chooses
+it instead (the loader does not change users it already loaded, hence the
+reset).
 
 ## Integration tests against this stack
 
@@ -139,9 +149,9 @@ prints the counts (also in `deploy/local/.run/integration-report.txt`).
 - **Every token is rejected after restarting identity**: in dev identity
   generates its signing key at startup, so sessions do not survive its
   restart. Sign in again (seed users: a new dev session).
-- **Code changed but the stack runs the old one**: `deploy/local/restart.sh
-  <service>` rebuilds and restarts it; `make up-native` alone leaves
-  running processes alone.
+- **Code changed but the stack runs the old one**: `just restart <service>`
+  (`deploy/local/restart.sh <service>`) rebuilds and restarts it; `just dev`
+  alone leaves running processes alone.
 - **The search graph looks wrong after upgrading past the link-title fix**:
   search's projection stored seed links as note IDs before; rebuild it
   (`make down-native WIPE=1 && make up-native`, or the procedure in

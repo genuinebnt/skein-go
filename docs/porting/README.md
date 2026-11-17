@@ -312,29 +312,39 @@ know which language a service is written in. A ported service is accepted
 when the whole suite passes with that service in Rust and the rest in Go.
 
 ```
-make up-native            # the whole stack natively, small seed loaded (docs/local-native.md)
-make e2e                  # every journey; RUN=TestSync narrows it
-make integration-native   # every Go integration test against the same stack
+just dev                  # the whole stack natively, small seed loaded (docs/dev-workflow.md)
+just e2e                  # every journey; just e2e TestSync narrows it
+just test-integration     # every integration test against the same stack
 ```
 
-To swap one service for its Rust build in a running native stack:
+(`make up-native`, `make e2e` and `make integration-native` do the same.)
+
+To run one service from its Rust build, name the binary in
+`SKEIN_BIN_<SERVICE>`. The runner starts it in place of the Go build with
+exactly the environment, ports and readiness probe the Go service gets
+(`deploy/local/stack.sh`, `env_<service>`, started with `env -i`, so
+nothing from your shell leaks in):
 
 ```
-cd rust && cargo build --release -p identity
-pid=$(cat deploy/local/.run/pids/identity.pid)
-tr '\0' '\n' < /proc/$pid/environ > /tmp/identity.env   # the exact env up.sh gave Go
-kill -TERM -- -$pid                                      # its process group
-env -i $(cat /tmp/identity.env) rust/target/release/identity \
-  > deploy/local/.run/logs/identity-rust.log 2>&1 &
-curl -fsS http://127.0.0.1:28101/readyz && make e2e
+cd rust && cargo build --release -p identity && cd ..
+SKEIN_BIN_IDENTITY=rust/target/release/identity just restart identity   # swap it into the running stack
+just status                    # identity  ready ... (runs /abs/path/rust/target/release/identity)
+just e2e
+just logs identity             # the Rust binary's output
+SKEIN_BIN_IDENTITY= just restart identity                               # back to the Go build
 ```
 
-`up.sh` starts each service with exactly the variables it needs
-(`run_service` with `env -i`), so copying them from `/proc` gives the Rust
-binary the same environment the Go one had. A cleaner hook, a per-service
-binary override in `deploy/local/up.sh` (for example
-`SKEIN_NATIVE_IDENTITY_BIN`), is a follow-up for the owners of
-`deploy/local/`.
+`SKEIN_BIN_IDENTITY=... just dev` starts a stack with the Rust service
+from the beginning. Relative paths are relative to the repository root.
+The override is recorded for the running stack: `just restart` of any
+service keeps it, and `just stop` forgets it. The Go seed loader still
+runs for an overridden service and applies the Go migrations too, so the
+Rust binary must run the same migrations, or accept a schema the Go ones
+created (section 3), until its own loader is ported. It works
+under `just prod-local` as well, which checks a release build with
+production settings. Restarting identity in dev invalidates sessions,
+because dev generates its signing key at startup; the e2e suite signs up
+fresh users, so that does not matter for it.
 
 Run the suite against Go first and keep the result; a journey that fails
 with Rust but passed with Go is the port's bug. Two journeys depend on

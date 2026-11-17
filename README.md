@@ -23,21 +23,23 @@ start. A Rust port of the Go parts follows it; see
 
 ## Quick start
 
-Requirements: Go 1.24+, Docker (only for the local stack), Python 3.12+ (for
-the `ml` and `agent` services, when they land).
+```
+curl https://mise.run | sh     # once: mise pins every tool (mise.toml); activate it in your shell
+mise trust && mise install just
+just setup                     # pinned tools, web and Python dependencies, then just doctor
+just dev                       # the whole stack as local processes, small seed loaded; no Docker needed
+just e2e                       # end-to-end journeys through the gateway
+just stop
+```
 
-```
-make test        # all Go tests, race detector on; no Docker needed
-make test-lib LIB=crdt
-make fuzz        # fuzz every target for 30s
-make up          # Postgres, Redis, Pub/Sub emulator, Mailpit, plus telemetry, Grafana and Swagger UI
-make up-min      # infrastructure only
-make up-native   # the same stack without Docker, as local processes on high ports, seed loaded
-make e2e         # end-to-end journeys through the gateway (against make up-native)
-make integration-native  # every integration test against make up-native
-make urls        # every local URL
-make help        # everything else
-```
+`just` lists every recipe; [docs/dev-workflow.md](docs/dev-workflow.md)
+explains them and the usual loops: `just restart <service>`, `just logs`,
+`just status`, `just seed medium`, `just reset`, `just test`, `just lint`,
+`just prod-local` (the same system with production settings, checked),
+`just dev web` (plus the web app) and `just dev docker` (the compose stack;
+`make up` adds Grafana and Jaeger). `just doctor` says what mise cannot install:
+PostgreSQL 16, Redis 7 and the Pub/Sub emulator. The Makefile still works
+(`make help`).
 
 ## Layout
 
@@ -58,7 +60,9 @@ docs/            architecture, decisions, specs, guides
 - [Decision records](docs/adr/README.md)
 - [Sequence CRDT spec](docs/spec/crdt-sequence.md)
 - [Testing guide](docs/testing.md)
-- [Running natively](docs/local-native.md): `make up-native`, ports, the e2e
+- [Developer workflow](docs/dev-workflow.md): `just setup`, `just dev`, every
+  recipe, prod-local, swapping in a Rust binary, typical loops
+- [Running natively](docs/local-native.md): the native stack's ports, the e2e
   suite, integration tests without Docker, troubleshooting
 - [Porting guide](docs/porting-to-rust.md)
 - [Porting to Rust, step by step](docs/porting/README.md): the dependency graph,
