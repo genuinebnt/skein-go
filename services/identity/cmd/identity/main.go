@@ -50,11 +50,11 @@ func main() {
 	s := loadSettings(l)
 	dbCfg := postgres.LoadConfig(l)
 	redisCfg := redisx.LoadConfig(l)
-	psCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l)
 	if err := l.Err(); err != nil {
 		log.Fatal(err) // every bad variable, in one message; secrets never printed
 	}
-	if err := run(context.Background(), s, dbCfg, redisCfg, psCfg); err != nil {
+	if err := run(context.Background(), s, dbCfg, redisCfg, eventsCfg); err != nil {
 		os.Exit(1)
 	}
 }
@@ -78,7 +78,7 @@ func healthcheck() int {
 	return 0
 }
 
-func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx.Config, psCfg events.PubSubConfig) error {
+func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx.Config, eventsCfg events.Config) error {
 	svc := s.Service
 	tel, err := telemetry.Setup(ctx, telemetry.Config{Service: svc.Name, Version: svc.Version, Env: string(svc.Env)})
 	if err != nil {
@@ -105,10 +105,10 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 	if err != nil {
 		return fail("redis", err)
 	}
-	psCfg.Logger, psCfg.TracerProvider = logger, tel.TracerProvider
-	bus, err := events.NewPubSub(ctx, psCfg)
+	eventsCfg.Logger, eventsCfg.TracerProvider = logger, tel.TracerProvider
+	bus, err := events.Open(ctx, eventsCfg)
 	if err != nil {
-		return fail("pubsub", err)
+		return fail("events", err)
 	}
 
 	ring, err := s.keyring(now)
@@ -179,7 +179,7 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("postgres", nil, func(context.Context) error { pool.Close(); return nil })
 	m.Add("redis", nil, func(context.Context) error { return rdb.Close() })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("outbox-relay", relay.Run, nil)
 	m.Add("documents-events", func(ctx context.Context) error {
 		return bus.Subscribe(ctx, identityevents.DocumentsSubscription, consumer.Handle)

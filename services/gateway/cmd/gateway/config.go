@@ -13,7 +13,7 @@ import (
 
 // gatewayConfig is everything the gateway reads from the environment
 // besides the platform's own variables (SKEIN_ENV, REDIS_URL,
-// PUBSUB_PROJECT, OTEL_*). services/gateway/README.md lists them.
+// EVENTS_BACKEND and its variables, OTEL_*). services/gateway/README.md lists them.
 type gatewayConfig struct {
 	HTTPAddr       string
 	Targets        backends.Targets

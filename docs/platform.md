@@ -25,7 +25,7 @@ porting notes. This page is the map.
 | `postgres` | Traced pgx pool, `WithTx`, embedded forward-only migrations | `postgres.Beginner` / `Execer` interfaces |
 | `redisx` | Traced Redis client; typed `Cache[V]` with TTL, namespaces, singleflight, tag invalidation | `redisx.MemoryStore` |
 | `ratelimit` | `Limiter` over GCRA in Redis and an in-process token bucket | `ratelimit.NewTokenBucket` with a fake clock |
-| `events` | `Publisher` / `Subscriber` over event envelopes; Pub/Sub (and its emulator) | `events.Memory` |
+| `events` | `Publisher` / `Subscriber` over event envelopes; Pub/Sub (and its emulator), Redis Streams, in-memory, chosen by `EVENTS_BACKEND` | `events.Memory` |
 | `outbox` | `Enqueue` in the caller's transaction, the relay, idempotent consumers | in-memory `Store` (see `outbox/fakes_test.go`) |
 | `shutdown` | Run components, stop them in reverse order on SIGINT/SIGTERM within a timeout | a cancellable context |
 
@@ -39,7 +39,7 @@ func main() {
 	l := config.FromEnv()
 	svc := config.LoadService(l, "documents")
 	dbCfg := postgres.LoadConfig(l)
-	psCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l) // EVENTS_BACKEND: pubsub, redis or memory
 	if err := l.Err(); err != nil {
 		log.Fatal(err) // every bad variable, in one message
 	}
@@ -51,7 +51,7 @@ func main() {
 
 	pool, _ := postgres.Open(ctx, dbCfg)
 	_ = postgres.Migrate(ctx, pool, migrations, "migrations", logger)
-	bus, _ := events.NewPubSub(ctx, psCfg)
+	bus, _ := events.Open(ctx, eventsCfg) // provisions Redis consumer groups
 	relay, _ := outbox.NewRelay(outbox.NewPostgresStore(pool, outbox.PostgresStoreOptions{}), bus, outbox.RelayConfig{Logger: logger})
 
 	keys := auth.NewRemoteKeySet(fetchJWKSFromIdentity, auth.RemoteKeySetOptions{})
@@ -63,7 +63,7 @@ func main() {
 	m := shutdown.New(shutdown.Options{Logger: logger})
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("postgres", nil, func(context.Context) error { pool.Close(); return nil })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("outbox-relay", relay.Run, nil)
 	m.Add("grpc", func(ctx context.Context) error { return srv.Serve(ctx, lis) }, nil)
 	if err := m.Run(ctx); err != nil {
@@ -106,7 +106,9 @@ and gRPC will not retry it (a test catches a regression).
 | `SKEIN_VERSION` | `config.LoadService` | `dev` |
 | `DATABASE_URL`, `DATABASE_MAX_CONNS` | `postgres.LoadConfig` | required, pgx default |
 | `REDIS_URL` | `redisx.LoadConfig` | required |
-| `PUBSUB_PROJECT` | `events.LoadPubSubConfig` | required |
+| `EVENTS_BACKEND` | `events.LoadConfig` | `pubsub` (one of pubsub, redis, memory; [local-first.md](local-first.md)) |
+| `PUBSUB_PROJECT` | `events.LoadPubSubConfig` | required when `EVENTS_BACKEND=pubsub` |
+| `EVENTS_REDIS_URL`, `EVENTS_REDIS_DB` | `events.LoadConfig` | `REDIS_URL`, `0` (redis backend) |
 | `PUBSUB_EMULATOR_HOST` | the Pub/Sub client library | unset (production) |
 | `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_*`, `OTEL_{TRACES,METRICS,LOGS}_EXPORTER`, `OTEL_TRACES_SAMPLER`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | `telemetry` and the OTel SDK | SDK defaults |
 

@@ -101,7 +101,7 @@ func run() error {
 	svc := config.LoadService(l, "notifications")
 	dbCfg := postgres.LoadConfig(l)
 	redisCfg := redisx.LoadConfig(l)
-	psCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l)
 	smtpCfg := smtp.LoadConfig(l)
 	s := loadSettings(l)
 	if err := l.Err(); err != nil {
@@ -126,7 +126,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	bus, err := events.NewPubSub(ctx, psCfg)
+	eventsCfg.Logger, eventsCfg.TracerProvider = logger, tel.TracerProvider
+	bus, err := events.Open(ctx, eventsCfg)
 	if err != nil {
 		return err
 	}
@@ -189,7 +190,7 @@ func run() error {
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("postgres", nil, func(context.Context) error { pool.Close(); return nil })
 	m.Add("redis", nil, func(context.Context) error { return redisClient.Close() })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("identity-client", nil, func(context.Context) error { return identityConn.Close() })
 	m.Add("live-fanout", fanout.Run, nil)
 	m.Add("email-sender", sender.Run, nil)

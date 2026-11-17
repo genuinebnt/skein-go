@@ -50,7 +50,7 @@ func run() error {
 	svc := config.LoadService(l, "gateway")
 	cfg := loadConfig(l, svc.Env)
 	redisCfg := redisx.LoadConfig(l)
-	pubsubCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l)
 	if err := l.Err(); err != nil {
 		return err
 	}
@@ -71,8 +71,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	pubsubCfg.Logger, pubsubCfg.TracerProvider = logger, tel.TracerProvider
-	bus, err := events.NewPubSub(ctx, pubsubCfg)
+	eventsCfg.Logger, eventsCfg.TracerProvider = logger, tel.TracerProvider
+	bus, err := events.Open(ctx, eventsCfg)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func run() error {
 	m := shutdown.New(shutdown.Options{Logger: logger})
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("redis", nil, func(context.Context) error { return rdb.Close() })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("backends", nil, func(context.Context) error {
 		for _, c := range open {
 			_ = c.Close()

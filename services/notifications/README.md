@@ -115,7 +115,8 @@ unread count and live push never show.
 
 | Variable | Default | |
 |---|---|---|
-| `DATABASE_URL`, `REDIS_URL`, `PUBSUB_PROJECT`, `PUBSUB_EMULATOR_HOST` | required (platform) | |
+| `DATABASE_URL`, `REDIS_URL` | required (platform) | |
+| `EVENTS_BACKEND` | `pubsub` | `pubsub` (needs `PUBSUB_PROJECT`, and `PUBSUB_EMULATOR_HOST` locally), `redis` or `memory` ([docs/local-first.md](../../docs/local-first.md)) |
 | `GRPC_ADDR`, `HTTP_ADDR` | `:9090`, `:8080` | gRPC API; admin `/healthz`, `/readyz` |
 | `IDENTITY_GRPC_TARGET` | `dns:///identity:9090` | Authorize, GetUser, ListMembers |
 | `IDENTITY_JWKS_URL` | `http://identity:8080/.well-known/jwks.json` | token verification |

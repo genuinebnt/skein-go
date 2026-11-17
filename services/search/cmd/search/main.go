@@ -4,7 +4,7 @@
 // keeps the in-memory projection in step with the change feed.
 //
 // Environment (besides the platform's: SKEIN_ENV, DATABASE_URL, REDIS_URL,
-// PUBSUB_PROJECT, OTEL_*):
+// EVENTS_BACKEND and its variables, OTEL_*):
 //
 //	GRPC_ADDR             gRPC listen address, default :9090
 //	ADMIN_ADDR            HTTP health address, default :8080
@@ -73,7 +73,7 @@ func run() error {
 	svc := config.LoadService(l, "search")
 	dbCfg := postgres.LoadConfig(l)
 	redisCfg := redisx.LoadConfig(l)
-	psCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l)
 	s := settings{
 		grpcAddr: l.String("GRPC_ADDR", ":9090"), adminAddr: l.String("ADMIN_ADDR", ":8080"),
 		identityAddr: l.String("IDENTITY_ADDR", "dns:///identity:9090"),
@@ -110,8 +110,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	psCfg.Logger = logger
-	bus, err := events.NewPubSub(ctx, psCfg)
+	eventsCfg.Logger, eventsCfg.TracerProvider = logger, tel.TracerProvider
+	bus, err := events.Open(ctx, eventsCfg)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func run() error {
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("postgres", nil, func(context.Context) error { pool.Close(); return nil })
 	m.Add("redis", nil, func(context.Context) error { return rdb.Close() })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("identity-client", nil, func(context.Context) error { return identityConn.Close() })
 	if mlClose != nil {
 		m.Add("ml-client", nil, func(context.Context) error { return mlClose() })

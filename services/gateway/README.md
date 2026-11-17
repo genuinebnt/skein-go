@@ -99,7 +99,8 @@ turned into metadata, so `Grpc-Metadata-*` cannot forge an identity.
 ## Configuration
 
 Besides the platform variables (`SKEIN_ENV`, `SKEIN_VERSION`, `REDIS_URL`,
-`PUBSUB_PROJECT`, `PUBSUB_EMULATOR_HOST`, `OTEL_*`):
+`EVENTS_BACKEND` and its variables (`PUBSUB_PROJECT`, `PUBSUB_EMULATOR_HOST`
+or `EVENTS_REDIS_URL`; [docs/local-first.md](../../docs/local-first.md)), `OTEL_*`):
 
 | Variable | Default | Meaning |
 |---|---|---|

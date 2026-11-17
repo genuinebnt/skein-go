@@ -4,7 +4,7 @@
 // port's readiness, for container healthchecks in an image without a shell.
 //
 // Environment (besides the platform's SKEIN_*, DATABASE_URL, REDIS_URL,
-// PUBSUB_* and OTEL_* variables, docs/platform.md):
+// EVENTS_* or PUBSUB_* and OTEL_* variables, docs/platform.md):
 //
 //	DOCUMENTS_GRPC_ADDR        gRPC listener (":9090")
 //	DOCUMENTS_ADMIN_ADDR       health HTTP listener (":8080")
@@ -91,11 +91,11 @@ func main() {
 	s := loadSettings(l)
 	dbCfg := postgres.LoadConfig(l)
 	redisCfg := redisx.LoadConfig(l)
-	psCfg := events.LoadPubSubConfig(l)
+	eventsCfg := events.LoadConfig(l)
 	if err := l.Err(); err != nil {
 		log.Fatal(err) // every bad variable in one message; secrets never printed
 	}
-	if err := run(context.Background(), s, dbCfg, redisCfg, psCfg); err != nil {
+	if err := run(context.Background(), s, dbCfg, redisCfg, eventsCfg); err != nil {
 		os.Exit(1)
 	}
 }
@@ -136,7 +136,7 @@ func fetchJWKS(url string) auth.FetchFunc {
 	}
 }
 
-func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx.Config, psCfg events.PubSubConfig) error {
+func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx.Config, eventsCfg events.Config) error {
 	svcInfo := s.service
 	tel, err := telemetry.Setup(ctx, telemetry.Config{Service: svcInfo.Name, Version: svcInfo.Version, Env: string(svcInfo.Env)})
 	if err != nil {
@@ -162,9 +162,10 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 		return fail("redis", err)
 	}
 	cacheStore := redisx.NewRedisStore(rdb, "skein")
-	bus, err := events.NewPubSub(ctx, psCfg)
+	eventsCfg.Logger, eventsCfg.TracerProvider = logger, tel.TracerProvider
+	bus, err := events.Open(ctx, eventsCfg)
 	if err != nil {
-		return fail("pubsub", err)
+		return fail("events", err)
 	}
 
 	store := pgstore.NewStore(pool)
@@ -225,7 +226,7 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 	m.Add("telemetry", nil, tel.Shutdown)
 	m.Add("postgres", nil, func(context.Context) error { pool.Close(); return nil })
 	m.Add("redis", nil, func(context.Context) error { return rdb.Close() })
-	m.Add("pubsub", nil, func(context.Context) error { return bus.Close() })
+	m.Add("events", nil, func(context.Context) error { return bus.Close() })
 	m.Add("identity-client", nil, func(context.Context) error { return conn.Close() })
 	m.Add("outbox-relay", relay.Run, nil)
 	m.Add("note-actors", documents.Run, nil)

@@ -98,8 +98,8 @@ so it is refused when keys come from the secret or outside dev.
 ## Configuration
 
 Platform variables: `SKEIN_ENV`, `SKEIN_VERSION`, `DATABASE_URL`,
-`DATABASE_MAX_CONNS`, `REDIS_URL`, `PUBSUB_PROJECT`, `PUBSUB_EMULATOR_HOST`,
-`OTEL_*` ([docs/platform.md](../../docs/platform.md)).
+`DATABASE_MAX_CONNS`, `REDIS_URL`, `EVENTS_BACKEND` and its variables
+(`PUBSUB_PROJECT`, `PUBSUB_EMULATOR_HOST` or `EVENTS_REDIS_URL`), `OTEL_*` ([docs/platform.md](../../docs/platform.md)).
 
 | Variable | Default | Meaning |
 |---|---|---|
