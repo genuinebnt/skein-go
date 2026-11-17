@@ -40,7 +40,7 @@ For keeping it in Python (now):
   write the state machine and its persistence yourself.
 - The model provider's Python SDK and LangChain's tool-calling adapters are
   mature; Rust agent frameworks are young (check the current state of
-  [Rig](https://docs.rig.rs/) before choosing one, or call the provider's
+  [Rig](https://docs.rs/crate/rig-core/latest) before choosing one, or call the provider's
   HTTP API with `reqwest`).
 - The agent is the least performance-sensitive service: time is spent
   waiting on the model.
@@ -110,7 +110,7 @@ checkpointer tables hold paused graph state. Redis: per-user read cache
 | tool use | [Claude tool use overview](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview) | tool definitions with JSON Schema, `tool_use` and `tool_result` blocks, streaming |
 | LangGraph | [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) | what the Python service relies on: nodes, interrupts, checkpointers; the parts a Rust runtime must replace |
 | prompt injection | [Prompt injection (Simon Willison)](https://simonwillison.net/2022/Sep/12/prompt-injection/) | why retrieved text is wrapped as data with a per-run nonce, and why the confirmation gate is the real defence |
-| Rust agents | [Rig](https://docs.rig.rs/) | a Rust toolkit for LLM agents, useful as a reference even if you write your own loop |
+| Rust agents | [Rig](https://docs.rs/crate/rig-core/latest) | a Rust toolkit for LLM agents, useful as a reference even if you write your own loop |
 | descriptors to schemas | [prost-reflect](https://docs.rs/prost-reflect/latest/prost_reflect/) | walking request message descriptors to build JSON Schemas and parsing arguments back as `DynamicMessage` |
 | cancellation | [CancellationToken](https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html), [Tokio graceful shutdown](https://tokio.rs/tokio/topics/shutdown) | `CancelRun` cancels the run's task, which cancels the in-flight gRPC call |
 | HTTP client | [reqwest](https://docs.rs/reqwest/latest/reqwest/) | streaming server-sent events from the model API |

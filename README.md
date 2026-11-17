@@ -61,6 +61,9 @@ docs/            architecture, decisions, specs, guides
 - [Running natively](docs/local-native.md): `make up-native`, ports, the e2e
   suite, integration tests without Docker, troubleshooting
 - [Porting guide](docs/porting-to-rust.md)
+- [Porting to Rust, step by step](docs/porting/README.md): the dependency graph,
+  the order, a `PORTING.md` per library, platform, generated code and service,
+  vertical slices, and how to run Go and Rust side by side
 - [Rust design doc](docs/design/index.html): the original plan for the Rust version
   (workspace layout, document engine, labs, phases); open it in a browser.
   [skein-rust-design.html](docs/design/skein-rust-design.html) is the later revision
