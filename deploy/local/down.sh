@@ -27,6 +27,7 @@ for name in "${SUPPORT_PROCESSES[@]}"; do
 done
 stop_pg dev
 stop_pg prod
+rm -f "$BIN_OVERRIDES_FILE" "$RUN_DIR/events-backend"
 [ "$(current_mode)" = docker ] || rm -f "$MODE_FILE"
 
 wipe_mode() {
@@ -45,6 +46,6 @@ if [ -n "$wipe" ]; then
     all) wipe_mode dev; wipe_mode prod ;;
     *) wipe_mode "$wipe" ;;
   esac
-  rm -rf "$LOG_DIR"
+  rm -rf "$LOG_DIR" "$RUN_DIR/logs.previous"
   log "wiped logs (binaries and virtualenvs kept)"
 fi

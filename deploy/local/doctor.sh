@@ -108,7 +108,13 @@ if [ "$(id -u)" = 0 ]; then
   fi
 fi
 
-section "Events: the Pub/Sub emulator (gcloud, its component, Java)"
+section "Events backend (the Pub/Sub emulator: gcloud, its component, Java; or Redis)"
+redis_missing="$(redis_events_missing)"
+if [ -z "$redis_missing" ]; then
+  ok "Redis events backend" "every service supports EVENTS_BACKEND=redis"
+else
+  ok "Redis events backend" "not in this checkout yet (missing in: $redis_missing); the emulator is needed"
+fi
 if pubsub_emulator_installed; then
   ok "Pub/Sub emulator" "$(gcloud --version 2>/dev/null | head -n 1); $(java -version 2>&1 | grep -m1 version)"
 else
@@ -117,10 +123,10 @@ else
   have java || reason="$reason java"
   if have gcloud && have java; then reason="$reason the pubsub-emulator component"; fi
   how="gcloud components install beta pubsub-emulator (Google Cloud CLI: https://cloud.google.com/sdk/docs/install) and a Java 17+ runtime"
-  if redis_events_supported; then
+  if [ -z "$redis_missing" ]; then
     warn "Pub/Sub emulator" "$reason; just dev uses EVENTS_BACKEND=redis instead" "$how"
   else
-    fail "Pub/Sub emulator" "$reason, and this checkout has no Redis events backend yet" "$how; or use the Docker stack (just dev docker)"
+    fail "Pub/Sub emulator" "$reason, and the Redis events backend is not in this checkout yet" "$how; or use the Docker stack (just dev docker)"
   fi
 fi
 

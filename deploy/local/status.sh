@@ -26,10 +26,13 @@ probe() {
     if [ "$pid" != - ]; then row "$name" down "$pid" "process exited (just logs $name)"; healthy=1; fi
     return 0
   fi
+  local override url_note="$url"
+  override="$(sed -n "s|^$name=||p" "$BIN_OVERRIDES_FILE" 2>/dev/null || true)"
+  if [ -n "$override" ]; then url_note="$url  (runs $override)"; fi
   if [ -z "$url" ] || curl -sf -o /dev/null --max-time 2 "$url"; then
-    row "$name" ready "$pid" "${url:-tcp}"
+    row "$name" ready "$pid" "${url_note:-tcp}"
   else
-    row "$name" unready "$pid" "$url"
+    row "$name" unready "$pid" "$url_note"
     healthy=1
   fi
 }
@@ -44,7 +47,7 @@ probe otelcol "http://127.0.0.1:$SKEIN_NATIVE_OTELCOL_METRICS/metrics"
 for svc in "${SERVICES[@]}"; do probe "$svc" "$(readyz_url "$svc")"; done
 probe web "http://127.0.0.1:$SKEIN_NATIVE_WEB_PORT/"
 
-if [ -s "$RUN_DIR/seed.stamp" ]; then
+if [ "$mode" = dev ] && [ -s "$RUN_DIR/seed.stamp" ]; then
   echo "seed:    $(cut -d' ' -f1 "$RUN_DIR/seed.stamp" | paste -sd' ') (dev data)"
 fi
 if [ "$mode" = none ] && ! any_running; then

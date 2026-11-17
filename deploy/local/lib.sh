@@ -21,11 +21,18 @@ RUN_DIR="$LOCAL_DIR/.run"
 PID_DIR="$RUN_DIR/pids"
 LOG_DIR="$RUN_DIR/logs"
 MODE_FILE="$RUN_DIR/mode"
+# Per-service binary overrides of the running stack (SERVICE=PATH lines,
+# from SKEIN_BIN_<SERVICE>; stack.sh), so just restart and just status use
+# the binary the stack was started with. down.sh removes it, so a fresh
+# start reads only the environment.
+# shellcheck disable=SC2034 # used by the scripts that source this file
+BIN_OVERRIDES_FILE="$RUN_DIR/bin-overrides"
 
 # The seven services in dependency order (identity first: keys and
-# Authorize; the gateway last). Stopping goes in reverse.
+# Authorize; ml before search, which asks it for semantic path weights; the
+# gateway last). Stopping goes in reverse.
 # shellcheck disable=SC2034 # these are used by the scripts that source this file
-SERVICES=(identity documents search notifications ml agent gateway)
+SERVICES=(identity documents ml search notifications agent gateway)
 # shellcheck disable=SC2034
 GO_SERVICES=(identity documents search notifications gateway)
 # Go services with a seed loader (cmd/<name>-seed).
@@ -107,32 +114,49 @@ pubsub_emulator_installed() {
   [ -n "$sdk_root" ] && [ -d "$sdk_root/platform/pubsub-emulator" ]
 }
 
-# redis_events_supported: this checkout's platform/events has the Redis
-# backend that services select with EVENTS_BACKEND=redis (phase3/local-first).
-redis_events_supported() {
-  grep -rqs --include='*.go' 'EVENTS_BACKEND' "$REPO_ROOT/platform/events"
+# redis_events_missing prints, space-separated, the services in this
+# checkout that cannot run with EVENTS_BACKEND=redis yet: a Go service
+# supports it once its main loads events.LoadConfig (platform/events reads
+# the variable there), ml once its config reads EVENTS_BACKEND. The agent
+# neither publishes nor consumes events. Empty output means every service
+# is ready (phase3/local-first, docs/local-first.md).
+redis_events_missing() {
+  local -a missing=()
+  local svc
+  grep -qs 'EVENTS_BACKEND' "$REPO_ROOT/platform/events/"*.go || missing+=(platform/events)
+  for svc in "${GO_SERVICES[@]}"; do
+    grep -rqs --include='*.go' 'events.LoadConfig' "$REPO_ROOT/services/$svc/cmd/$svc" || missing+=("$svc")
+  done
+  grep -rqs 'EVENTS_BACKEND' "$REPO_ROOT/services/ml/src" || missing+=(ml)
+  printf '%s' "${missing[*]}"
 }
 
+redis_events_supported() { [ -z "$(redis_events_missing)" ]; }
+
 # events_backend prints the backend every service uses: SKEIN_EVENTS_BACKEND
-# if set, else pubsub when the emulator is installed, else redis when the
-# services support it. It fails with instructions when neither works.
+# if set, else pubsub when the emulator is installed, else redis when every
+# service supports it. It stops with instructions instead of starting a
+# stack whose events would go nowhere.
 events_backend() {
-  local chosen="${SKEIN_EVENTS_BACKEND:-}"
+  local chosen="${SKEIN_EVENTS_BACKEND:-}" missing
+  missing="$(redis_events_missing)"
   if [ -z "$chosen" ]; then
     if pubsub_emulator_installed; then chosen=pubsub
-    elif redis_events_supported; then chosen=redis
+    elif [ -z "$missing" ]; then chosen=redis
     else
-      die "the Pub/Sub emulator is not installed and this checkout has no Redis events backend yet.
-  Install the emulator: gcloud components install beta pubsub-emulator (and a Java 17+ runtime),
-  or use the Docker stack: just dev docker.
-  The Redis backend (EVENTS_BACKEND=redis) arrives with the local-first change (docs/local-first.md)."
+      die "the Pub/Sub emulator is not installed, and the Redis events backend is not in this checkout yet
+  (EVENTS_BACKEND=redis is not supported by: $missing).
+  Either install the emulator: gcloud components install beta pubsub-emulator, plus a Java 17+ runtime,
+  or run the Docker stack: just dev docker.
+  The Redis backend arrives with the local-first change (docs/local-first.md); after it merges, just dev uses it on its own."
     fi
   fi
   case "$chosen" in
     pubsub) pubsub_emulator_installed || die "SKEIN_EVENTS_BACKEND=pubsub, but the Pub/Sub emulator is not installed (just doctor)" ;;
-    redis) redis_events_supported || die "SKEIN_EVENTS_BACKEND=redis, but this checkout's platform/events has no Redis backend yet" ;;
-    memory) ;;
-    *) die "SKEIN_EVENTS_BACKEND must be pubsub, redis or memory, not $chosen" ;;
+    redis) [ -z "$missing" ] || die "SKEIN_EVENTS_BACKEND=redis, but these services do not support EVENTS_BACKEND=redis yet: $missing" ;;
+    memory) die "SKEIN_EVENTS_BACKEND=memory gives every process its own in-process bus, so no event would cross services
+  (search would never index, notifications never send). It is for tests and a service run alone; use pubsub or redis for the stack." ;;
+    *) die "SKEIN_EVENTS_BACKEND must be pubsub or redis, not $chosen" ;;
   esac
   printf '%s' "$chosen"
 }

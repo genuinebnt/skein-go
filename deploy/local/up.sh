@@ -15,6 +15,11 @@
 #   --seed       the dataset to load in dev (default small)
 #   --web        also start the web app in live mode against the gateway
 #
+# SKEIN_BIN_<SERVICE>=PATH runs PATH instead of that service's own build
+# (for example a Rust port: SKEIN_BIN_SEARCH=../skein-rs/target/release/search),
+# with the same environment, ports and readiness check; relative paths are
+# relative to the repository root. docs/porting/README.md shows the loop.
+#
 # Running it again is safe: what is already running is left alone, and each
 # dataset is loaded once. Starting a different mode than the one running
 # stops the running one first (both use the same ports; their data is kept
@@ -46,20 +51,29 @@ running_mode="$(current_mode)"
 if [ "$running_mode" = docker ]; then
   die "the Docker stack is recorded as running (just dev docker); stop it with just stop first"
 fi
-if [ "$running_mode" != "$MODE" ] && [ "$running_mode" != none ] && any_running; then
-  log "the $running_mode stack is running; stopping it before starting $MODE (its data is kept)"
-  "$LOCAL_DIR/down.sh"
-fi
-set_mode "$MODE"
 
+# Every refusal comes before anything is stopped or started.
 EVENTS_BACKEND="$(events_backend)"
-echo "$EVENTS_BACKEND" >"$EVENTS_BACKEND_FILE"
-[ "$EVENTS_BACKEND" = pubsub ] || log "events backend: $EVENTS_BACKEND (EVENTS_BACKEND=$EVENTS_BACKEND for every service)"
-
 if [ "$MODE" = prod ]; then
   [ "$with_web" = 0 ] || die "--web is for dev; the web app's dev server is not a production setting"
   check_prod_settings
 fi
+
+if [ "$running_mode" != "$MODE" ] && [ "$running_mode" != none ] && any_running; then
+  log "the $running_mode stack is running; stopping it before starting $MODE (its data is kept)"
+  "$LOCAL_DIR/down.sh"
+fi
+# A fresh start gets fresh logs, so the prod-local checks (and anyone
+# reading them) see only this run; the previous run's stay in logs.previous.
+if ! any_running; then
+  rm -rf "$RUN_DIR/logs.previous" "$BIN_OVERRIDES_FILE"
+  if [ -d "$LOG_DIR" ]; then mv "$LOG_DIR" "$RUN_DIR/logs.previous"; fi
+  mkdir -p "$LOG_DIR"
+fi
+set_mode "$MODE"
+record_binary_overrides "${SERVICES[@]}"
+echo "$EVENTS_BACKEND" >"$EVENTS_BACKEND_FILE"
+[ "$EVENTS_BACKEND" = pubsub ] || log "events backend: $EVENTS_BACKEND (EVENTS_BACKEND=$EVENTS_BACKEND for every service)"
 
 build_go "${GO_SERVICES[@]}"
 build_python ml agent

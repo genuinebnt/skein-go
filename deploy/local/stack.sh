@@ -66,18 +66,21 @@ require_native_tools() {
 # MODE's bin directory. Dev also builds their seed loaders; prod builds
 # release binaries the way the Dockerfiles do and no loaders.
 build_go() {
-  local -a wanted=("$@") pkgs=() flags=()
-  [ ${#wanted[@]} -gt 0 ] || wanted=("${GO_SERVICES[@]}")
+  local -a requested=("$@") wanted=() pkgs=() flags=()
+  [ ${#requested[@]} -gt 0 ] || requested=("${GO_SERVICES[@]}")
   local name
-  for name in "${wanted[@]}"; do
-    pkgs+=("./services/$name/cmd/$name")
+  for name in "${requested[@]}"; do
+    # An overridden service runs another binary, but its Go seed loader
+    # still fills the schema both implementations share.
+    [ -n "$(binary_override "$name")" ] || { wanted+=("$name"); pkgs+=("./services/$name/cmd/$name"); }
     if [ "$MODE" = dev ] && [ -d "$REPO_ROOT/services/$name/cmd/$name-seed" ]; then
       pkgs+=("./services/$name/cmd/$name-seed")
     fi
   done
+  [ ${#pkgs[@]} -gt 0 ] || return 0
   [ "$MODE" = prod ] && flags=(-trimpath -ldflags=-s\ -w)
   mkdir -p "$(bin_dir "$MODE")"
-  log "building ${wanted[*]} ($MODE) into $(bin_dir "$MODE")"
+  log "building ${wanted[*]:-seed loaders} ($MODE) into $(bin_dir "$MODE")"
   (
     cd "$REPO_ROOT"
     [ "$MODE" = prod ] && export CGO_ENABLED=0
@@ -120,6 +123,7 @@ build_python() {
   python="$(command -v python3)"
   mkdir -p "$LOG_DIR"
   for svc in "${wanted[@]}"; do
+    [ -z "$(binary_override "$svc")" ] || continue
     venv="$(python_env "$MODE" "$svc")"
     stamp="$(python_stamp "$svc")"
     [ "$(cat "$venv/.skein-stamp" 2>/dev/null)" = "$stamp" ] && continue
@@ -280,10 +284,16 @@ otel_env() {
 }
 
 # events_env: the backend choice (the contract with platform/events), plus
-# the emulator address when it is Pub/Sub.
+# where it lives. Every service's REDIS_URL names its own cache database,
+# so the event streams get one explicit, shared URL (database 0, the
+# backend's EVENTS_REDIS_DB default) rather than each falling back to its
+# own REDIS_URL.
 events_env() {
   printf '%s\n' "EVENTS_BACKEND=$EVENTS_BACKEND"
-  [ "$EVENTS_BACKEND" = pubsub ] && printf '%s\n' "PUBSUB_EMULATOR_HOST=$PUBSUB_HOST"
+  case "$EVENTS_BACKEND" in
+    pubsub) printf '%s\n' "PUBSUB_EMULATOR_HOST=$PUBSUB_HOST" ;;
+    redis) printf '%s\n' "EVENTS_REDIS_URL=$REDIS_BASE/0" "EVENTS_REDIS_DB=0" ;;
+  esac
   return 0
 }
 
@@ -355,7 +365,7 @@ env_search() {
     "ADMIN_ADDR=127.0.0.1:$SKEIN_NATIVE_SEARCH_ADMIN" \
     "IDENTITY_ADDR=dns:///127.0.0.1:$SKEIN_NATIVE_IDENTITY_GRPC" \
     "IDENTITY_JWKS_URL=$JWKS_URL" \
-    "ML_ADDR=" \
+    "ML_ADDR=dns:///127.0.0.1:$SKEIN_NATIVE_ML_GRPC" \
     "OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
 }
 
@@ -459,8 +469,57 @@ env_gateway() {
   return 0
 }
 
-# service_command SERVICE: what to run, from MODE's builds.
+# --- binary overrides -------------------------------------------------------------
+
+# binary_override_var SERVICE: the variable that swaps SERVICE's binary,
+# for example SKEIN_BIN_SEARCH.
+binary_override_var() { printf 'SKEIN_BIN_%s' "$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"; }
+
+# binary_override SERVICE prints the program to run instead of SERVICE's
+# own build, or nothing: SKEIN_BIN_<SERVICE> when it is set (set and empty
+# means "back to the built-in one"), else what the running stack recorded.
+binary_override() {
+  local var
+  var="$(binary_override_var "$1")"
+  if [ -n "${!var+set}" ]; then
+    printf '%s' "${!var}"
+    return 0
+  fi
+  sed -n "s|^$1=||p" "$BIN_OVERRIDES_FILE" 2>/dev/null || true
+}
+
+# record_binary_overrides SERVICE...: resolve the named services' overrides
+# to absolute paths (relative ones are relative to the repository root,
+# where just runs recipes), check that each is executable, and record them
+# for the running stack. Services not named keep their recorded entry.
+record_binary_overrides() {
+  local svc path var
+  local -a lines=()
+  for svc in "${SERVICES[@]}"; do
+    path="$(binary_override "$svc")"
+    if printf '%s\n' "$@" | grep -qx "$svc" && [ -n "$path" ]; then
+      var="$(binary_override_var "$svc")"
+      path="$(cd "$REPO_ROOT" && realpath -e -- "$path" 2>/dev/null)" ||
+        die "$var: ${!var:-recorded path} does not exist"
+      [ -f "$path" ] && [ -x "$path" ] || die "$var: $path is not an executable file"
+    fi
+    [ -n "$path" ] && lines+=("$svc=$path")
+  done
+  mkdir -p "$RUN_DIR"
+  if [ ${#lines[@]} -gt 0 ]; then printf '%s\n' "${lines[@]}" >"$BIN_OVERRIDES_FILE"; else rm -f "$BIN_OVERRIDES_FILE"; fi
+}
+
+# service_command SERVICE: what to run: the override if there is one, else
+# MODE's build. An override gets exactly the environment the built-in
+# service would (env_SERVICE), which is the drop-in contract a port keeps
+# (docs/porting/README.md, "Running Go and Rust side by side").
 service_command() {
+  local override
+  override="$(binary_override "$1")"
+  if [ -n "$override" ]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
   case "$1" in
     ml) printf '%s\n' "$(python_env "$MODE" ml)/bin/skein-ml" ;;
     agent) printf '%s\n' "$(python_env "$MODE" agent)/bin/python" -m skein_agent ;;
@@ -484,6 +543,7 @@ start_service() {
   envs="$("env_$svc")"
   while IFS= read -r line; do cmd+=("$line"); done < <(service_command "$svc")
   [ "$svc" = agent ] && log "agent model backend: $(agent_model_backend)"
+  [ -n "$(binary_override "$svc")" ] && log "$svc runs $(binary_override "$svc") ($(binary_override_var "$svc"))"
   run_service "$svc" "$envs" "${cmd[@]}"
   wait_http "$svc" "$(readyz_url "$svc")"
 }
@@ -581,7 +641,7 @@ EOF
 check_prod_settings() {
   local -a problems=()
   local svc line name value var
-  for var in IDENTITY_FIXED_NOW SKEIN_NATIVE_GATEWAY_EXTRA_ENV SKEIN_SEED_PASSWORD SKEIN_NATIVE_RESEED SKEIN_NATIVE_SEED_DIR; do
+  for var in IDENTITY_FIXED_NOW SKEIN_NATIVE_GATEWAY_EXTRA_ENV SKEIN_SEED_PASSWORD SKEIN_NATIVE_RESEED; do
     [ -n "${!var:-}" ] && problems+=("$var is set in your shell; it is a dev-only knob")
   done
   for svc in "${SERVICES[@]}"; do
@@ -639,6 +699,9 @@ print_summary() {
     [ "$EVENTS_BACKEND" = pubsub ] && echo "  pubsub         PUBSUB_EMULATOR_HOST=$PUBSUB_HOST"
     if [ "$MODE" = prod ] && [ -z "${SKEIN_NATIVE_OTEL_ENDPOINT:-}" ]; then
       echo "  telemetry      OTLP 127.0.0.1:$SKEIN_NATIVE_OTLP_GRPC; service metrics http://127.0.0.1:$SKEIN_NATIVE_OTELCOL_PROMETHEUS/metrics"
+    fi
+    if [ -s "$BIN_OVERRIDES_FILE" ]; then
+      echo "  overrides      $(paste -sd' ' "$BIN_OVERRIDES_FILE")   (SKEIN_BIN_<SERVICE>)"
     fi
     echo "  logs           just logs [service]   ($LOG_DIR)"
     if [ "$MODE" = dev ] && [ -s "$SEED_STAMP" ]; then

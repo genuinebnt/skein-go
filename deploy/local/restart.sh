@@ -4,6 +4,11 @@
 #   deploy/local/restart.sh documents gateway
 # With no arguments it restarts all seven services. The running stack's mode
 # (dev or prod) decides how they are built and configured.
+#
+# A service started with a binary override keeps it. To swap one in or out
+# of a running stack, set the variable for the restart:
+#   SKEIN_BIN_SEARCH=../skein-rs/target/release/search just restart search
+#   SKEIN_BIN_SEARCH= just restart search       # back to the Go build
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/stack.sh"
 use_pinned_tools
@@ -28,6 +33,7 @@ for name in "${services[@]}"; do
   esac
 done
 
+record_binary_overrides "${services[@]}"
 # Build first, so a compile error leaves the old process serving.
 [ ${#go_targets[@]} -eq 0 ] || build_go "${go_targets[@]}"
 [ ${#python_targets[@]} -eq 0 ] || build_python "${python_targets[@]}"
