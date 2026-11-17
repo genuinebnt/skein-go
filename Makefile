@@ -176,11 +176,24 @@ web-build: ## Build the web app for live mode into web/dist, with the WebAssembl
 # Native stack (deploy/local, docs/local-native.md): the same services and
 # infrastructure as `make up-app`, as plain processes on high ports, for
 # machines without Docker. WIPE=1 on down-native also deletes the data.
+# `just` (justfile, docs/dev-workflow.md) is the front door; these targets
+# call the same scripts.
+.PHONY: setup doctor prod-local
+
+setup: ## Install the pinned tools (mise.toml), web and Python dependencies, then run doctor
+	deploy/local/setup.sh
+
+doctor: ## Check tools, versions, the Pub/Sub emulator, Postgres, Redis, Docker and ports
+	deploy/local/doctor.sh
+
 up-native: ## Start Postgres, Redis, Pub/Sub, Mailpit and the seven services natively, then load the small seed
 	deploy/local/up.sh
 
-down-native: ## Stop everything up-native started (WIPE=1 also deletes its data)
+down-native: ## Stop everything up-native or prod-local started (WIPE=1 also deletes the data)
 	deploy/local/down.sh $(if $(filter 1,$(WIPE)),--wipe)
+
+prod-local: ## Run the native stack with production settings and check them
+	deploy/local/prod-local.sh
 
 integration-native: ## Run every integration test against a running up-native stack
 	deploy/local/integration.sh

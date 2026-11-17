@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Runs every integration test (Go: build tag integration; Python: pytest
 # marker integration) against the infrastructure of a running native stack
-# (make up-native) instead of testcontainers, and prints pass, fail and
-# skip counts per module (make integration-native).
+# (just dev, make up-native) instead of testcontainers, and prints pass,
+# fail and skip counts per module (just test-integration, make
+# integration-native).
 #
 # Isolation: each Go test gets its own fresh database
 # (platform/postgres/pgtest), Redis keys get a per-run prefix, Pub/Sub
@@ -13,7 +14,7 @@
 # counts are integration tests, not the unit tests beside them.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-[ -f "$HOME/.skein-env" ] && . "$HOME/.skein-env"
+use_pinned_tools
 
 PG_ADMIN="postgres://skein@127.0.0.1:$SKEIN_NATIVE_PG_PORT/postgres?sslmode=disable"
 export SKEIN_TEST_POSTGRES_DSN="$PG_ADMIN"
@@ -21,7 +22,7 @@ export SKEIN_TEST_REDIS_URL="redis://127.0.0.1:$SKEIN_NATIVE_REDIS_PORT/15"
 export SKEIN_TEST_PUBSUB_EMULATOR_HOST="127.0.0.1:$SKEIN_NATIVE_PUBSUB_PORT"
 export OTEL_SDK_DISABLED=true
 
-port_free "$SKEIN_NATIVE_PG_PORT" && die "PostgreSQL is not running on $SKEIN_NATIVE_PG_PORT; run make up-native"
+port_free "$SKEIN_NATIVE_PG_PORT" && die "PostgreSQL is not running on $SKEIN_NATIVE_PG_PORT; start the stack with just dev"
 
 REPORT="$RUN_DIR/integration-report.txt"
 : >"$REPORT"
@@ -52,9 +53,12 @@ run_go_module() {
   local module="$1" files names pkgs line
   files=$(cd "$REPO_ROOT/$module" && grep -rl --include='*_test.go' '^//go:build integration' . || true)
   [ -n "$files" ] || return 0
+  # $files and $pkgs are space-separated lists on purpose.
+  # shellcheck disable=SC2086
   names=$(cd "$REPO_ROOT/$module" && grep -ho '^func \(Test[A-Za-z0-9_]*\)' $files | sed 's/^func //' | sort -u | paste -sd'|')
   pkgs=$(for f in $files; do dirname "$f"; done | sort -u | tr '\n' ' ')
   log "integration: $module ($pkgs)"
+  # shellcheck disable=SC2086
   line=$(cd "$REPO_ROOT/$module" && go test -tags integration -count=1 -timeout 20m -json -run "^($names)\$" $pkgs 2>"$LOG_DIR/integration-${module//\//-}.err" |
     tee "$LOG_DIR/integration-${module//\//-}.json" | count_go "$names") || true
   read -r pass fail skip <<<"$line"
@@ -82,7 +86,7 @@ run_pytest() {
   log "integration: services/$service (pytest -m integration)"
   (cd "$REPO_ROOT/services/$service" &&
     env "$var=postgresql://skein@127.0.0.1:$SKEIN_NATIVE_PG_PORT/$db" \
-      "$VENV_DIR/$service/bin/python" -m pytest -q -m integration -p no:cacheprovider --junitxml="$xml" \
+      "$(python_env dev "$service")/bin/python" -m pytest -q -m integration -p no:cacheprovider --junitxml="$xml" \
       >"$LOG_DIR/integration-$service.log" 2>&1) || status=1
   drop_db "$db"
   python3 -c '

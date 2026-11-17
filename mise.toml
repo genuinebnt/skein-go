@@ -1,0 +1,36 @@
+# Pinned developer tools for Skein (https://mise.jdx.dev). `just setup` runs
+# `mise install`; with mise activated in your shell these versions are on
+# PATH inside the checkout, and deploy/local/*.sh load them even when it is
+# not (deploy/local/lib.sh, use_pinned_tools).
+#
+# Keep in step with the other places that pin the same tools:
+#   - go: the `go` lines of every go.mod (1.24) and CI's setup-go.
+#   - buf and the protoc plugins: PROTOC_GEN_*_VERSION in the Makefile, the
+#     header of buf.gen.yaml and CI. Generated code is committed and CI fails
+#     on any diff, so these must match exactly.
+#   - pnpm: "packageManager" in web/package.json; node: its "engines".
+#   - grpcio-tools is a Python package, pinned in scripts/gen-python.sh and
+#     installed into the repository's tools venv (.venv) by `just setup`.
+#   - ruff and pytest come from each Python service's own dev extras, in its
+#     own venv (services/<name>/.venv), not from here.
+#
+# Not managed by mise, because they are system services or large SDKs; `just
+# doctor` checks them and says how to install them: PostgreSQL 16 server
+# binaries, redis-server 7, the Google Cloud CLI with the Pub/Sub emulator
+# and a Java runtime, curl, and (only for `just dev docker`) Docker.
+
+[tools]
+go = "1.24.7"
+python = "3.13.18"
+node = "22.23.4"
+pnpm = "10.28.0"
+uv = "0.11.32"
+just = "1.59.0"
+buf = "1.47.2"
+# Lints deploy/local/*.sh and the other shell scripts (just lint).
+shellcheck = "0.11.0"
+"go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.35.2"
+"go:google.golang.org/grpc/cmd/protoc-gen-go-grpc" = "1.5.1"
+"go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway" = "2.24.0"
+"go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2" = "2.24.0"
+

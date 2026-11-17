@@ -108,10 +108,11 @@ func TestTwoEditorsConvergeThroughConcurrentTypingAndAnOfflineSpell(t *testing.T
 	})
 }
 
-// Lowering a member to viewer is a revocation (access went down): their
-// open socket is closed with 4403 (docs/api/websocket.md). They can still
-// read, so they reconnect; an edit they send then comes back as a rejected
-// frame, is never applied, and they keep receiving everyone else's edits.
+// Lowering a member to viewer keeps their open socket: they can still read,
+// so the gateway re-checks access on AccessChanged and leaves it open
+// read-only (docs/api/websocket.md). An edit they send on it comes back as a
+// rejected frame, is never applied, and they keep receiving everyone else's
+// edits.
 func TestAViewersEditIsRejectedAndNeverApplied(t *testing.T) {
 	t.Parallel()
 	owner, viewer := signUp(t, "owner"), signUp(t, "viewer")
@@ -124,28 +125,19 @@ func TestAViewersEditIsRejectedAndNeverApplied(t *testing.T) {
 
 	owner.call(http.MethodPut, "/v1/notes/"+note.GetId()+"/roles/"+viewer.id,
 		&skeinv1.SetNoteRoleRequest{Role: skeinv1.NoteRole_NOTE_ROLE_VIEWER}, nil)
-	if code, reason := v.waitClosed(longWait); code != 4403 {
-		t.Fatalf("demotion closed the socket with %d %q, want 4403", code, reason)
-	}
 
-	// documents drops its cached grant on the same event the gateway acted
-	// on, so retry with fresh text until the edit is refused.
+	// The demotion reaches documents through an event, so until its cached
+	// grant is dropped an edit may still be accepted; retry with fresh text
+	// on the same socket until one is refused.
 	attempt := 0
 	eventually(t, longWait, "the viewer's edit is rejected", func() (bool, string) {
 		attempt++
-		if err := v.connect(); err != nil {
-			return false, err.Error()
-		}
 		v.appendText(fmt.Sprintf(" viewer-edit-%d", attempt))
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) && len(v.rejections()) == 0 {
 			time.Sleep(50 * time.Millisecond)
 		}
-		if len(v.rejections()) > 0 {
-			return true, ""
-		}
-		v.disconnect()
-		return false, "edit accepted while the old grant was still cached"
+		return len(v.rejections()) > 0, "edit accepted while the old grant was still cached"
 	})
 	rejected := v.rejections()[0]
 	if len(rejected.GetOps()) == 0 || !strings.Contains(rejected.GetReason(), "role") {

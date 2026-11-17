@@ -1,0 +1,59 @@
+# OpenTelemetry Collector for the native production-like stack (just
+# prod-local; started by deploy/local/up.sh in prod mode). It stands in for
+# the compose collector (deploy/observability/otel-collector.yaml) where
+# there is no Docker: every service exports OTLP here, so prod-local runs
+# with telemetry on, exactly as production does.
+#
+# Nothing is stored. Traces and logs are only counted: the debug exporter at
+# `basic` verbosity prints one summary line per batch, never attributes or
+# bodies, so no note contents or identifiers reach the collector's log.
+# Metrics are re-exported in Prometheus format, with each service's resource
+# (service.name) in the job label, which is what
+# deploy/local/prod-check.sh uses to prove that every service exports. The
+# collector's own counters (otelcol_receiver_accepted_spans and friends)
+# show how much arrived.
+#
+# To see the data in Jaeger and Grafana instead, run the compose
+# observability stack and point the services at it with
+# SKEIN_NATIVE_OTEL_ENDPOINT=http://127.0.0.1:4317 just prod-local.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:${env:SKEIN_NATIVE_OTLP_GRPC}
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: basic
+  prometheus:
+    endpoint: 127.0.0.1:${env:SKEIN_NATIVE_OTELCOL_PROMETHEUS}
+
+service:
+  telemetry:
+    logs:
+      encoding: json
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 127.0.0.1
+                port: ${env:SKEIN_NATIVE_OTELCOL_METRICS}
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
