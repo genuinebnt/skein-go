@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -52,6 +53,19 @@ func TestContractRedisOnMiniredis(t *testing.T) {
 		minBackoff: 10 * time.Millisecond, maxBackoff: 20 * time.Millisecond,
 		open: func(t *testing.T, topo Topology) Bus { return openRedisBus(t, client, topo, "contract") },
 	})
+}
+
+// holdsALease reports whether any partition lease of the subscription is
+// held by a consumer whose name starts with prefix.
+func holdsALease(t *testing.T, client *redis.Client, sub, prefix string) bool {
+	t.Helper()
+	for p := range RedisPartitions {
+		token, err := client.Get(context.Background(), redisLeaseKey(sub, p)).Result()
+		if err == nil && strings.HasPrefix(token, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func shortTopology(attempts int, minBackoff time.Duration, ackDeadline time.Duration) Topology {
@@ -278,6 +292,13 @@ func TestRedisConsumersSharePartitionsAndKeepPerKeyOrder(t *testing.T) {
 	publish(150)
 	waitFor(t, "some progress", func() bool { return total() > 20 })
 	stopSecond := subscribeFor(t, second, "s", handler("second"))
+	// Rebalancing takes a few balance ticks (the first consumer must notice
+	// the newcomer and release, then the second must acquire); without this
+	// wait the second batch can drain before the second consumer holds a
+	// partition, and the test would not exercise sharing at all.
+	waitFor(t, "the second consumer to hold a partition", func() bool {
+		return holdsALease(t, client, "s", "second/")
+	})
 	publish(150)
 	waitFor(t, "every message acked", func() bool { return total() == 300 })
 	stopFirst()
@@ -350,9 +371,20 @@ type redisConformance struct {
 		ID          string `json:"id"`
 		Partition   int    `json:"partition"`
 	} `json:"cases"`
+	Entry struct {
+		Envelope struct {
+			ID          string            `json:"id"`
+			Source      string            `json:"source"`
+			OrderingKey string            `json:"ordering_key"`
+			Traceparent string            `json:"traceparent"`
+			Attributes  map[string]string `json:"attributes"`
+			Payload     string            `json:"payload_utf8"`
+		} `json:"envelope"`
+		Fields [][2]string `json:"fields"`
+	} `json:"entry"`
 }
 
-func TestRedisPartitionMatchesTheConformanceFixture(t *testing.T) {
+func TestRedisWireFormatMatchesTheConformanceFixture(t *testing.T) {
 	raw, err := os.ReadFile("../../testdata/conformance/events/redis-wire.json")
 	if err != nil {
 		t.Fatal(err)
@@ -368,6 +400,16 @@ func TestRedisPartitionMatchesTheConformanceFixture(t *testing.T) {
 		if got := RedisPartition(c.OrderingKey, c.ID); got != c.Partition {
 			t.Errorf("partition(%q, %q) = %d, fixture says %d", c.OrderingKey, c.ID, got, c.Partition)
 		}
+	}
+	in := fx.Entry.Envelope
+	fields := toRedisFields(Envelope{ID: in.ID, Source: in.Source, OrderingKey: in.OrderingKey, Traceparent: in.Traceparent,
+		Attributes: in.Attributes, Payload: []byte(in.Payload)})
+	var got [][2]string
+	for i := 0; i < len(fields); i += 2 {
+		got = append(got, [2]string{fields[i].(string), fields[i+1].(string)})
+	}
+	if !slices.Equal(got, fx.Entry.Fields) {
+		t.Errorf("entry fields %v, fixture says %v", got, fx.Entry.Fields)
 	}
 }
 

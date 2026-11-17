@@ -617,12 +617,23 @@ func (w *redisWorker) deliver(ctx context.Context, e redis.XMessage, st *passSta
 		return w.finish(ctx, e.ID)
 	default:
 		at := r.cfg.Now().Add(spec.Backoff(int(attempt)))
-		if err := r.client.HSet(ctx, redisRetryKey(spec.Name, w.partition), e.ID, at.UnixMilli()).Err(); err != nil {
+		// Rounded up to the next millisecond: the retry check compares
+		// against the current time in whole milliseconds, so a truncated
+		// deadline would let the redelivery run up to 1 ms early.
+		if err := r.client.HSet(ctx, redisRetryKey(spec.Name, w.partition), e.ID, ceilUnixMilli(at)).Err(); err != nil {
 			return err
 		}
 		w.holdBack(key, at, st)
 		return nil
 	}
+}
+
+func ceilUnixMilli(t time.Time) int64 {
+	ms := t.UnixMilli()
+	if time.UnixMilli(ms).Before(t) {
+		ms++
+	}
+	return ms
 }
 
 func (w *redisWorker) holdBack(key string, until time.Time, st *passState) {
