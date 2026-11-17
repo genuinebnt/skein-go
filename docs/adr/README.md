@@ -21,3 +21,8 @@ records are kept and marked superseded, never rewritten.
 | [0013](0013-testing-and-isolation.md) | Testing strategy and isolation | Accepted |
 | [0014](0014-deployment.md) | Compose, kind, GKE with Terraform; no Ansible | Accepted |
 | [0015](0015-ml-and-agent-in-python.md) | ML and the agent in Python services | Accepted |
+| [0016](0016-event-store.md) | Postgres event logs as the event store; Pub/Sub stays the broker | Accepted |
+| [0017](0017-gcp-service-map-and-iam.md) | GCP service map and IAM | Accepted |
+| [0018](0018-compute-gke-cloud-run-functions.md) | Compute: GKE, Cloud Run and Cloud Run functions | Accepted |
+| [0019](0019-cloud-storage-and-firestore.md) | Cloud Storage and Firestore | Accepted |
+| [0020](0020-free-trial-profile.md) | A deployment profile that fits the Google Cloud free trial | Accepted |
