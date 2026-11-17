@@ -1,2 +1,3 @@
-# Runtime state of make up-native: data, logs, pids, binaries, virtualenvs.
+# Runtime state of the native stack (just dev, just prod-local, make up-native):
+# data, logs, pids, binaries, prod virtualenvs, generated local secrets.
 /.run/

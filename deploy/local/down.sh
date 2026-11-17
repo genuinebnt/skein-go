@@ -1,22 +1,50 @@
 #!/usr/bin/env bash
-# Stops everything make up-native started, services first (in reverse
-# dependency order, so each drains while its dependencies are still up),
-# then infrastructure. Data stays in deploy/local/.run; pass --wipe (make
-# down-native WIPE=1) to delete it as well.
+# Stops everything the native stack started (just stop, make down-native):
+# the services first, in reverse dependency order so each drains while its
+# dependencies are still up, then the web app, the collector and the
+# infrastructure, including either mode's PostgreSQL cluster.
+#
+#   down.sh                  stop, keep the data
+#   down.sh --wipe [MODE]    stop and delete MODE's data and the logs
+#                            (MODE: dev, prod or all, the default);
+#                            binaries and virtualenvs are kept
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-for name in gateway agent ml notifications search documents identity mailpit pubsub redis; do
+wipe=""
+case "${1:-}" in
+  "") ;;
+  --wipe) wipe="${2:-all}" ;;
+  *) die "usage: down.sh [--wipe [dev|prod|all]]" ;;
+esac
+case "$wipe" in ""|dev|prod|all) ;; *) die "--wipe takes dev, prod or all" ;; esac
+
+for ((i = ${#SERVICES[@]} - 1; i >= 0; i--)); do
+  stop "${SERVICES[$i]}"
+done
+for name in "${SUPPORT_PROCESSES[@]}"; do
   stop "$name"
 done
+stop_pg dev
+stop_pg prod
+[ "$(current_mode)" = docker ] || rm -f "$MODE_FILE"
 
-if [ -f "$RUN_DIR/pgdata/PG_VERSION" ] &&
-  as_postgres "$(pg_bin pg_ctl)" -D "$RUN_DIR/pgdata" status >/dev/null 2>&1; then
-  as_postgres "$(pg_bin pg_ctl)" -D "$RUN_DIR/pgdata" -m fast -w stop >/dev/null
-  log "stopped postgres"
-fi
-
-if [ "${1:-}" = "--wipe" ]; then
-  rm -rf "$RUN_DIR/pgdata" "$RUN_DIR/pubsub" "$RUN_DIR/logs" "$RUN_DIR/seed.stamp"
-  log "wiped data and logs (binaries and virtualenvs kept)"
+wipe_mode() {
+  local dir
+  dir="$(mode_dir "$1")"
+  rm -rf "$dir/pgdata" "$dir/pubsub"
+  if [ "$1" = dev ]; then
+    rm -f "$RUN_DIR/seed.stamp" "$RUN_DIR/seed-password"
+  else
+    rm -f "$dir/identity-signing-keys"
+  fi
+  log "wiped $1 data"
+}
+if [ -n "$wipe" ]; then
+  case "$wipe" in
+    all) wipe_mode dev; wipe_mode prod ;;
+    *) wipe_mode "$wipe" ;;
+  esac
+  rm -rf "$LOG_DIR"
+  log "wiped logs (binaries and virtualenvs kept)"
 fi
