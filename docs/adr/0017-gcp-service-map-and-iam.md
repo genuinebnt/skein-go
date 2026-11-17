@@ -51,9 +51,11 @@ Date: 2026-11-17. Status: accepted. Extends [0014](0014-deployment.md).
   Federation (OIDC, no keys), limited to the `main` branch and release tags.
   Engineers get read-only roles by default and elevate through time-bound
   grants. Terraform owns every IAM binding; nothing is granted by hand.
-- **Guardrails:** organisation policies forbid service account keys, public
-  buckets and external IPs on databases; VPC Service Controls around
-  Pub/Sub, Cloud SQL, Storage and Firestore once the perimeter is stable.
+- **Guardrails (optional learning exercises, ADR-0021):** organisation
+  policies forbidding service account keys, public buckets and external IPs
+  on databases; VPC Service Controls around Pub/Sub, Cloud SQL, Storage and
+  Firestore. Skein is a learning project, so these are documented and
+  available, not required.
 
 ## Consequences
 - Every new topic, bucket, secret or function needs its IAM binding in
