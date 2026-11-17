@@ -66,8 +66,8 @@ func AccessLowered[R ~int32](before, after R) bool { return after < before }
 
 // NewShareLinkExpiry validates a share link request and returns its expiry.
 // Links grant viewer or commenter only. requested nil means the default
-// lifetime; defaultTTL 0 means links without an explicit expiry never
-// expire (the behaviour identity.proto documents).
+// lifetime (7 days in the service, as identity.proto documents);
+// defaultTTL 0 means links without an explicit expiry never expire.
 func NewShareLinkExpiry(role NoteRole, requested *time.Time, now time.Time, defaultTTL time.Duration) (*time.Time, error) {
 	switch role {
 	case NoteRoleViewer, NoteRoleCommenter:

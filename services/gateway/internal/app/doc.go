@@ -7,8 +7,9 @@
 //   - Registry tracks live WebSockets so they can be closed by access
 //     revocation, by a change of the note's owning documents instance, or
 //     by drain.
-//   - Revocations turns identity AccessChanged events into socket closes
-//     on every gateway replica, through a RevocationBus.
+//   - Revocations turns identity AccessChanged events (access lowered)
+//     into read-access re-checks of sync sockets and closes of the sockets
+//     that lost access, on every gateway replica, through a RevocationBus.
 //
 // # Failure policy
 //
@@ -22,6 +23,9 @@
 //
 // Revocations are applied locally before they are broadcast, so a Redis
 // outage still closes the sockets on the replica that consumed the event.
+// A sync socket whose access cannot be re-checked (identity unavailable)
+// fails closed: it is asked to reconnect with 1012, and the reconnect is
+// authorised afresh.
 // Redis pub/sub is at most once; a replica that misses a broadcast leaves
 // a socket open, but documents re-checks every batch of operations
 // (ADR-0008), so nothing is accepted from it.

@@ -5,6 +5,7 @@ package skein.v1;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "google/api/visibility.proto";
 import "google/protobuf/timestamp.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 import "skein/v1/common.proto";
@@ -12,9 +13,11 @@ import "skein/v1/common.proto";
 option go_package = "github.com/genuinebnt/skein-go/gen/go/skein/v1;skeinv1";
 
 // REST routes: every user-facing RPC has a google.api.http mapping served by
-// the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-// IssueDelegatedToken are internal: only other services call them, so they
-// have no HTTP mapping and the gateway never routes to them.
+// the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+// IssueDelegatedToken and RegisterNote are internal: only other services
+// call them, so they have no HTTP mapping and the gateway never routes to
+// them. Their INTERNAL visibility keeps them and their messages out of the
+// OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
 service IdentityService {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
     name: "Identity"
@@ -151,13 +154,19 @@ service IdentityService {
 
   // Internal. Checks many (action, resource) pairs for one subject in one
   // call. Every service calls this, with a short cache, before acting.
-  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {
+    option (google.api.method_visibility).restriction = "INTERNAL";
+  }
   // Internal. Lists the notes a subject can read in a workspace, for
   // permission-aware search (ADR-0010).
-  rpc ListReadableNotes(ListReadableNotesRequest) returns (ListReadableNotesResponse);
+  rpc ListReadableNotes(ListReadableNotesRequest) returns (ListReadableNotesResponse) {
+    option (google.api.method_visibility).restriction = "INTERNAL";
+  }
   // Internal. Issues a short-lived token for an agent run acting as the user
   // (ADR-0009). Only the agent service may call it.
-  rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse);
+  rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse) {
+    option (google.api.method_visibility).restriction = "INTERNAL";
+  }
   // Internal. Records a note documents has just created in identity's note
   // projection, so its creator and workspace can use it at once instead of
   // after the NoteCreated event arrives (read-your-writes). Called by
@@ -165,7 +174,9 @@ service IdentityService {
   // notes in the workspace. Registering a note identity already knows in the
   // same workspace succeeds and changes nothing; in another workspace it is
   // ALREADY_EXISTS.
-  rpc RegisterNote(RegisterNoteRequest) returns (RegisterNoteResponse);
+  rpc RegisterNote(RegisterNoteRequest) returns (RegisterNoteResponse) {
+    option (google.api.method_visibility).restriction = "INTERNAL";
+  }
   // Register a CRDT replica
   //
   // Records that a CRDT replica ID belongs to the calling user (ADR-0004).
@@ -363,7 +374,9 @@ message SetNoteRoleResponse {}
 message CreateShareLinkRequest {
   string note_id = 1 [(google.api.field_behavior) = REQUIRED];
   NoteRole role = 2 [(google.api.field_behavior) = REQUIRED];
-  // When the link stops working. Unset means it never expires.
+  // When the link stops working. Unset means 7 days after creation, the
+  // server's default; a deployment may change that default, and with it
+  // set to 0 such links last until revoked.
   google.protobuf.Timestamp expires_at = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {example: "\"2026-12-01T00:00:00Z\""}];
 }
 message CreateShareLinkResponse {
