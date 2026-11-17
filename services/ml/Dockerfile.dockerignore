@@ -2,6 +2,9 @@
 # build context (the repository root).
 **
 !gen/python/**
+!platform/events/python/pyproject.toml
+!platform/events/python/README.md
+!platform/events/python/src/**
 !services/ml/pyproject.toml
 !services/ml/README.md
 !services/ml/src/**

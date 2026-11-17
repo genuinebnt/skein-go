@@ -278,3 +278,63 @@ def test_admin_endpoints_report_health_and_readiness_until_draining():
         assert (status("/healthz"), status("/readyz")) == (200, 503), "draining: alive, not ready"
     finally:
         admin.stop()
+
+
+def test_config_selects_the_events_backend_without_google_variables():
+    assert not Config.from_env({}).events.enabled, "pubsub without a project runs without events"
+    on_redis = Config.from_env(
+        {"EVENTS_BACKEND": "redis", "SKEIN_ML_REDIS_URL": "redis://cache:6379/3"}
+    )
+    assert on_redis.events.enabled and on_redis.events.redis_url == "redis://cache:6379/3"
+    assert on_redis.events.redis_db == 0, "the streams live in one shared database"
+    assert Config.from_env({"EVENTS_BACKEND": "memory"}).events.enabled
+    with pytest.raises(ConfigError, match="EVENTS_BACKEND"):
+        Config.from_env({"EVENTS_BACKEND": "kafka"})
+    with pytest.raises(ConfigError, match="REDIS_URL"):
+        Config.from_env({"EVENTS_BACKEND": "redis"})
+
+
+def test_broker_event_source_applies_events_and_redelivers_a_failure():
+    from skein_events import Envelope, MemoryBroker, TopologyBuilder
+
+    from skein_ml.adapters.events import BrokerEventSource
+
+    topology = (
+        TopologyBuilder()
+        .policy(5, 0.01, 0.02, 10.0)
+        .topic("documents.events")
+        .subscription("ml.documents-events", "documents.events")
+        .build()
+    )
+    broker = MemoryBroker()
+    broker.provision(topology)
+    app = make_app(fail_first_embed=True)
+    tracer, service_metrics = _metrics()
+    source = BrokerEventSource(broker, "ml.documents-events", decode_or_skip)
+    source.start(observed_handler(app, tracer, service_metrics, messaging_system="memory"))
+    try:
+        for event_id, payload in [
+            ("e1", events.NoteCreated("n", "ws", "t")),
+            ("e2", events.BlocksChanged("n", (events.ChangedBlock("b", "merkle trees"),))),
+        ]:
+            broker.publish(
+                "documents.events",
+                Envelope(
+                    id=event_id,
+                    source="documents",
+                    ordering_key="n",
+                    payload=encode_event(event_id, payload),
+                ),
+            )
+        deadline = time.monotonic() + 10
+        # The fake embedder fails its first call (the block), then counts
+        # what it embeds; searching here would spend that failure itself.
+        while app.embedder.texts == 0:
+            assert time.monotonic() < deadline, "the failed embed was never redelivered"
+            time.sleep(0.01)
+    finally:
+        source.stop(5.0)
+    assert [(h.note_id, h.block_id) for h in app.semantic_search("ws", "merkle", k=1).hits] == [
+        ("n", "b")
+    ]
+    broker.check_invariants()

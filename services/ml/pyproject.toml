@@ -70,3 +70,7 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
 # RUF200: ruff cannot parse Hatch's {root:...} context formatting in the local
 # gen/python dependency, which Hatch itself resolves correctly.
 ignore = ["N803", "N806", "N818", "RUF001", "RUF002", "RUF003", "RUF200", "SIM905"]
+
+[tool.ruff.lint.per-file-ignores]
+# A Markdown table of variables reads better unwrapped.
+"src/skein_ml/config.py" = ["E501"]
