@@ -66,7 +66,7 @@ the tests call it after every iteration through `fit(..., observer=...)`.
 | Lloyd, random or k-means++ init | `clustering/lloyd.py` | objective never increases | labels = nearest centroid at convergence |
 | Elkan | `clustering/elkan.py` | bounds bracket true distances | equals Lloyd from the same init, fewer distances |
 | MacQueen mini-batch | `clustering/minibatch.py` | masses sum to points seen | |
-| e-means | `clustering/e_means.py` | masses finite, total matches the decay | one Lloyd step at B = n, alpha = 1; recipe vs formulas and FAISS; centroids vs `faiss.contrib.e_means` |
+| e-means | `clustering/e_means.py` | masses finite, total matches the decay | one Lloyd step at B = n, alpha = 1; recipe vs formulas and FAISS; centroids and labels bit-exact vs `faiss.contrib.e_means` given the same assignment kernel |
 | Gaussian mixture, diagonal, EM | `clustering/gmm.py` | weights a distribution, variances >= reg, log-likelihood never decreases | |
 | Silhouette | `clustering/metrics.py` | | scikit-learn `silhouette_score` |
 | Brute force cosine | `search/brute_force.py` | rows unit length | full sort |
@@ -79,7 +79,13 @@ Mini-Batch K-Means" (Bessa, Mazaré, Szilvasy et al., arXiv 2611.09501). Credit
 for the algorithm, recipe and constants belongs to its authors. It follows the
 reference's RNG usage, so for the same seed it visits the same batches and
 produces the same centroids as `NumpyEmeans` (the benchmark rows agree to every
-printed digit). Notes: [`docs/research/e-means.md`](../../docs/research/e-means.md).
+printed digit). The one source of difference is the assignment kernel:
+`faiss.knn` and NumPy round `|x|^2 - 2 x.c + |c|^2` differently, so a point
+within float32 rounding of two centroids (common right after a split, when
+donor and child are 2e-4 apart) can go either way, and that run then takes
+another path. The fidelity tests therefore run the reference with our kernel
+and require bit-exact agreement, and separately check that every
+`faiss.knn` disagreement is such a tie. Notes: [`docs/research/e-means.md`](../../docs/research/e-means.md).
 
 **HNSW** filters during the descent: excluded and deleted nodes are traversed
 but never enter the result set, so a 5% filter keeps recall@10 at 1.0 where

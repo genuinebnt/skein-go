@@ -268,7 +268,9 @@ override, so `{}` is a valid body.
 ### CreateShareLink
 
 `POST /v1/notes/{noteId}/share-links`. The `token` is returned only here;
-the server keeps a hash. Without `expiresAt` the link lasts until revoked.
+the server keeps a hash. Without `expiresAt` the link expires 7 days after
+creation (the server's default, `IDENTITY_SHARE_LINK_DEFAULT_TTL`; with it
+set to `0` such links last until revoked). Revoke a link to end it early.
 
 ```json skein.v1.CreateShareLinkRequest
 {"role": "NOTE_ROLE_VIEWER", "expiresAt": "2026-12-01T00:00:00Z"}

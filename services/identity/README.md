@@ -108,7 +108,7 @@ Platform variables: `SKEIN_ENV`, `SKEIN_VERSION`, `DATABASE_URL`,
 | `IDENTITY_ACCESS_TOKEN_TTL` | `15m` | access token lifetime |
 | `IDENTITY_REFRESH_TOKEN_TTL` | `720h` | each refresh token's lifetime |
 | `IDENTITY_DELEGATED_TOKEN_MAX_TTL` | `15m` | cap on agent-run tokens |
-| `IDENTITY_SHARE_LINK_DEFAULT_TTL` | `168h` | expiry of links created without one; `0` = never expire (see Decisions) |
+| `IDENTITY_SHARE_LINK_DEFAULT_TTL` | `168h` | expiry of links created without one; `0` = never expire |
 | `IDENTITY_DECISION_CACHE_TTL` | `30s` | Authorize cache entry lifetime |
 | `IDENTITY_ARGON2_MEMORY_KIB` / `_ITERATIONS` / `_PARALLELISM` | `65536` / `3` / `4` | Argon2id parameters |
 | `IDENTITY_ARGON2_MAX_CONCURRENT` | `4` | hashes at once (memory = this × 64 MiB) |
@@ -206,11 +206,10 @@ as drop caches.
 
 ## Decisions to confirm
 
-- **Share-link default expiry.** The task asks for links to default to 7
-  days; `identity.proto` and `docs/api/identity.md` say a link without
-  `expires_at` never expires. The default is 7 days and configurable;
-  `IDENTITY_SHARE_LINK_DEFAULT_TTL=0` restores the documented behaviour.
-  The proto comment should be updated either way.
+- **Share-link default expiry** (confirmed). Links created without
+  `expires_at` expire after 7 days; `identity.proto` and
+  `docs/api/identity.md` say so. `IDENTITY_SHARE_LINK_DEFAULT_TTL=0` makes
+  them last until revoked.
 - **Internal RPCs without a token.** `Authorize` and `ListReadableNotes`
   require a token by default, and a caller may only ask about itself. Event
   consumers (notifications deciding whether a mentioned user can read a

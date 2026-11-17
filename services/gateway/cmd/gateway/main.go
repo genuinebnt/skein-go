@@ -89,7 +89,6 @@ func run() error {
 		return err
 	}
 	registry := app.NewRegistry()
-	revocations := app.NewRevocations(redisstore.NewRevocationBus(rdb, cfg.RedisNamespace, logger), registry, logger)
 
 	dialOpts := backends.DialOptions{Insecure: cfg.GRPCInsecure, TracerProvider: tel.TracerProvider, MeterProvider: tel.MeterProvider}
 	conns, open, err := backends.Dial(cfg.Targets, dialOpts)
@@ -97,6 +96,8 @@ func run() error {
 		return err
 	}
 	clients := backends.NewClients(conns)
+	noteAccess := backends.NoteAccess{Identity: clients.Identity}
+	revocations := app.NewRevocations(redisstore.NewRevocationBus(rdb, cfg.RedisNamespace, logger), registry, noteAccess, logger)
 	syncRouter, err := backends.NewSyncRouter(backends.SyncRouterOptions{
 		HostPort: cfg.DocumentsSync,
 		Dial: func(addr string) (*grpc.ClientConn, error) {
@@ -131,7 +132,7 @@ func run() error {
 	}
 	ws, err := wsapi.New(wsapi.Config{
 		Verifier: verifier, Throttler: throttler, ClientIP: clientIP, Registry: registry,
-		Sync: syncRouter, NoteAccess: backends.NoteAccess{Identity: clients.Identity},
+		Sync: syncRouter, NoteAccess: noteAccess,
 		Agent: clients.Agent, Notifications: clients.Notifications,
 		OriginPatterns: originHosts(cfg.CORSOrigins), Logger: logger, Meter: tel.MeterProvider,
 	})

@@ -499,18 +499,26 @@ func TestNotificationsAreRelayedAndTheStreamEndClosesTheSocket(t *testing.T) {
 	}
 }
 
+// revokeAccess delivers an identity AccessChanged (revoked) for user and
+// noteID through the gateway's real event handler.
+func revokeAccess(t *testing.T, s *stack, user, noteID string) {
+	t.Helper()
+	payload, _ := proto.Marshal(&skeinv1.Event{Id: "e-1", Source: "identity", Payload: &skeinv1.Event_AccessChanged{
+		AccessChanged: &skeinv1.AccessChanged{UserId: user, NoteId: noteID, WorkspaceId: "w", Revoked: true}}})
+	handler := identityevents.Handler(s.revoke, slog.New(slog.DiscardHandler))
+	if err := handler(context.Background(), events.Message{Envelope: events.Envelope{ID: "e-1", Source: "identity", Payload: payload}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAccessRevokedEventClosesTheUsersSyncSocketWith4403(t *testing.T) {
 	s := newStack(t, stackOptions{})
 	mine := s.mustDial("/v1/notes/"+noteID+"/sync", wsapi.ProtocolProto, "bearer."+s.token("ada", time.Hour))
 	other := s.mustDial("/v1/notes/"+noteID+"/sync", wsapi.ProtocolProto, "bearer."+s.token("grace", time.Hour))
 	send(t, mine, true, hello(noteID))
 	send(t, other, true, hello(noteID))
-	payload, _ := proto.Marshal(&skeinv1.Event{Id: "e-1", Source: "identity", Payload: &skeinv1.Event_AccessChanged{
-		AccessChanged: &skeinv1.AccessChanged{UserId: "ada", NoteId: noteID, WorkspaceId: "w", Revoked: true}}})
-	handler := identityevents.Handler(s.revoke, slog.New(slog.DiscardHandler))
-	if err := handler(context.Background(), events.Message{Envelope: events.Envelope{ID: "e-1", Source: "identity", Payload: payload}}); err != nil {
-		t.Fatal(err)
-	}
+	s.backends.DenyNote(noteID) // ada lost read access; only her socket is re-checked
+	revokeAccess(t, s, "ada", noteID)
 	if code, reason := closeOf(t, mine); code != 4403 || reason != "access revoked" {
 		t.Errorf("closed with %d %q", code, reason)
 	}
@@ -520,6 +528,42 @@ func TestAccessRevokedEventClosesTheUsersSyncSocketWith4403(t *testing.T) {
 	receive(t, other, true, &got)
 	if published := s.bus.Published(); len(published) != 1 || published[0].UserID != "ada" {
 		t.Errorf("broadcast %v", published)
+	}
+}
+
+func TestUserLoweredToViewerKeepsTheSyncSocketOpen(t *testing.T) {
+	s := newStack(t, stackOptions{})
+	token := s.token("ada", time.Hour)
+	conn := s.mustDial("/v1/notes/"+noteID+"/sync", wsapi.ProtocolProto, "bearer."+token)
+	send(t, conn, true, hello(noteID))
+	before := len(s.backends.CallsTo("/skein.v1.IdentityService/Authorize"))
+	// identity sets revoked for a demotion too; ada can still read.
+	revokeAccess(t, s, "ada", noteID)
+	calls := s.backends.CallsTo("/skein.v1.IdentityService/Authorize")
+	if len(calls) != before+1 {
+		t.Fatalf("%d re-checks, want 1", len(calls)-before)
+	}
+	if got := calls[len(calls)-1].MD.Get("authorization"); len(got) != 1 || got[0] != "Bearer "+token {
+		t.Error("the re-check was not made with the socket's own token")
+	}
+	send(t, conn, true, ops([]byte{7}))
+	var got skeinv1.SyncResponse
+	receive(t, conn, true, &got)
+	if s.registry.CountByKind(domain.SocketSync) != 1 {
+		t.Error("the viewer's sync socket was closed")
+	}
+}
+
+func TestAFailedAccessRecheckClosesTheSyncSocketWith1012(t *testing.T) {
+	s := newStack(t, stackOptions{})
+	conn := s.mustDial("/v1/notes/"+noteID+"/sync", wsapi.ProtocolProto, "bearer."+s.token("ada", time.Hour))
+	send(t, conn, true, hello(noteID))
+	s.backends.OnUnary("/skein.v1.IdentityService/Authorize", func(context.Context, proto.Message) (proto.Message, error) {
+		return nil, status.Error(codes.Unavailable, "identity is down")
+	})
+	revokeAccess(t, s, "ada", noteID)
+	if code, _ := closeOf(t, conn); code != websocket.StatusServiceRestart {
+		t.Errorf("closed with %d, want 1012", code)
 	}
 }
 

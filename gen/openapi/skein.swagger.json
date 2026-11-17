@@ -2860,23 +2860,6 @@
     }
   },
   "definitions": {
-    "Action": {
-      "type": "string",
-      "enum": [
-        "ACTION_UNSPECIFIED",
-        "ACTION_NOTE_READ",
-        "ACTION_NOTE_COMMENT",
-        "ACTION_NOTE_EDIT",
-        "ACTION_NOTE_CREATE",
-        "ACTION_NOTE_DELETE",
-        "ACTION_NOTE_SHARE",
-        "ACTION_WORKSPACE_MANAGE_MEMBERS",
-        "ACTION_WORKSPACE_MANAGE_SETTINGS",
-        "ACTION_AGENT_RUN"
-      ],
-      "default": "ACTION_UNSPECIFIED",
-      "description": "Every action a subject can attempt. Services authorize with these values,\nnever with free-form strings."
-    },
     "AnalyzeGraphResponse": {
       "type": "object",
       "properties": {
@@ -2998,18 +2981,6 @@
       "properties": {
         "version": {
           "$ref": "#/definitions/VersionVector"
-        }
-      }
-    },
-    "AuthorizeResponse": {
-      "type": "object",
-      "properties": {
-        "allowed": {
-          "type": "array",
-          "items": {
-            "type": "boolean"
-          },
-          "description": "One entry per check, in the same order."
         }
       }
     },
@@ -3173,18 +3144,6 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
-        }
-      }
-    },
-    "Check": {
-      "type": "object",
-      "properties": {
-        "action": {
-          "$ref": "#/definitions/Action"
-        },
-        "resourceId": {
-          "type": "string",
-          "description": "A note ID or a workspace ID, depending on the action."
         }
       }
     },
@@ -3375,7 +3334,7 @@
           "type": "string",
           "format": "date-time",
           "example": "2026-12-01T00:00:00Z",
-          "description": "When the link stops working. Unset means it never expires."
+          "description": "When the link stops working. Unset means 7 days after creation, the\nserver's default; a deployment may change that default, and with it\nset to 0 such links last until revoked."
         }
       },
       "required": [
@@ -3595,14 +3554,6 @@
       ],
       "default": "INDEX_KIND_UNSPECIFIED"
     },
-    "IssueDelegatedTokenResponse": {
-      "type": "object",
-      "properties": {
-        "accessToken": {
-          "type": "string"
-        }
-      }
-    },
     "Kind": {
       "type": "string",
       "enum": [
@@ -3687,17 +3638,6 @@
         },
         "page": {
           "$ref": "#/definitions/PageResponse"
-        }
-      }
-    },
-    "ListReadableNotesResponse": {
-      "type": "object",
-      "properties": {
-        "noteIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },
@@ -4072,9 +4012,6 @@
           "$ref": "#/definitions/Session"
         }
       }
-    },
-    "RegisterNoteResponse": {
-      "type": "object"
     },
     "RegisterReplicaRequest": {
       "type": "object",
@@ -4497,19 +4434,6 @@
           }
         }
       }
-    },
-    "Subject": {
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string"
-        },
-        "agentRunId": {
-          "type": "string",
-          "description": "Set when an agent run acts for user_id."
-        }
-      },
-      "description": "Who is acting: a user, or an agent run acting for a user."
     },
     "SubscribeResponse": {
       "type": "object",
