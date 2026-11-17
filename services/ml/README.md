@@ -16,7 +16,7 @@ src/skein_ml/
     discovery.py     cosine, shared tags (Jaccard), link hops; link suggestions
     text.py notes.py tokenising, #tags, cluster labels; the note projection
   app/               use cases (MLApp), port interfaces, events, typed errors, per-workspace indexes
-  adapters/          grpc_server, events_codec, consumer, pubsub, postgres, redis_cache,
+  adapters/          grpc_server, events_codec, consumer, events, postgres, redis_cache,
                      onnx_embedder, observability, memory (in-memory ports)
   bench/             benchmark harness, datasets, search benchmark, CLI
   config.py main.py  environment configuration; wiring and graceful shutdown

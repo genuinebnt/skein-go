@@ -1,7 +1,8 @@
 """Entry point: ``python -m skein_ml`` or the ``skein-ml`` script.
 
 Wiring only: configuration, logging and telemetry, adapters chosen by
-configuration (in-memory unless Postgres, Redis or Pub/Sub are configured),
+configuration (in-memory unless Postgres or Redis are configured; events
+from the backend ``EVENTS_BACKEND`` selects),
 the gRPC server with health, and the ``documents.events`` consumer.
 
 Graceful shutdown on SIGTERM or SIGINT:
@@ -29,6 +30,8 @@ __all__ = ["Runtime", "build", "main"]
 log = logging.getLogger("skein_ml")
 
 SERVICE = "ml"
+# messaging.system per backend, as Go's platform/events names them.
+_MESSAGING_SYSTEMS = {"pubsub": "gcp_pubsub", "redis": "redis", "memory": "memory"}
 
 
 @dataclass
@@ -112,12 +115,14 @@ def build(config: Config, telemetry=None) -> Runtime:
         app, config.address, telemetry.tracer, service_metrics, config.workers
     )
     consumer = None
-    if config.pubsub_project:
-        from .adapters.consumer import decode_or_skip
-        from .adapters.pubsub import PubSubEventSource
+    if config.events.enabled:
+        from skein_events import open_broker
 
-        consumer = PubSubEventSource(
-            config.pubsub_project, config.pubsub_subscription, decode_or_skip
+        from .adapters.consumer import decode_or_skip
+        from .adapters.events import BrokerEventSource
+
+        consumer = BrokerEventSource(
+            open_broker(config.events), config.pubsub_subscription, decode_or_skip
         )
     runtime = Runtime(app, server, health, port, telemetry, service_metrics, consumer, closers)
     if config.admin_address:
@@ -144,7 +149,12 @@ def main() -> None:
     runtime.serving.set()
     if runtime.consumer is not None:
         runtime.consumer.start(
-            observed_handler(runtime.app, runtime.telemetry.tracer, runtime.metrics)
+            observed_handler(
+                runtime.app,
+                runtime.telemetry.tracer,
+                runtime.metrics,
+                messaging_system=_MESSAGING_SYSTEMS[config.events.backend],
+            )
         )
     log.info(
         "serving",
@@ -152,6 +162,7 @@ def main() -> None:
             "port": runtime.port,
             "embedder": runtime.app.embedder.model_id,
             "consumer": runtime.consumer is not None,
+            "events_backend": config.events.backend,
         },
     )
     stop.wait()

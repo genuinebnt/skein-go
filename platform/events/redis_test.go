@@ -350,9 +350,20 @@ type redisConformance struct {
 		ID          string `json:"id"`
 		Partition   int    `json:"partition"`
 	} `json:"cases"`
+	Entry struct {
+		Envelope struct {
+			ID          string            `json:"id"`
+			Source      string            `json:"source"`
+			OrderingKey string            `json:"ordering_key"`
+			Traceparent string            `json:"traceparent"`
+			Attributes  map[string]string `json:"attributes"`
+			Payload     string            `json:"payload_utf8"`
+		} `json:"envelope"`
+		Fields [][2]string `json:"fields"`
+	} `json:"entry"`
 }
 
-func TestRedisPartitionMatchesTheConformanceFixture(t *testing.T) {
+func TestRedisWireFormatMatchesTheConformanceFixture(t *testing.T) {
 	raw, err := os.ReadFile("../../testdata/conformance/events/redis-wire.json")
 	if err != nil {
 		t.Fatal(err)
@@ -368,6 +379,16 @@ func TestRedisPartitionMatchesTheConformanceFixture(t *testing.T) {
 		if got := RedisPartition(c.OrderingKey, c.ID); got != c.Partition {
 			t.Errorf("partition(%q, %q) = %d, fixture says %d", c.OrderingKey, c.ID, got, c.Partition)
 		}
+	}
+	in := fx.Entry.Envelope
+	fields := toRedisFields(Envelope{ID: in.ID, Source: in.Source, OrderingKey: in.OrderingKey, Traceparent: in.Traceparent,
+		Attributes: in.Attributes, Payload: []byte(in.Payload)})
+	var got [][2]string
+	for i := 0; i < len(fields); i += 2 {
+		got = append(got, [2]string{fields[i].(string), fields[i+1].(string)})
+	}
+	if !slices.Equal(got, fx.Entry.Fields) {
+		t.Errorf("entry fields %v, fixture says %v", got, fx.Entry.Fields)
 	}
 }
 

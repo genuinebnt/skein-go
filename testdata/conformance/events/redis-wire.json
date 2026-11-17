@@ -47,5 +47,49 @@
       "id": "",
       "partition": 6
     }
-  ]
+  ],
+  "entry": {
+    "why": "The entry fields of one envelope, in the order both publishers write them (fixed fields, attributes sorted by name, payload last). Readers must not depend on the order, but publishers produce exactly this.",
+    "envelope": {
+      "id": "0193a5b0-7c1e-7000-8000-000000000001",
+      "source": "documents",
+      "ordering_key": "note-1",
+      "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "attributes": {
+        "kind": "blocks_changed",
+        "a": "1"
+      },
+      "payload_utf8": "hello"
+    },
+    "fields": [
+      [
+        "id",
+        "0193a5b0-7c1e-7000-8000-000000000001"
+      ],
+      [
+        "source",
+        "documents"
+      ],
+      [
+        "key",
+        "note-1"
+      ],
+      [
+        "traceparent",
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+      ],
+      [
+        "attr:a",
+        "1"
+      ],
+      [
+        "attr:kind",
+        "blocks_changed"
+      ],
+      [
+        "payload",
+        "hello"
+      ]
+    ]
+  }
 }
