@@ -1,0 +1,52 @@
+# The end-to-end suite (e2e/) against the whole native stack: the seven
+# services, PostgreSQL, Redis, the Pub/Sub emulator and Mailpit, with the
+# small seed loaded (make up-native, then make e2e; docs/local-native.md).
+# It takes a few minutes, so it runs nightly, on demand, and on pull
+# requests that change the suite, the native stack or this workflow; ci.yml
+# covers everything else on every pull request.
+name: e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: Only the tests matching this go test -run pattern (empty runs all)
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 2 * * *"
+  pull_request:
+    paths:
+      - e2e/**
+      - deploy/local/**
+      - .github/workflows/e2e.yml
+      - .github/actions/native-stack/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/native-stack
+      - run: make up-native
+      - run: make e2e RUN="$RUN"
+        env:
+          RUN: ${{ inputs.run }}
+      - name: Native stack logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-native-logs
+          path: deploy/local/.run/logs
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: always()
+        run: make down-native
