@@ -89,7 +89,10 @@ def test_schema_maps_enums_timestamps_and_nested_messages() -> None:
     assert share["expires_at"] == {
         "type": "string",
         "format": "date-time",
-        "description": "When the link stops working. Unset means it never expires.",
+        "description": (
+            "When the link stops working. Unset means 7 days after creation, the server's default; "
+            "a deployment may change that default, and with it set to 0 such links last until revoked."
+        ),
     }
     search = message_schema(pb.search_pb2.SearchRequest.DESCRIPTOR)["properties"]
     assert search["languages"]["type"] == "array" and search["languages"]["items"] == {"type": "string"}

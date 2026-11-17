@@ -46,9 +46,11 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // REST routes: every user-facing RPC has a google.api.http mapping served by
-// the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-// IssueDelegatedToken are internal: only other services call them, so they
-// have no HTTP mapping and the gateway never routes to them.
+// the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+// IssueDelegatedToken and RegisterNote are internal: only other services
+// call them, so they have no HTTP mapping and the gateway never routes to
+// them. Their INTERNAL visibility keeps them and their messages out of the
+// OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
 type IdentityServiceClient interface {
 	// Sign up
 	//
@@ -317,9 +319,11 @@ func (c *identityServiceClient) RegisterReplica(ctx context.Context, in *Registe
 // for forward compatibility.
 //
 // REST routes: every user-facing RPC has a google.api.http mapping served by
-// the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-// IssueDelegatedToken are internal: only other services call them, so they
-// have no HTTP mapping and the gateway never routes to them.
+// the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+// IssueDelegatedToken and RegisterNote are internal: only other services
+// call them, so they have no HTTP mapping and the gateway never routes to
+// them. Their INTERNAL visibility keeps them and their messages out of the
+// OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
 type IdentityServiceServer interface {
 	// Sign up
 	//

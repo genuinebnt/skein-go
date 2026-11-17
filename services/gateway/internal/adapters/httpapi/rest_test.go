@@ -13,11 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/genproto/googleapis/api/visibility"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	skeinv1 "github.com/genuinebnt/skein-go/gen/go/skein/v1"
 	"github.com/genuinebnt/skein-go/platform/httpx"
@@ -528,6 +531,39 @@ func TestEmbeddedOpenAPICopyIsCurrent(t *testing.T) {
 	}
 	if string(committed) != string(openAPIDocument) {
 		t.Error("openapi/skein.swagger.json is stale; run go generate ./internal/adapters/httpapi")
+	}
+}
+
+// Internal RPCs carry google.api.method_visibility INTERNAL so the
+// generator leaves them, and the messages only they use, out of the public
+// document; AuthorizeResponse used to be listed.
+func TestOpenAPIDocumentOmitsInternalRPCs(t *testing.T) {
+	var doc struct {
+		Definitions map[string]json.RawMessage `json:"definitions"`
+	}
+	if err := json.Unmarshal(openAPIDocument, &doc); err != nil {
+		t.Fatal(err)
+	}
+	internal := 0
+	protoregistry.GlobalFiles.RangeFilesByPackage("skein.v1", func(file protoreflect.FileDescriptor) bool {
+		for i := 0; i < file.Services().Len(); i++ {
+			methods := file.Services().Get(i).Methods()
+			for j := 0; j < methods.Len(); j++ {
+				m := methods.Get(j)
+				rule, _ := proto.GetExtension(m.Options(), visibility.E_MethodVisibility).(*visibility.VisibilityRule)
+				if rule.GetRestriction() != "INTERNAL" {
+					continue
+				}
+				internal++
+				if _, listed := doc.Definitions[string(m.Output().Name())]; listed {
+					t.Errorf("%s is internal but %s is in the OpenAPI document", m.FullName(), m.Output().Name())
+				}
+			}
+		}
+		return true
+	})
+	if internal == 0 {
+		t.Fatal("no INTERNAL methods found; the visibility annotations are gone")
 	}
 }
 

@@ -27,9 +27,11 @@ if _version_not_supported:
 
 class IdentityServiceStub:
     """REST routes: every user-facing RPC has a google.api.http mapping served by
-    the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-    IssueDelegatedToken are internal: only other services call them, so they
-    have no HTTP mapping and the gateway never routes to them.
+    the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+    IssueDelegatedToken and RegisterNote are internal: only other services
+    call them, so they have no HTTP mapping and the gateway never routes to
+    them. Their INTERNAL visibility keeps them and their messages out of the
+    OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
     """
 
     def __init__(self, channel):
@@ -132,9 +134,11 @@ class IdentityServiceStub:
 
 class IdentityServiceServicer:
     """REST routes: every user-facing RPC has a google.api.http mapping served by
-    the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-    IssueDelegatedToken are internal: only other services call them, so they
-    have no HTTP mapping and the gateway never routes to them.
+    the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+    IssueDelegatedToken and RegisterNote are internal: only other services
+    call them, so they have no HTTP mapping and the gateway never routes to
+    them. Their INTERNAL visibility keeps them and their messages out of the
+    OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
     """
 
     def SignUp(self, request, context):
@@ -402,9 +406,11 @@ def add_IdentityServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class IdentityService:
     """REST routes: every user-facing RPC has a google.api.http mapping served by
-    the gateway (docs/api/identity.md). Authorize, ListReadableNotes and
-    IssueDelegatedToken are internal: only other services call them, so they
-    have no HTTP mapping and the gateway never routes to them.
+    the gateway (docs/api/identity.md). Authorize, ListReadableNotes,
+    IssueDelegatedToken and RegisterNote are internal: only other services
+    call them, so they have no HTTP mapping and the gateway never routes to
+    them. Their INTERNAL visibility keeps them and their messages out of the
+    OpenAPI document (protoc-gen-openapiv2 skips restricted methods).
     """
 
     @staticmethod

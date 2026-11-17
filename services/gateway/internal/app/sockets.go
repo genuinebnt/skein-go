@@ -34,6 +34,10 @@ type SocketInfo struct {
 type entry struct {
 	info   SocketInfo
 	closer SocketCloser
+	// credentials is the authenticated context the socket was opened with
+	// (verified claims and token, no cancellation), so a revocation can
+	// re-check access as the socket's user.
+	credentials context.Context
 }
 
 // Registry tracks live sockets.
@@ -53,9 +57,10 @@ func NewRegistry() *Registry {
 }
 
 // Add registers a socket and returns the function that removes it, to be
-// called exactly once when the socket has closed. ErrDraining once Drain
-// has begun.
-func (r *Registry) Add(info SocketInfo, closer SocketCloser) (remove func(), err error) {
+// called exactly once when the socket has closed. credentials is the
+// socket's authenticated context (auth.WithClaims), kept for re-checking
+// access on revocation. ErrDraining once Drain has begun.
+func (r *Registry) Add(credentials context.Context, info SocketInfo, closer SocketCloser) (remove func(), err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.draining {
@@ -63,7 +68,7 @@ func (r *Registry) Add(info SocketInfo, closer SocketCloser) (remove func(), err
 	}
 	r.next++
 	id := r.next
-	r.sockets[id] = entry{info: info, closer: closer}
+	r.sockets[id] = entry{info: info, closer: closer, credentials: credentials}
 	var once sync.Once
 	return func() { once.Do(func() { r.remove(id) }) }, nil
 }
@@ -100,11 +105,19 @@ func (r *Registry) closeMatching(code domain.CloseCode, reason string, match fun
 	return n
 }
 
-// Revoke closes the sockets rev affects with 4403.
-func (r *Registry) Revoke(rev domain.Revocation) int {
-	return r.closeMatching(domain.CloseForbidden, "access revoked", func(info SocketInfo) bool {
-		return rev.Affects(info.Kind, info.UserID, info.NoteID)
-	})
+// affected returns a snapshot of the sockets rev affects, so callers can
+// re-check access over the network without holding the lock. A socket in
+// the snapshot may close meanwhile; closing it again is a no-op.
+func (r *Registry) affected(rev domain.Revocation) []entry {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []entry
+	for _, e := range r.sockets {
+		if rev.Affects(e.info.Kind, e.info.UserID, e.info.NoteID) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // Reroute closes, with 1012, every sync socket whose note is now owned by

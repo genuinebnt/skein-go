@@ -80,10 +80,16 @@ turned into metadata, so `Grpc-Metadata-*` cannot forge an identity.
   reconnect to the new owner. The hash is pinned by
   `internal/domain/testdata/rendezvous.json` for the Rust port.
 - **Revocation.** `gateway.identity-events` delivers each event to one
-  replica, which closes its own sockets and broadcasts on the Redis channel
-  `gw:access-revoked` to the others. Note-level revocations close that
-  note's sync sockets; workspace-level ones close the user's sync and agent
-  sockets. Close code `4403`.
+  replica, which applies it to its own sockets and broadcasts on the Redis
+  channel `gw:access-revoked` to the others. identity sets `revoked` for any
+  lowering of access, including member to viewer, so it triggers a re-check,
+  not a close: each affected sync socket (that note's, or all of the user's
+  for a workspace-level change) asks `Authorize` again with the socket's own
+  token. Still readable stays open (documents rejects a viewer's edits with
+  `rejected` frames, so the socket is read-only); unreadable closes with
+  `4403`; a failed check closes with `1012`, so the reconnect is authorised
+  afresh. Agent sockets close with `4403` on a workspace-level change (the
+  gateway does not know a chat's workspace).
 - **Backpressure.** 256 queued frames per socket; a full queue closes with
   `1013` (added to websocket.md). Frames are never silently dropped.
 - **Agent runs outlive their socket**, as websocket.md says ("closing the
@@ -145,6 +151,20 @@ rate-limit headers and 429s, idempotency, WebSocket framing and close codes,
 token expiry, backpressure, keepalive, revocation, rerouting and drain, and
 `TestRateLimiterLongRunRateMatchesTheBudget`, a load-shaped run through the
 real GCRA script with simulated time.
+
+Integration tests (`-tags integration`) run the Redis adapters against a
+real server: `SKEIN_TEST_REDIS_URL` if set (`make integration-native` points
+it at the native stack's Redis), otherwise a `redis:7-alpine` container via
+testcontainers (`internal/testredis`; keys live under a per-test namespace).
+They cover one winner among concurrent reservations, owner-only completion
+and replay, real expiry of abandoned reservations, the owner-guard script
+against Redis's own cjson, revocation broadcasts between two connections,
+one GCRA budget shared by two replicas, and the REST edge returning 429 and
+replaying an `Idempotency-Key` through Redis.
+
+```
+SKEIN_TEST_REDIS_URL=redis://127.0.0.1:26379/15 go test -tags integration ./...
+```
 
 ## Smoke test
 
