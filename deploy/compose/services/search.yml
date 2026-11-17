@@ -16,10 +16,10 @@ services:
       ADMIN_ADDR: ":8080"
       IDENTITY_ADDR: dns:///identity:9090
       IDENTITY_JWKS_URL: http://identity:8080/.well-known/jwks.json
-      # Empty disables semantic path weights and ml relevance for reading
-      # plans (lexical relevance is used); set to dns:///ml:50051 once ml is
-      # in the stack.
-      ML_ADDR: ""
+      # ml's gRPC port in its container (deploy/compose/services/ml.yml).
+      # Semantic path weights and reading-plan relevance come from it; an
+      # empty value turns both off (reading plans then use BM25).
+      ML_ADDR: dns:///ml:9090
       OTEL_SERVICE_NAME: search
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -31,6 +31,9 @@ services:
       pubsub-init:
         condition: service_completed_successfully
       identity:
+        condition: service_healthy
+        required: false
+      ml:
         condition: service_healthy
         required: false
     ports:

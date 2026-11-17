@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/base64"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +78,28 @@ func TestDevSessionsAreRefusedOutsideDevAndTest(t *testing.T) {
 		}
 		if !allowed && (err == nil || !strings.Contains(err.Error(), "IDENTITY_DEV_SESSIONS")) {
 			t.Errorf("%s: accepted (%v)", env, err)
+		}
+	}
+}
+
+// The default share-link lifetime is part of the contract: identity.proto
+// and docs/api/identity.md state it, and they once said "never expires"
+// while the service used 7 days. This keeps the three in step.
+func TestShareLinkDefaultExpiryIsTheOneTheContractDocuments(t *testing.T) {
+	s := loadSettings(config.FromMap(map[string]string{}))
+	days := int(s.App.ShareLinkDefaultTTL / (24 * time.Hour))
+	want := strconv.Itoa(days) + " days after"
+	for _, path := range []string{"../../../../proto/skein/v1/identity.proto", "../../../../docs/api/identity.md"} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(raw)), " ")
+		if !strings.Contains(text, want) {
+			t.Errorf("%s does not document the default share-link expiry (%q)", path, want)
+		}
+		if strings.Contains(text, "Unset means it never expires") {
+			t.Errorf("%s still says links without expires_at never expire", path)
 		}
 	}
 }

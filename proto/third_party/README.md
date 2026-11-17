@@ -7,7 +7,7 @@ the plugin versions in `buf.gen.yaml`, the `Makefile` and CI together.
 
 | Files | Upstream | Version | Licence |
 |---|---|---|---|
-| `google/api/annotations.proto`, `google/api/http.proto`, `google/api/field_behavior.proto` | [googleapis/googleapis](https://github.com/googleapis/googleapis) | commit `62746790cb5c0fe1956e7f2df8422d3a7f00ba15` (2026-11-15) | Apache License 2.0 (`google/LICENSE`) |
+| `google/api/annotations.proto`, `google/api/http.proto`, `google/api/field_behavior.proto`, `google/api/visibility.proto` | [googleapis/googleapis](https://github.com/googleapis/googleapis) | commit `62746790cb5c0fe1956e7f2df8422d3a7f00ba15` (2026-11-15) | Apache License 2.0 (`google/LICENSE`) |
 | `protoc-gen-openapiv2/options/annotations.proto`, `protoc-gen-openapiv2/options/openapiv2.proto` | [grpc-ecosystem/grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) | `v2.24.0` (commit `a5f1b64039b6e6aa1ab9bccc1cd31f4342c5ecc3`), taken from the Go module cache after `go mod download github.com/grpc-ecosystem/grpc-gateway/v2@v2.24.0` | BSD 3-Clause (`protoc-gen-openapiv2/LICENSE`) |
 
 How they were fetched:

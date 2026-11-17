@@ -51,12 +51,15 @@ func (b *syncBuffer) Write(p []byte) (int, error) {
 func (b *syncBuffer) String() string { b.mu.Lock(); defer b.mu.Unlock(); return b.buf.String() }
 
 type stackOptions struct {
-	limits    domain.Limits
-	limiter   ratelimit.Limiter
-	ws        wsapi.Options
-	cors      httpx.CORSConfig
-	drain     time.Duration
-	instances []string
+	limits  domain.Limits
+	limiter ratelimit.Limiter
+	// idempotency replaces the in-memory store (integration tests pass
+	// the Redis one); s.idemStore is then nil.
+	idempotency app.IdempotencyStore
+	ws          wsapi.Options
+	cors        httpx.CORSConfig
+	drain       time.Duration
+	instances   []string
 }
 
 // stack is the whole gateway in process, with fake backends.
@@ -114,14 +117,17 @@ func newStack(t *testing.T, opts stackOptions) *stack {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.idemStore = fakes.NewIdempotencyStore(nil)
-	idem, err := app.NewIdempotency(s.idemStore, app.IdempotencyOptions{Logger: logger})
+	store := opts.idempotency
+	if store == nil {
+		s.idemStore = fakes.NewIdempotencyStore(nil)
+		store = s.idemStore
+	}
+	idem, err := app.NewIdempotency(store, app.IdempotencyOptions{Logger: logger})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.registry = app.NewRegistry()
 	s.bus = fakes.NewRevocationBus()
-	s.revoke = app.NewRevocations(s.bus, s.registry, logger)
 	routes, err := LoadRoutes()
 	if err != nil {
 		t.Fatal(err)
@@ -133,8 +139,10 @@ func newStack(t *testing.T, opts stackOptions) *stack {
 	if err != nil {
 		t.Fatal(err)
 	}
+	noteAccess := backends.NoteAccess{Identity: clients.Identity}
+	s.revoke = app.NewRevocations(s.bus, s.registry, noteAccess, logger)
 	s.ws, err = wsapi.New(wsapi.Config{Verifier: verifier, Throttler: throttler, ClientIP: clientIP, Registry: s.registry,
-		Sync: s.documents, NoteAccess: backends.NoteAccess{Identity: clients.Identity},
+		Sync: s.documents, NoteAccess: noteAccess,
 		Agent: clients.Agent, Notifications: clients.Notifications, Options: opts.ws, Logger: logger})
 	if err != nil {
 		t.Fatal(err)
@@ -152,8 +160,10 @@ func newStack(t *testing.T, opts stackOptions) *stack {
 		if err := s.registry.CheckInvariants(); err != nil {
 			t.Error(err)
 		}
-		if err := s.idemStore.CheckInvariants(); err != nil {
-			t.Error(err)
+		if s.idemStore != nil {
+			if err := s.idemStore.CheckInvariants(); err != nil {
+				t.Error(err)
+			}
 		}
 	})
 	return s

@@ -58,6 +58,8 @@ code { font-family: var(--font-mono); font-size: 0.88em; background: var(--accen
 .callout.p3 { border-left-color: var(--muted); }
 .callout { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
 .callout.later { border-left-color: var(--later); }
+.callout.go { border-left-color: var(--muted); background: var(--bg); }
+.tag.go { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .callout p:last-child { margin-bottom: 0; }
 .scroll { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14.5px; }
@@ -77,17 +79,20 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 <body>
 <main>
 <header>
-  <p class="meta">Design doc · Draft v0.1 · 16 Nov 2026</p>
+  <p class="meta">Design doc · Draft v0.2 · 17 Nov 2026 (v0.1: 16 Nov 2026)</p>
   <h1>Skein</h1>
   <p class="lead">A collaborative notes engine: a Rust document engine with its own CRDT, diff and history, plus the ML algorithms that make a pile of notes searchable and self-organizing.</p>
   <nav class="toc" aria-label="Contents">
-    <a href="#scope">Scope</a><a href="#workspace">Workspace</a><a href="#document">Document engine</a><a href="#history">Diff, history, undo</a><a href="#ml">ML algorithms</a><a href="#agent">Agent</a><a href="#labs">Foundations labs</a><a href="#services">Services (later)</a><a href="#phase3">Phase 3</a><a href="#milestones">Milestones</a><a href="#testing">Testing</a><a href="#risks">Risks</a>
+    <a href="#scope">Scope</a><a href="#workspace">Workspace</a><a href="#document">Document engine</a><a href="#history">Diff, history, undo</a><a href="#ml">ML algorithms</a><a href="#agent">Agent</a><a href="#labs">Foundations labs</a><a href="#services">Services (later)</a><a href="#phase3">Phase 3</a><a href="#porting">Porting from Go</a><a href="#milestones">Milestones</a><a href="#testing">Testing</a><a href="#risks">Risks</a>
   </nav>
 </header>
 
 <h2 id="summary">Summary</h2>
 <p>People edit rich-text documents together in real time, and offline edits merge without conflicts. On top of that, the system finds notes by typo-tolerant text search and by meaning, groups notes into topics, and links related notes into a graph. An agent works with the notes as a collaborator: it researches across them, answers with citations, and proposes edits you can accept or reject.</p>
 <p>The project has one purpose: learn Rust, algorithms and ML by building real components from scratch, then measuring them against reference implementations.</p>
+<div class="callout go">
+  <p><strong>Revision, 17 Nov 2026<span class="tag go">Go changed this</span></strong> The system was first built in Go and Python (the <code>skein-go</code> repository), as microservices from day one (ADR-0001) rather than a Phase 1 monolith, and is now being ported to Rust from that code. Where this plan and the Go implementation differ, a note like this one says how; the ADRs in <code>docs/adr/</code> and the Go code are newer than this document. The new <a href="#porting">Porting from Go</a> section gives the target Rust workspace and links to the porting guides in <a href="../porting/README.md"><code>docs/porting/</code></a>.</p>
+</div>
 
 <h2 id="scope">Scope and phases</h2>
 <div class="callout">
@@ -132,6 +137,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 │  └─ bench       criterion suites and datasets
 └─ apps/
    └─ demo-server Axum, WebSocket sync, HTTP search API</div>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> The Go libraries merged several of these crates: <code>libs/dp</code> holds diff, edit distance, LCS, chunking, snippets and reading plans; history, blame and undo live in the <code>documents</code> service domain; <code>libs/blocks</code> is the document model; <code>ann</code>, <code>cluster</code> and <code>embed</code> became the Python <code>ml</code> service (ADR-0015), and <code>agent</code> the Python <code>agent</code> service. The Rust workspace now mirrors the Go repository instead; see <a href="#porting">Porting from Go</a>.</p>
+</div>
 
 <h2 id="document">Document engine <span class="tag now">now</span></h2>
 <h3>Sequence CRDT</h3>
@@ -144,6 +152,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 </ul>
 <h3>Markdown</h3>
 <p>A hand-written block and inline parser turns Markdown into the document model, and a serializer turns it back. Parse then serialize must round-trip on generated input. Typing <code># </code> or <code>**text**</code> uses the same rules as input shortcuts.</p>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> Fugue was implemented directly (ADR-0005), with one operation per character in wire format v1 (no runs yet) and a node arena rather than a B-tree. Blocks are not a tree: they are block markers inside the one sequence, with last-writer-wins attribute registers (type, indent, checked, language), so there are no block moves and no cycles to prevent. Inline formatting is Markdown inside the block text rather than Peritext marks. The normative formats are <code>docs/spec/crdt-sequence.md</code> and <code>docs/spec/blocks.md</code>.</p>
+</div>
 
 <h2 id="history">Diff, change history, undo and redo <span class="tag now">now</span></h2>
 <div class="scroll"><table>
@@ -167,6 +178,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 <tr><td>Graph</td><td>Backlink graph from <code>[[links]]</code>, PageRank, shortest path between notes, BFS for related notes.</td><td>Known small graphs with hand-computed ranks</td></tr>
 </tbody></table></div>
 <p>Learning method for each algorithm: derive it on paper, implement it, check it against the reference, then profile and optimize.</p>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> Text search ranks with BM25 over a word index, with trigrams for typo candidates (banded Levenshtein, then Damerau distance) and for regex code search in the style of Russ Cox's trigram index (ADR-0010), not a Dice score. Discovery returns cosine, shared tags and link hops as separate signals, never blended, so there is no reciprocal rank fusion. Embeddings, ANN indexes and clustering are in the Python <code>ml</code> service, each with a from-scratch and a library version benchmarked side by side; the graph grew into <code>libs/graph</code> (components, blast radius, shortest and semantic paths, centrality, PageRank, Louvain, reading paths).</p>
+</div>
 
 <h2 id="agent">Agent <span class="tag now">now</span></h2>
 <p>The agent is a collaborator that can read the whole workspace. It answers questions with citations to specific blocks, researches a topic across clusters, summarizes, and suggests edits, links and tags. The runtime is written in this repo so the loop, the tools and the evals are all understood end to end.</p>
@@ -203,6 +217,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
   <li>Traces make regressions replayable: re-run the same task after a change and compare.</li>
 </ul>
 <p>An optional extension: choose the cheapest set of tool calls under a budget with a knapsack-style DP.</p>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> The agent was built in Python on LangGraph (ADR-0015), not as a from-scratch runtime. It acts as its user with a delegated token, through the same gRPC APIs as the frontend (ADR-0009). It may delete notes and share them, but only after the user confirms each such call. Edits are applied at once as one <code>ApplyOps</code> batch, which is one undo group, so a suggestion is rejected by undoing it rather than held as pending operations. Writing the runtime from scratch in Rust remains the optional last step of the port (<code>services/agent/PORTING.md</code>).</p>
+</div>
 
 <h2 id="labs">Foundations labs <span class="tag now">now</span></h2>
 <p>These are small, separate builds. Each one teaches a skill the engine needs and has its own done criterion. Do them alongside the milestones, not before.</p>
@@ -234,6 +251,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 <tr><td>notification</td><td>Mentions, comments, share invites, by email and in-app, sent from queued events</td><td>Pub/Sub, retry with backoff, deduplication</td></tr>
 </tbody></table></div>
 <p>Deployment on GCP: Cloud Run per service, Pub/Sub between them, Cloud SQL for metadata, GCS for snapshots and model weights, Secret Manager, and Terraform for everything. Multiple sync instances need a shared fan-out per document, or consistent routing of each document to one owner instance.</p>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> The services are <code>gateway</code>, <code>identity</code> (auth), <code>documents</code> (sync, op log, history), <code>search</code> (trigram, regex and the graph), <code>notifications</code> in Go, and <code>ml</code> and <code>agent</code> in Python. gRPC between services, REST and WebSockets at the gateway, Protobuf events through a transactional outbox to Pub/Sub (ADR-0002, ADR-0006). WebSockets authenticate with the bearer token in a subprotocol entry, not a ticket. Sync streams go to the note's owner instance by rendezvous hashing at the gateway. Deployment is GKE plus Cloud Run (ADR-0017, ADR-0018), with a Cloud Run free-trial profile (ADR-0020).</p>
+</div>
 
 <h2 id="phase3">Phase 3 <span class="tag p3">phase 3</span></h2>
 <p>Each item is optional and independent. Pick by what the measurements from Phase 2 show.</p>
@@ -246,6 +266,59 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 <tr><td>Product and platform</td><td>Offline-first browser client with the CRDT in WASM and IndexedDB persistence. End-to-end encryption. A sandboxed plugin system using WASM. A custom editor renderer in place of ProseMirror or Tiptap.</td></tr>
 <tr><td>Operations</td><td>OpenTelemetry traces, SLOs and alerting. Load testing and deterministic fault simulation (partitions, crashes, delayed delivery). Cost tuning and autoscaling policy on GCP.</td></tr>
 </tbody></table></div>
+
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> Several Phase 3 items already exist in the Go implementation: owner routing of each document by consistent (rendezvous) hashing, the offline-first browser client with the CRDT in WASM (ADR-0007), OpenTelemetry traces and metrics, and deterministic seed data with ground truth for testing.</p>
+</div>
+
+<h2 id="porting">Porting from Go <span class="tag now">now</span></h2>
+<p>The Rust version is now a port of the Go code, one crate per Go module or package, in one Cargo workspace in <code>rust/</code> at the root of the <code>skein-go</code> repository. The protos, conformance fixtures, seed data and end-to-end suite are then shared by path, and a Rust service can replace its Go twin in the running stack while everything else stays in Go. The porting guides are in <a href="../porting/README.md"><code>docs/porting/</code></a>: the entry point with the dependency graph, the order and the side-by-side setup; a <code>PORTING.md</code> next to every library, <code>platform/</code>, <code>gen/</code> and every service; and seven <a href="../porting/slices/README.md">vertical slices</a> that port one feature at a time, from route to storage.</p>
+
+<h3>Target workspace</h3>
+<div class="tree">rust/
+├─ Cargo.toml           workspace: members, [workspace.dependencies], lints
+└─ crates/
+   ├─ libs/             pure: no I/O, no async, no global state
+   │  ├─ skein-crdt     libs/crdt      Fugue sequence, causal buffer, codec
+   │  ├─ skein-blocks   libs/blocks    block markers, attributes, Markdown
+   │  ├─ skein-dp       libs/dp        edit distance, diff, chunking, plans
+   │  ├─ skein-graph    libs/graph     link graph algorithms
+   │  └─ skein-trigram  libs/trigram   trigram index, regex queries
+   ├─ proto/
+   │  └─ skein-proto    gen/           prost messages, pbjson, tonic stubs (feature grpc)
+   ├─ platform/         platform/      one crate per Go package
+   │  ├─ skein-config   skein-shutdown   skein-logging   skein-telemetry
+   │  ├─ skein-auth     skein-ratelimit  skein-postgres  skein-redis
+   │  └─ skein-events   skein-outbox     skein-grpc      skein-http
+   └─ services/
+      ├─ identity/      identity-core       identity
+      ├─ documents/     documents-core      documents
+      ├─ search/        search-core         search
+      ├─ notifications/ notifications-core  notifications
+      └─ gateway/       gateway-core        gateway
+         (ml and agent stay in Python; see their PORTING.md)</div>
+<p>Each service splits in two: <code>&lt;service&gt;-core</code> holds the domain, the use cases, the port traits and the in-memory fakes (Go's <code>internal/domain</code>, <code>internal/app</code>, <code>internal/fakes</code>), and <code>&lt;service&gt;</code> holds the adapters and the binary (<code>internal/adapters</code>, <code>cmd/</code>). Go keeps the hexagonal layering by convention; the split lets Cargo enforce it.</p>
+
+<h3>Crate dependency rules</h3>
+<div class="scroll"><table>
+<thead><tr><th>Crate kind</th><th>May depend on</th><th>Must not depend on</th></tr></thead>
+<tbody>
+<tr><td>libs</td><td>other libs along the Go edges only (<code>skein-blocks</code> on <code>skein-crdt</code>, <code>skein-trigram</code> on <code>skein-dp</code>); small pure crates such as <code>thiserror</code></td><td>tokio or any I/O crate, <code>skein-proto</code>, platform, services</td></tr>
+<tr><td>skein-proto</td><td>prost, pbjson, bytes; tonic behind the <code>grpc</code> feature</td><td>any workspace crate</td></tr>
+<tr><td>platform</td><td>other platform crates along the Go edges (<code>skein-outbox</code> on <code>skein-events</code> and <code>skein-postgres</code>; <code>skein-grpc</code> on auth, config, logging, ratelimit; <code>skein-http</code> on those and <code>skein-grpc</code>); tokio, tonic, axum, sqlx, redis, Pub/Sub</td><td><code>skein-proto</code> (events carry payloads as bytes), libs, services</td></tr>
+<tr><td>&lt;service&gt;-core</td><td>libs; <code>skein-proto</code> with <code>default-features = false</code> (messages only); platform crates with their I/O features off, for shared types and traits</td><td>tonic, sqlx, redis, axum, Pub/Sub clients; any other service's crates</td></tr>
+<tr><td>&lt;service&gt;</td><td>its own core; platform; <code>skein-proto</code> with <code>grpc</code></td><td>any other service's crates: other services are reached only through their generated clients</td></tr>
+</tbody></table></div>
+<p>Check the rules in CI with <code>cargo deny</code> bans or a test over <code>cargo metadata</code>, so a forbidden edge fails the build rather than a review. Where a Go use case imports a platform package (identity's app layer uses <code>redisx</code> and <code>ratelimit</code>, the gateway's uses <code>auth</code> and <code>ratelimit</code>, search's uses <code>events</code> and <code>redisx</code>), either depend on that crate with its I/O features off or put the use behind a port trait in the core crate.</p>
+
+<h3>Order and acceptance</h3>
+<ol>
+  <li>Libraries, against <code>testdata/conformance/</code> and the codec golden bytes.</li>
+  <li><code>skein-proto</code>, generated with <code>buf</code> and the prost and tonic plugins (<code>gen/PORTING.md</code>).</li>
+  <li>Platform, in dependency order, porting each package's fake with it.</li>
+  <li>Services: identity, documents, search, notifications, then the gateway; the agent last and optional; ml stays in Python.</li>
+</ol>
+<p>A ported service is done when its Go unit tests pass in Rust under the same names, its seed loader matches the seed's ground truth, and the end-to-end suite (<code>make e2e</code>) passes with that service in Rust and the rest in Go: same protos, same ports, same environment variables, same database migrations.</p>
 
 <h2 id="milestones">Milestones</h2>
 <div class="scroll"><table>
@@ -265,6 +338,9 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
 <tr><td>M12</td><td>Multi-instance sync, offline-first client, observability and SLOs</td><td>Phase 3</td></tr>
 <tr><td>M13</td><td>On-disk ANN, GPU embeddings, learned reranker, multi-agent workflows</td><td>Phase 3</td></tr>
 </tbody></table></div>
+<div class="callout go">
+  <p><strong>Go changed this<span class="tag go">Go changed this</span></strong> M1 to M11 were delivered in Go and Python, in a different order (services first). For the Rust port, the milestones are the steps of the recommended order in <a href="../porting/README.md#recommended-order"><code>docs/porting/README.md</code></a> or the seven <a href="../porting/slices/README.md">vertical slices</a>; each ends when its e2e journeys pass with the Rust code in the stack.</p>
+</div>
 
 <h2 id="testing">Testing and benchmarks</h2>
 <ul>
@@ -288,7 +364,7 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1
   <li><strong>Open:</strong> Fugue or a simpler algorithm first? Which embedding model balances size and quality on a laptop CPU?</li>
 </ul>
 
-<footer>Phase 1 is the document engine, the ML algorithms and the agent. Services come in Phase 2. Phase 3 covers scale, advanced ML and offline-first.</footer>
+<footer>Phase 1 is the document engine, the ML algorithms and the agent. Services come in Phase 2. Phase 3 covers scale, advanced ML and offline-first. Revised 17 Nov 2026 with the Go implementation's changes and the plan for porting it to Rust.</footer>
 </main>
 </body>
 </html>

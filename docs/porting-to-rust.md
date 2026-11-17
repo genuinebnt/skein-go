@@ -10,6 +10,14 @@ revision adding the agent and Phase 3 in
 [design/skein-rust-design.html](design/skein-rust-design.html).
 Where it and this guide disagree, the Go code and the ADRs are newer.
 
+This page is the language-level guide. The step-by-step plan is in
+[porting/README.md](porting/README.md): the dependency graph of libraries,
+platform, generated code and services, the recommended order, a
+`PORTING.md` next to each of them (what it does, what to learn first, the
+file-by-file order, crates and pitfalls), vertical slices that port one
+feature end to end ([porting/slices/](porting/slices/README.md)), and how to
+run Go and Rust side by side with the e2e suite as the acceptance test.
+
 ## 1. How to port a package
 
 1. **Read the package doc comment** (`doc.go`). It states the algorithm, the
@@ -36,9 +44,13 @@ Where it and this guide disagree, the Go code and the ADRs are newer.
 | 2 | `libs/dp` | `skein-dp` | none |
 | 3 | `libs/graph` | `skein-graph` | none |
 | 4 | `libs/blocks` (block markers, Markdown) | `skein-blocks` | crdt |
-| 5 | `libs/trigram` | `skein-trigram` | none |
+| 5 | `libs/trigram` | `skein-trigram` | dp |
 | 6 | service domain and app layers | one crate per service | the libraries |
 | 7 | service adapters (gRPC, Postgres, Pub/Sub) | in the service crates | tonic, sqlx, google-cloud-pubsub |
+
+Steps 6 and 7 also need the generated crate and the platform crates; the
+full order, with `gen/` and `platform/` placed, is in
+[porting/README.md](porting/README.md#recommended-order).
 
 Python services (`ml`, `agent`) are not part of the port. If you want them
 in Rust too, `linfa` covers classical ML, `candle` or `ort` covers

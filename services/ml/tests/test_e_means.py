@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 from conftest import gaussian_blobs
 
-from skein_ml.domain.clustering import EMeans, Lloyd, sum_squared_error
-from skein_ml.domain.clustering.common import DistanceCounter
+from skein_ml.domain.clustering import EMeans, Lloyd
+from skein_ml.domain.clustering.common import DistanceCounter, squared_distances
 from skein_ml.domain.clustering.e_means import (
     INITIAL_MASS,
     epoch_rows,
@@ -193,23 +193,6 @@ def test_no_revival_in_two_dimensions(seed):
     assert revived.splits > 0
 
 
-@pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
-@pytest.mark.parametrize(
-    ("n", "d", "k", "epochs"), [(3000, 8, 10, 3), (4000, 32, 24, 1.5), (2500, 2, 12, 2)]
-)
-def test_final_loss_matches_faiss_contrib_e_means(seed, n, d, k, epochs):
-    from faiss.contrib.e_means import NumpyEmeans
-
-    x, _ = gaussian_blobs(np.random.default_rng(seed), n, d, k, spread=5.0)
-    x = x.astype(np.float32)
-    reference = NumpyEmeans(d, k, nepochs=epochs, seed=seed % 2**31)
-    reference_centroids, _ = reference.train(x)
-    ours = EMeans(k, epochs=epochs, seed=seed % 2**31).fit(x)
-    assert sum_squared_error(x, ours.centroids) == pytest.approx(
-        sum_squared_error(x, reference_centroids), rel=1e-3
-    )
-
-
 def test_a_unit_step_replaces_touched_masses_and_keeps_untouched_ones(seed):
     x, _ = gaussian_blobs(np.random.default_rng(seed), 400, 3, 3, spread=5.0)
     x = x.astype(np.float32)
@@ -224,19 +207,104 @@ def test_a_unit_step_replaces_touched_masses_and_keeps_untouched_ones(seed):
     assert masses[0][3] == np.float32(INITIAL_MASS)
 
 
-@pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
-def test_matches_faiss_with_a_unit_initial_step_and_revival(seed):
+# Seed 1582185458 failed an earlier version of the fidelity test, which ran
+# the reference with faiss.knn: right after the first split a point lies
+# 1.8e-6 closer to the donor than to its child (distance 4.12), inside the
+# float32 rounding of |x|^2 - 2 x.c + |c|^2, faiss.knn and NumPy break that
+# tie differently, and the runs diverge (about 1 seed in 20 here, and 1 in
+# 100 for the default recipe at d = 32). It stays as the known tie case.
+TIE_SEED = 1582185458
+TIE_SCALE = 4.0
+"""Two float32 kernels may disagree when the exact gap is below
+``TIE_SCALE * eps32 * (|x| + |c|)^2``, a few times the expansion's rounding
+bound; the largest seen over 300 seeds was 0.57."""
+
+# (n, d, blobs, k, epochs, options): the recipe's own batch and step, and a
+# unit initial step with a small batch, where many of the 24 clusters on 4
+# blobs die and are revived.
+FIDELITY_CASES = {
+    "recipe-d8": (3000, 8, 10, 10, 3, {}),
+    "recipe-d32": (4000, 32, 24, 24, 1.5, {}),
+    "recipe-d2": (2500, 2, 12, 12, 2, {}),
+    "unit-step-revival": (3000, 6, 4, 24, 2, {"batch_size": 128, "alpha0": 1.0}),
+}
+
+
+def _fidelity_data(seed: int, n: int, d: int, blobs: int) -> np.ndarray:
+    spread = 8.0 if blobs == 4 else 5.0
+    x, _ = gaussian_blobs(np.random.default_rng(seed), n, d, blobs, spread=spread)
+    return x.astype(np.float32)
+
+
+def _reference_with_our_assignment():
+    """``NumpyEmeans`` assigning with our kernel, so only update and revival logic differ."""
     from faiss.contrib.e_means import NumpyEmeans
 
-    x, _ = gaussian_blobs(np.random.default_rng(seed), 3000, 6, 4, spread=8.0)
-    x = x.astype(np.float32)
-    options = {"batch_size": 128, "alpha0": 1.0}
-    reference = NumpyEmeans(6, 24, nepochs=2, seed=seed % 2**31, **options)
-    reference_centroids, _ = reference.train(x)
-    ours = EMeans(24, epochs=2, seed=seed % 2**31, **options)
-    result = ours.fit(x)
+    class SharedKernel(NumpyEmeans):
+        def _assign_rows(self, rows, centroids):
+            distances = squared_distances(rows, centroids)
+            labels = np.argmin(distances, axis=1)
+            return distances[np.arange(len(rows)), labels], labels
+
+    return SharedKernel
+
+
+@pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
+@pytest.mark.parametrize(
+    ("case", "fixed_seed"),
+    [(name, None) for name in FIDELITY_CASES] + [("unit-step-revival", TIE_SEED)],
+)
+def test_matches_faiss_contrib_e_means_exactly_given_the_same_assignment(seed, case, fixed_seed):
+    # The assignment kernel is shared: faiss.knn and NumPy round differently,
+    # which flips float32 ties (see the next test), and one flipped tie right
+    # after a split sends the runs to different local optima. With the kernel
+    # fixed, the recipe, schedule, revival draws and closing means must agree
+    # bit for bit. Agreement with faiss.knn itself is statistical and lives in
+    # the benchmark (docs/ml-benchmarks.md).
+    seed = fixed_seed or seed
+    n, d, blobs, k, epochs, options = FIDELITY_CASES[case]
+    x = _fidelity_data(seed, n, d, blobs)
+    reference = _reference_with_our_assignment()(d, k, nepochs=epochs, seed=seed % 2**31, **options)
+    reference_centroids, reference_labels = reference.train(x)
+    ours = EMeans(k, epochs=epochs, seed=seed % 2**31, **options)
+    result = ours.fit(x, observer=lambda m: m.check_invariants())
     assert ours.splits == reference.n_splits
-    np.testing.assert_allclose(result.centroids, reference_centroids, rtol=1e-4, atol=1e-4)
+    if fixed_seed == TIE_SEED:
+        assert ours.splits > 0, "the tie seed must exercise revival"
+    np.testing.assert_array_equal(result.centroids, reference_centroids)
+    np.testing.assert_array_equal(result.labels, reference_labels)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("faiss") is None, reason="faiss-cpu not installed")
+@pytest.mark.parametrize(
+    ("case", "fixed_seed"),
+    [(name, None) for name in FIDELITY_CASES] + [("unit-step-revival", TIE_SEED)],
+)
+def test_faiss_assignment_differs_from_ours_only_at_float32_ties(seed, case, fixed_seed):
+    from faiss.contrib.e_means import NumpyEmeans
+
+    seed = fixed_seed or seed
+    gaps: list[float] = []
+
+    class Recording(NumpyEmeans):
+        def _assign_rows(self, rows, centroids):
+            distances, labels = super()._assign_rows(rows, centroids)
+            ours = np.argmin(squared_distances(rows, centroids), axis=1)
+            for row in np.flatnonzero(ours != labels):
+                point = rows[row].astype(np.float64)
+                pair = centroids[[labels[row], ours[row]]].astype(np.float64)
+                exact = ((point - pair) ** 2).sum(axis=1)
+                scale = (np.linalg.norm(point) + np.linalg.norm(pair, axis=1).max()) ** 2
+                gaps.append(abs(exact[0] - exact[1]) / (np.finfo(np.float32).eps * scale))
+            return distances, labels
+
+    n, d, blobs, k, epochs, options = FIDELITY_CASES[case]
+    Recording(d, k, nepochs=epochs, seed=seed % 2**31, **options).train(
+        _fidelity_data(seed, n, d, blobs)
+    )
+    if fixed_seed == TIE_SEED:
+        assert gaps, "the recorded tie seed no longer produces a disagreement"
+    assert all(gap <= TIE_SCALE for gap in gaps), gaps
 
 
 def test_kmeans_plus_plus_init_is_lloyds_seeding_and_its_distances_are_counted(seed):

@@ -67,9 +67,14 @@ A connection is authorized once, at upgrade, and lives until the access
 token expires. The gateway then closes it with `4401`; the client refreshes
 the token (`POST /v1/sessions:refresh`) and reconnects. For sync that costs
 one hello: the server sends only what the client's version vector lacks.
-Access that is revoked while connected closes the connection with `4403`
-(ADR-0008); `documents` also re-checks every batch of operations, so nothing
-is accepted in between.
+When access is lowered while connected (ADR-0008), the gateway re-checks
+it: a sync connection whose user can still read the note (for example, a
+member lowered to viewer) stays open, and its edits come back as `rejected`
+frames; one that can no longer read closes with `4403`. If the re-check
+itself fails, the connection closes with `1012` and the reconnect is
+authorised again. A workspace-level change also closes the user's agent
+connections with `4403`. `documents` re-checks every batch of operations,
+so nothing is accepted in between.
 
 ### Keepalive, rate limits and shutdown
 
