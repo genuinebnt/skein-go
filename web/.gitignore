@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-mock/
+# Built from web/wasm by wasm/build.sh.
+public/wasm/
+# Built from testdata/seed/small by scripts/build-mock-seed.mjs.
+.mock-seed/
+test-results/
+playwright-report/
+*.tsbuildinfo

@@ -160,3 +160,15 @@ seed-check: ## Seed tool tests, including the medium profile's time budget
 	cd tools/seed && SKEIN_SEED_MEDIUM=1 go test -count=1 -timeout 20m ./...
 
 ci: fmt-check vet test wasm-check ## What CI runs for Go
+
+.PHONY: web-dev web-test web-build
+
+web-dev: ## Run the web app in mock mode (no backend) on WEB_PORT, default 5173
+	cd web && pnpm install --frozen-lockfile && pnpm dev --port $(or $(WEB_PORT),5173)
+
+web-test: ## Web: bridge tests, typecheck, lint, Vitest, then Playwright e2e in mock mode
+	cd web/wasm && go test -count=1 ./...
+	cd web && pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm e2e
+
+web-build: ## Build the web app for live mode into web/dist, with the WebAssembly module
+	cd web && pnpm install --frozen-lockfile && pnpm wasm && pnpm build
