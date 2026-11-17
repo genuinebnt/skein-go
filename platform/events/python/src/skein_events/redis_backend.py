@@ -8,11 +8,12 @@ order. Each subscription is a consumer group on every partition. One
 consumer at a time owns a partition through a lease that is renewed every
 third of the ack deadline; replicas share partitions by heartbeat. A lapsed
 lease is the visibility timeout: the next owner claims the partition's
-pending entries and redelivers them. A partition worker delivers entries one
-at a time in ID order, counts attempts in a hash (before the handler, so a
-crash counts), stores a retry time on a nack (1 s doubling to 60 s) and
-holds back the key's later entries until then, and after the maximum
-attempts copies the entry to the dead-letter topic.
+pending entries and redelivers them, on acquisition and again every pass (so
+a former owner that missed its lease lapsing strands nothing). A partition
+worker delivers entries one at a time in ID order, counts attempts in a hash
+(before the handler, so a crash counts), stores a retry time on a nack (1 s
+doubling to 60 s) and holds back the key's later entries until then, and
+after the maximum attempts copies the entry to the dead-letter topic.
 
 Threads: one balancer per subscription and one worker per owned partition.
 redis-py clients are thread-safe (a pool connection per command), so all
@@ -328,6 +329,9 @@ class RedisSubscription:
             worker.start()
 
     def _claim_all(self, p: int) -> None:
+        # Runs on acquisition and at the start of every pass, for the reason
+        # in Go's claimAll: a former holder that has not noticed its lease
+        # lapsed can strand a new entry in its own pending list.
         # Not JUSTID: redis-py drops the cursor from JUSTID replies, and the
         # loop needs it to page past 1000 pending entries.
         start = "0-0"
@@ -418,6 +422,7 @@ class _Worker:
 
     def _pass(self) -> float:
         b, spec = self.sub._b, self.sub._spec
+        self.sub._claim_all(self.partition)
         raw = b._client.hgetall(_retry_key(spec.name, self.partition))
         state = _PassState({_text(k): int(v) for k, v in raw.items()}, b._clock() + b._poll)
         start = "0"
@@ -492,7 +497,9 @@ class _Worker:
             self._finish(entry_id)
         else:
             due_at = b._clock() + spec.backoff(attempt)
-            client.hset(_retry_key(spec.name, p), entry_id, int(due_at * 1000))
+            # Rounded up: the hash holds whole milliseconds, and a truncated
+            # deadline would let the redelivery run up to 1 ms early.
+            client.hset(_retry_key(spec.name, p), entry_id, math.ceil(due_at * 1000))
             state.hold(key, due_at)
 
     def _finish(self, entry_id: str) -> None:

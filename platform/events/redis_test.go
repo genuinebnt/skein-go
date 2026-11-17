@@ -241,6 +241,53 @@ func TestRedisRedeliversACrashedConsumersMessageAfterTheVisibilityTimeout(t *tes
 	stop()
 }
 
+// A former holder whose lease lapsed without it noticing can read a new
+// entry into its own pending list and stop. Nobody acquires the partition
+// again, so the current holder must adopt the entry on a later pass.
+func TestRedisAdoptsAnEntryLeftPendingByAConsumerThatLostItsLease(t *testing.T) {
+	_, client := newMiniredis(t)
+	r := openRedisBus(t, client, shortTopology(10, 10*time.Millisecond, 10*time.Second), "owner")
+	ctx := context.Background()
+	first, second := envelope(t, "n1", "first"), envelope(t, "n1", "second")
+	p := RedisPartition("n1", first.ID)
+	if err := r.Publish(ctx, "t", first); err != nil {
+		t.Fatal(err)
+	}
+	busy, release := make(chan struct{}), make(chan struct{})
+	got := make(chan string, 2)
+	stop := subscribeFor(t, r, "s", func(_ context.Context, msg Message) error {
+		if string(msg.Payload) == "first" {
+			close(busy)
+			<-release
+		}
+		got <- string(msg.Payload)
+		return nil
+	})
+	<-busy
+	if err := r.Publish(ctx, "t", second); err != nil {
+		t.Fatal(err)
+	}
+	stray, err := client.XReadGroup(ctx, &redis.XReadGroupArgs{Group: "s", Consumer: "former", Streams: []string{RedisStreamKey("t", p), ">"}, Count: 1, Block: -1}).Result()
+	if err != nil || len(stray[0].Messages) != 1 {
+		t.Fatalf("former holder read %v, %v", stray, err)
+	}
+	close(release)
+	for _, want := range []string{"first", "second"} {
+		select {
+		case payload := <-got:
+			if payload != want {
+				t.Fatalf("delivered %q, want %q", payload, want)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%q was never delivered", want)
+		}
+	}
+	stop()
+	if err := r.CheckInvariants(ctx, "s"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestRedisConsumersSharePartitionsAndKeepPerKeyOrder runs two consumers
 // of one subscription, the second joining midway, under random nacks, and
 // checks every message is acked with each key's acks in publish order.

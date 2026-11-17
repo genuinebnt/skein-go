@@ -80,6 +80,9 @@
 // holder either released the lease after finishing its work or stopped
 // renewing it an ack deadline ago. That is the visibility timeout: a
 // delivery to a consumer that dies is redelivered once its lease lapses.
+// The holder claims again at the start of every pass, because a former
+// holder that has not noticed its lease lapse can still strand a new
+// entry in its own pending list.
 //
 // A partition worker delivers entries one at a time in entry-ID order:
 // first the pending ones (nacked, or claimed from a previous holder), then

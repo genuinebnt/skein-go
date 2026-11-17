@@ -72,11 +72,18 @@ A consumer of a subscription, every `ack_deadline / 3`:
    worker finishes its current message (compare-and-`DEL`);
 4. acquires free partitions up to its share (`SET NX PX ack_deadline` with a
    token unique to this acquisition), and claims every pending entry of
-   each one (`XAUTOCLAIM ... 0 0-0 JUSTID` until the cursor is `0-0`).
+   each one (`XAUTOCLAIM <stream> <group> <consumer> 0 0-0`, again from
+   the returned cursor until it is `0-0`; `JUSTID` is optional, but a
+   client library must keep the cursor: redis-py drops it from `JUSTID`
+   replies, so the Python backend claims without it).
 
 A worker owns one partition and repeats a **pass**:
 
-1. read the retry hash;
+1. claim every pending entry of the partition, as on acquisition, then
+   read the retry hash. While one lease holds this claims nothing; it
+   exists because a former holder that has not yet noticed its lease
+   lapsed can read a new entry into its own pending list and stop, and
+   no later acquisition would claim it;
 2. read its own pending entries (`XREADGROUP ... <stream> 0`, then from the
    last ID seen, 100 at a time), then, while fewer than 100 entries are
    waiting, new ones (`XREADGROUP ... >`, blocking up to the earliest retry
@@ -96,7 +103,8 @@ A worker owns one partition and repeats a **pass**:
      and forget it;
    - nack otherwise: set its retry time to now plus the backoff for the
      attempt (minimum backoff doubled per earlier attempt, capped at the
-     maximum: 1 s to 60 s), and hold back its key.
+     maximum: 1 s to 60 s), rounded up to the next millisecond so the
+     redelivery is never early, and hold back its key.
 
 A delivery whose consumer dies is redelivered once that consumer's lease
 lapses, after at most the ack deadline (30 s): the visibility timeout.
@@ -112,4 +120,5 @@ dead-lettered; other keys keep flowing. An entry trimmed by `MAXLEN` before
 a slow subscription acknowledged it is lost to that subscription (logged
 when noticed). Two consumers can deliver the same message only after a
 lease is lost while its holder is still running, which at-least-once
-delivery allows.
+delivery allows; in that window a key's messages can also be delivered
+out of order.

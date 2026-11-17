@@ -402,6 +402,12 @@ func (s *redisSubscription) balance(ctx context.Context) error {
 // Holding the lease makes that safe: the previous holder either released
 // it (and finished its work) or stopped renewing it an ack deadline ago,
 // which is the visibility timeout after which its deliveries are retried.
+// It runs on acquisition and again at the start of every pass: a former
+// holder that has not yet noticed its lease lapsed can still read a new
+// entry into its own pending list and then stop, and without the repeat
+// that entry would wait for the partition to change hands again. While a
+// single lease holds, every pending entry is already this consumer's, so
+// the repeat claims nothing.
 func (s *redisSubscription) claimAll(ctx context.Context, p int) error {
 	start := "0-0"
 	for {
@@ -497,7 +503,8 @@ type passState struct {
 	waiting  int // left pending this pass
 }
 
-// pass delivers the partition's pending entries, then new ones, in entry
+// pass adopts any pending entry another consumer left behind (claimAll),
+// then delivers the partition's pending entries, then new ones, in entry
 // ID order (pending IDs are all below the group's last-delivered ID, so
 // pending-then-new is ID order). It returns how long to sleep before the
 // next pass; a blocking read for new entries usually did the waiting
@@ -505,6 +512,9 @@ type passState struct {
 func (w *redisWorker) pass(ctx context.Context) (time.Duration, error) {
 	r, spec := w.s.r, w.s.spec
 	stream := RedisStreamKey(spec.Topic, w.partition)
+	if err := w.s.claimAll(ctx, w.partition); err != nil {
+		return 0, err
+	}
 	raw, err := r.client.HGetAll(ctx, redisRetryKey(spec.Name, w.partition)).Result()
 	if err != nil {
 		return 0, err

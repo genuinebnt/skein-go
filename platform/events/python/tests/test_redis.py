@@ -1,12 +1,14 @@
-"""Redis behaviour beyond the shared contract, on fakeredis (in process)."""
+"""Redis behaviour beyond the shared contract, on fakeredis and a real redis-server."""
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 
 import fakeredis
 import pytest
+import redis
 
 from skein_events import (
     ATTR_DEAD_LETTER_DELIVERY_COUNT,
@@ -39,15 +41,33 @@ def topology(attempts=10, backoff=0.05, deadline=10.0):
     )
 
 
-@pytest.fixture
-def client():
-    return fakeredis.FakeRedis(server=fakeredis.FakeServer())
+@pytest.fixture(params=["fakeredis", pytest.param("redis-server", marks=pytest.mark.integration)])
+def client(request):
+    if request.param == "fakeredis":
+        yield fakeredis.FakeRedis(server=fakeredis.FakeServer())
+        return
+    url = os.environ.get("SKEIN_TEST_REDIS_URL")
+    if not url:
+        pytest.skip("SKEIN_TEST_REDIS_URL not set")
+    # These tests use fixed names, so each starts from an empty database:
+    # SKEIN_TEST_REDIS_URL must name a scratch database.
+    real = redis.Redis.from_url(url)
+    real.flushdb()
+    yield real
+    real.flushdb()
+    real.close()
 
 
 def open_broker(client, topo, name="c"):
     broker = RedisBroker(client, consumer_name=name, poll_interval=0.05)
     broker.provision(topo)
     return broker
+
+
+def holds_a_lease(client, prefix):
+    """Whether a consumer named with ``prefix`` holds a partition lease of "s"."""
+    tokens = (client.get(_lease_key("s", p)) for p in range(PARTITIONS))
+    return any(t is not None and t.decode().startswith(prefix) for t in tokens)
 
 
 def env(key="", payload=b"x"):
@@ -148,6 +168,34 @@ def test_redelivers_a_crashed_consumers_message_after_the_visibility_timeout(cli
     broker.check_invariants("s")
 
 
+def test_adopts_an_entry_left_pending_by_a_consumer_that_lost_its_lease(client):
+    broker = open_broker(client, topology(backoff=0.01), "owner")
+    first, second = env("n1", b"first"), env("n1", b"second")
+    p = partition_for("n1", first.id)
+    broker.publish("t", first)
+    busy, release = threading.Event(), threading.Event()
+    got: list[bytes] = []
+
+    def handler(m: Message) -> None:
+        if m.envelope.payload == b"first":
+            busy.set()
+            release.wait(10)
+        got.append(m.envelope.payload)
+
+    sub = broker.subscribe("s", handler)
+    busy.wait(10)
+    # While the owner's worker is inside the handler, a former owner whose
+    # lease lapsed without it noticing reads the next entry, then stops.
+    # Nobody acquires the partition again, so only the owner can adopt it.
+    broker.publish("t", second)
+    stray = client.xreadgroup("s", "former", {stream_key("t", p): ">"}, count=1)
+    assert stray and len(stray[0][1]) == 1
+    release.set()
+    wait_for("the stray entry", lambda: got == [b"first", b"second"], timeout=10)
+    sub.stop(5)
+    broker.check_invariants("s")
+
+
 def test_two_consumers_share_partitions_and_keep_per_key_order(client):
     topo = topology(attempts=1000, backoff=0.001, deadline=0.3)
     first, second = open_broker(client, topo, "first"), open_broker(client, topo, "second")
@@ -180,6 +228,11 @@ def test_two_consumers_share_partitions_and_keep_per_key_order(client):
     publish(100, 0)
     wait_for("progress", lambda: total() > 10)
     b = second.subscribe("s", handler("second"))
+    # Rebalancing takes a few balance ticks (the first consumer must notice
+    # the newcomer and release, then the second must acquire); without this
+    # wait the second batch can drain before the second consumer holds a
+    # partition, and the test would not exercise sharing at all.
+    wait_for("the second consumer to hold a partition", lambda: holds_a_lease(client, "second/"))
     publish(100, 5)
     wait_for("all acked", lambda: total() == 200, timeout=60)
     a.stop(5)
