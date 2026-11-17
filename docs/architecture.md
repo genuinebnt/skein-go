@@ -139,6 +139,7 @@ through the gateway and sends email according to preferences.
 |---|---|---|
 | Unit | `go test ./...` in one module, `pytest` in one service | none |
 | Local stack | `make up` (everything), `make up-app` (no observability), `make up-min` (infrastructure only), then `make seed-load` | Postgres, Redis, Pub/Sub emulator, Mailpit; the seven services (profile `app`); collector, Jaeger, Prometheus, Loki, Grafana, Swagger UI (profile `observability`) |
+| Native stack | `make up-native` ([local-native.md](local-native.md)), then `make e2e` and `make integration-native` | the same infrastructure and services as local processes on high ports, without Docker, seed loaded |
 | Local Kubernetes | `make kind-up` (planned) | the same manifests as GKE, on kind |
 | Cloud, free trial | Terraform `trial` profile (planned, [ADR-0020](adr/0020-free-trial-profile.md)) | Cloud Run for every service, Cloud Run jobs and functions, Pub/Sub, Cloud SQL, Redis on an e2-micro VM, Cloud Storage, Firestore, Secret Manager, KMS, IAM |
 | Cloud, full | Terraform `full` profile (planned, [ADR-0017](adr/0017-gcp-service-map-and-iam.md), [ADR-0018](adr/0018-compute-gke-cloud-run-functions.md)) | GKE plus Cloud Run, Cloud SQL, Memorystore, Pub/Sub, Cloud Storage, Firestore, load balancer, Cloud Armor, Secret Manager, KMS, Artifact Registry |
@@ -174,8 +175,12 @@ Phases 1 and 2 are merged into `main`:
 - Local stack: infrastructure, observability and every service in Docker
   Compose (`make up`); seed data from `tools/seed`.
 
-The web frontend (`web/`) is merged and runs in mock mode. What comes next,
-in order, is in [docs/roadmap.md](roadmap.md): contract gaps, the event store
-(ADR-0016), service-to-service identity, Terraform starting with the
-free-trial profile (ADR-0020), functions and storage features, Kubernetes,
-and the frontend against the live stack.
+The web frontend (`web/`) is merged and runs in mock mode. The whole stack
+runs natively (`make up-native`, [local-native.md](local-native.md)), every
+integration test runs against it (`make integration-native`), and the
+end-to-end suite (`e2e/`, `make e2e`) covers the user journeys through the
+gateway and the seed's ground truth. What comes next, in order, is in
+[docs/roadmap.md](roadmap.md): contract gaps, the event store (ADR-0016),
+service-to-service identity, Terraform starting with the free-trial profile
+(ADR-0020), functions and storage features, Kubernetes, and the frontend
+against the live stack.

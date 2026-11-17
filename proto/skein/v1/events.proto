@@ -72,7 +72,10 @@ message ChangedBlock {
 }
 message LinksChanged {
   string note_id = 1;
-  repeated string targets = 2; // the note's complete outbound link set
+  // The note's complete outbound link set: the titles inside its [[...]]
+  // links, as typed (outside code). Consumers resolve them to notes by
+  // exact title within the workspace.
+  repeated string targets = 2;
 }
 message AccessChanged {
   string workspace_id = 1;

@@ -103,6 +103,14 @@ type AuthCache interface {
 	InvalidateUser(ctx context.Context, userID string) error
 }
 
+// NoteRegistry tells identity about a note the moment it is created
+// (IdentityService.RegisterNote), so access checks do not have to wait for
+// NoteCreated to reach identity's projection: without it the creator could
+// not open their own new note for the first moments.
+type NoteRegistry interface {
+	RegisterNote(ctx context.Context, subject domain.Subject, note domain.NoteID, workspace domain.WorkspaceID) error
+}
+
 // ReplicaRegistry checks replica ownership with identity's RegisterReplica,
 // which succeeds for a replica the caller owns (registering it if new) and
 // fails for one registered to someone else (ADR-0004).

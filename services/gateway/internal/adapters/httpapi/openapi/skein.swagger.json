@@ -4073,6 +4073,9 @@
         }
       }
     },
+    "RegisterNoteResponse": {
+      "type": "object"
+    },
     "RegisterReplicaRequest": {
       "type": "object",
       "properties": {

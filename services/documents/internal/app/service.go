@@ -87,10 +87,13 @@ type Deps struct {
 	Authorizer Authorizer
 	AuthCache  AuthCache // optional
 	Replicas   ReplicaRegistry
-	NoteCache  NoteCache
-	Presence   PresenceStore
-	Clock      Clock
-	Logger     *slog.Logger
+	// Notes registers created notes with identity; nil skips it (the seed
+	// loader, whose notes identity's own loader projects).
+	Notes     NoteRegistry
+	NoteCache NoteCache
+	Presence  PresenceStore
+	Clock     Clock
+	Logger    *slog.Logger
 	// MeterProvider defaults to the OpenTelemetry global.
 	MeterProvider metric.MeterProvider
 }
@@ -102,6 +105,7 @@ type Service struct {
 	authorizer Authorizer
 	authCache  AuthCache
 	replicas   ReplicaRegistry
+	registry   NoteRegistry
 	notes      NoteCache
 	presence   PresenceStore
 	clock      Clock
@@ -125,7 +129,7 @@ func New(d Deps, cfg Config) *Service {
 		d.Logger = slog.New(slog.DiscardHandler)
 	}
 	s := &Service{
-		store: d.Store, authorizer: d.Authorizer, authCache: d.AuthCache, replicas: d.Replicas,
+		store: d.Store, authorizer: d.Authorizer, authCache: d.AuthCache, replicas: d.Replicas, registry: d.Notes,
 		notes: d.NoteCache, presence: d.Presence, clock: d.Clock, logger: d.Logger,
 		cfg: cfg.WithDefaults(), owners: map[crdt.ReplicaID]string{}, m: newMetrics(d.MeterProvider),
 	}
@@ -225,7 +229,24 @@ func (s *Service) CreateNote(ctx context.Context, subject domain.Subject, worksp
 	}
 	now := s.clock.Now()
 	note := domain.Note{ID: id, WorkspaceID: workspace, Title: title, CreatedBy: subject.UserID, CreatedAt: now, UpdatedAt: now}
-	return note, s.insertNote(ctx, subject, note, blocks.Import(markdown))
+	if err := s.insertNote(ctx, subject, note, blocks.Import(markdown)); err != nil {
+		return domain.Note{}, err
+	}
+	s.registerNote(ctx, subject, note)
+	return note, nil
+}
+
+// registerNote tells identity about a committed note at once. A failure is
+// logged, not returned: the note exists, and the NoteCreated event brings
+// identity up to date a moment later.
+func (s *Service) registerNote(ctx context.Context, subject domain.Subject, note domain.Note) {
+	if s.registry == nil {
+		return
+	}
+	if err := s.registry.RegisterNote(ctx, subject, note.ID, note.WorkspaceID); err != nil {
+		s.logger.WarnContext(ctx, "registering the new note with identity failed; it becomes usable when NoteCreated arrives",
+			"note_id", string(note.ID), "error", err)
+	}
 }
 
 // ImportNote creates a note with the given identity and no text, keeping

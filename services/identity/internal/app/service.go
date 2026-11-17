@@ -76,9 +76,13 @@ type Config struct {
 	// match), so a code cannot be redeemed for an attacker's callback.
 	OAuthRedirectURIs []string
 	// AllowUnauthenticatedInternalCalls lets callers without a token use
-	// Authorize and ListReadableNotes (event consumers have no user
-	// token). Off by default: auth fails closed.
+	// Authorize, ListReadableNotes, GetUser and ListMembers (event
+	// consumers have no user token). Off by default: auth fails closed.
 	AllowUnauthenticatedInternalCalls bool
+	// DevSessions enables StartDevSession, which signs in any user without
+	// a credential, for end-to-end tests of seed users (who have no
+	// password). cmd/identity refuses it outside dev and test.
+	DevSessions bool
 }
 
 // DefaultConfig returns the defaults: 15-minute access tokens (as in

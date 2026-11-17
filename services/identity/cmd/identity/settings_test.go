@@ -61,3 +61,21 @@ func TestSigningKeysComeFromTheSecretAndAreNeverEchoed(t *testing.T) {
 		t.Fatalf("bad key: %v", err)
 	}
 }
+
+func TestDevSessionsAreRefusedOutsideDevAndTest(t *testing.T) {
+	for env, allowed := range map[string]bool{"dev": true, "test": true, "staging": false, "prod": false} {
+		vars := map[string]string{"SKEIN_ENV": env, "IDENTITY_DEV_SESSIONS": "true"}
+		if env == "staging" || env == "prod" {
+			vars["IDENTITY_SIGNING_KEYS"] = "active:" + base64.RawURLEncoding.EncodeToString(make([]byte, 32))
+		}
+		l := config.FromMap(vars)
+		s := loadSettings(l)
+		err := l.Err()
+		if allowed && (err != nil || !s.App.DevSessions) {
+			t.Errorf("%s: %v, enabled %v", env, err, s.App.DevSessions)
+		}
+		if !allowed && (err == nil || !strings.Contains(err.Error(), "IDENTITY_DEV_SESSIONS")) {
+			t.Errorf("%s: accepted (%v)", env, err)
+		}
+	}
+}

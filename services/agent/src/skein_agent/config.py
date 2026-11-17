@@ -6,7 +6,7 @@
 | ``SKEIN_AGENT_ADMIN_ADDR`` | ``0.0.0.0:8080`` | HTTP ``/healthz`` and ``/readyz``; empty turns it off |
 | ``ANTHROPIC_API_KEY`` | (none) | required unless ``SKEIN_AGENT_MODEL_BACKEND=scripted`` |
 | ``SKEIN_AGENT_MODEL`` | ``claude-sonnet-5-5`` | Anthropic model ID |
-| ``SKEIN_AGENT_MODEL_BACKEND`` | ``anthropic`` | ``anthropic`` or ``scripted`` (a model that only says it is offline; for smoke tests) |
+| ``SKEIN_AGENT_MODEL_BACKEND`` | ``anthropic`` | ``anthropic`` or ``scripted`` (offline: answers that it is offline, except the ``/search`` and ``/delete`` commands of ``fakes/model.offline_step``; for smoke and end-to-end tests) |
 | ``SKEIN_AGENT_MAX_OUTPUT_TOKENS`` | ``4096`` | per model call |
 | ``SKEIN_AGENT_PRICE_INPUT_PER_MTOK`` / ``..._OUTPUT_...`` | from the model table | USD per million tokens, for cost budgets |
 | ``SKEIN_AGENT_MAX_STEPS`` / ``_MAX_TOKENS`` / ``_MAX_WALL_SECONDS`` / ``_MAX_COST_USD`` | 12 / 200000 / 120 / 0.50 | run budgets |

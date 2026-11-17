@@ -12,7 +12,7 @@ PROFILE    ?= medium
 SEED       ?= 1234
 SEED_OUT   ?= bin/seed/$(PROFILE)
 
-.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up up-app up-min seed-load down logs urls stack-check stack-smoke ci seed seed-small seed-check
+.PHONY: help test test-lib vet fmt-check fuzz bench wasm-check proto proto-tools proto-check proto-stale up up-app up-min seed-load down logs urls stack-check stack-smoke ci seed seed-small seed-check up-native down-native integration-native e2e
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -172,3 +172,20 @@ web-test: ## Web: bridge tests, typecheck, lint, Vitest, then Playwright e2e in 
 
 web-build: ## Build the web app for live mode into web/dist, with the WebAssembly module
 	cd web && pnpm install --frozen-lockfile && pnpm wasm && pnpm build
+
+# Native stack (deploy/local, docs/local-native.md): the same services and
+# infrastructure as `make up-app`, as plain processes on high ports, for
+# machines without Docker. WIPE=1 on down-native also deletes the data.
+up-native: ## Start Postgres, Redis, Pub/Sub, Mailpit and the seven services natively, then load the small seed
+	deploy/local/up.sh
+
+down-native: ## Stop everything up-native started (WIPE=1 also deletes its data)
+	deploy/local/down.sh $(if $(filter 1,$(WIPE)),--wipe)
+
+integration-native: ## Run every integration test against a running up-native stack
+	deploy/local/integration.sh
+
+e2e: ## Run the end-to-end suite (e2e/) against a running up-native stack
+	@out=$$(gofmt -l e2e); if [ -n "$$out" ]; then echo "$$out"; exit 1; fi
+	. deploy/local/ports.env && cd e2e && go vet -tags e2e ./... && \
+	  go test -tags e2e -count=1 -timeout 15m $(if $(RUN),-run '$(RUN)') ./...

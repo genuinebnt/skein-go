@@ -25,7 +25,11 @@ services:
       # IDENTITY_GOOGLE_CLIENT_ID/SECRET, IDENTITY_GITHUB_CLIENT_ID/SECRET,
       # IDENTITY_FIXED_NOW=2026-11-01T00:00:00Z to match seed ground truth.
       IDENTITY_FIXED_NOW: ${IDENTITY_FIXED_NOW:-}
-      IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS: ${IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS:-false}
+      # On in the local stack: notifications handles events with no user
+      # token (Authorize, GetUser, ListMembers) until services have their
+      # own identity; with it off every mention is dead-lettered. The
+      # gateway never routes token-less calls to these RPCs.
+      IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS: ${IDENTITY_ALLOW_UNAUTHENTICATED_INTERNAL_CALLS:-true}
     ports:
       - "127.0.0.1:9101:9090"
       - "127.0.0.1:8101:8080"

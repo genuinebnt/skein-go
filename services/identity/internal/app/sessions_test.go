@@ -355,3 +355,29 @@ func TestPasswordResetSetsThePasswordAndEndsEverySession(t *testing.T) {
 	h.clock.Advance(time.Hour)
 	wantErr(t, h.svc.ResetPassword(ctx, expiring, "an expired passphrase"), domain.ErrUnauthenticated)
 }
+
+func TestDevSessionsAreRefusedUnlessEnabled(t *testing.T) {
+	h := newHarness(t)
+	user, _ := h.signUp("ada@example.com")
+	if _, _, err := h.svc.StartDevSession(ctx, string(user.ID)); !errors.Is(err, app.ErrDevSessionsDisabled) {
+		t.Fatalf("got %v, want ErrDevSessionsDisabled", err)
+	}
+}
+
+func TestDevSessionSignsInAnExistingUserWithARefreshableSession(t *testing.T) {
+	h := newHarness(t, withConfig(func(c *app.Config) { c.DevSessions = true }))
+	user, _ := h.signUp("ada@example.com")
+	got, tokens, err := h.svc.StartDevSession(ctx, string(user.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != user.ID || tokens.AccessToken == "" {
+		t.Fatalf("session for %v: %+v", got.ID, tokens)
+	}
+	if _, err := h.svc.Refresh(ctx, tokens.RefreshToken); err != nil {
+		t.Fatalf("the dev session does not refresh: %v", err)
+	}
+	if _, _, err := h.svc.StartDevSession(ctx, "01936f3e-0000-7000-8000-000000000000"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown user: got %v, want ErrNotFound", err)
+	}
+}

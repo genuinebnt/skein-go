@@ -32,6 +32,8 @@ type Authorizer struct {
 	workspace map[string]domain.WorkspaceID
 	creators  map[domain.WorkspaceID]map[string]bool
 	calls     int
+	// registrations are the notes RegisterNote was asked about.
+	registrations []string
 }
 
 // NewAuthorizer returns an authorizer that allows nothing.
@@ -39,7 +41,38 @@ func NewAuthorizer() *Authorizer {
 	return &Authorizer{roles: map[string]map[string]Role{}, workspace: map[string]domain.WorkspaceID{}, creators: map[domain.WorkspaceID]map[string]bool{}}
 }
 
-var _ ports.Authorizer = (*Authorizer)(nil)
+var (
+	_ ports.Authorizer   = (*Authorizer)(nil)
+	_ ports.NoteRegistry = (*Authorizer)(nil)
+)
+
+// RegisterNote implements ports.NoteRegistry the way identity does: a
+// caller allowed to create notes in the workspace becomes the note's
+// editor, unless the note is already known. Registrations lists the calls.
+func (a *Authorizer) RegisterNote(_ context.Context, subject domain.Subject, note domain.NoteID, ws domain.WorkspaceID) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.registrations = append(a.registrations, string(note))
+	if !a.creators[ws][subject.UserID] {
+		return fmt.Errorf("%w: may not create notes in this workspace", domain.ErrPermissionDenied)
+	}
+	if _, known := a.workspace[string(note)]; known {
+		return nil
+	}
+	a.workspace[string(note)] = ws
+	if a.roles[string(note)] == nil {
+		a.roles[string(note)] = map[string]Role{}
+	}
+	a.roles[string(note)][subject.UserID] = Editor
+	return nil
+}
+
+// Registrations returns the notes RegisterNote was called for, in order.
+func (a *Authorizer) Registrations() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.registrations...)
+}
 
 // AllowCreate lets user create notes in workspace.
 func (a *Authorizer) AllowCreate(ws domain.WorkspaceID, user string) {

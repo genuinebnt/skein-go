@@ -2,7 +2,9 @@
 -- paused state and usage, and run traces. LangGraph's checkpoint tables
 -- live in this schema too, created by its own migrations (AsyncPostgresSaver
 -- .setup()) because the service connects with search_path=agent.
-CREATE SCHEMA IF NOT EXISTS agent;
+-- The agent schema itself is created by migrate() when missing: CREATE SCHEMA
+-- IF NOT EXISTS would need the database CREATE privilege, which the
+-- service role does not have (deploy/compose/postgres/init.sql).
 
 CREATE TABLE IF NOT EXISTS agent.chats (
     chat_id       text PRIMARY KEY,

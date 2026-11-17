@@ -21,7 +21,7 @@ from typing import Any
 
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from pydantic import PrivateAttr
 
@@ -195,8 +195,48 @@ class ScriptedModelProvider:
         return self.model
 
 
+OFFLINE_ANSWER = "The agent's model is not configured on this server."
+
+_SEARCH_COMMAND = re.compile(r"^/search\s+(?P<query>\S.*)$", re.DOTALL)
+_DELETE_COMMAND = re.compile(r"^/delete\s+(?P<note_id>\S+)\s*$")
+_SOURCE_LABEL = re.compile(r'source="(S\d+)"')
+
+
+def offline_step(messages: Sequence[BaseMessage]) -> AIMessage:
+    """The offline model's whole behaviour, as one script step.
+
+    Without a model the agent still has to be exercisable end to end
+    (``make e2e`` runs with no API key), so the latest user message may be
+    one of two commands that drive the real tools, the confirmation gate and
+    citations deterministically:
+
+    - ``/search <query>`` calls ``search`` and answers citing the first
+      source the result labelled, or says nothing matched;
+    - ``/delete <note id>`` calls ``delete_note``, which pauses for
+      confirmation; if approved the run ends with "Moved to the trash.".
+
+    Anything else gets ``OFFLINE_ANSWER``. The commands are plain text from
+    the user, so they grant nothing the user could not do with the API.
+    """
+    human_at = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=-1)
+    request = str(messages[human_at].content).strip() if human_at >= 0 else ""
+    answered = any(isinstance(m, ToolMessage) for m in messages[human_at + 1 :])
+    if found := _SEARCH_COMMAND.match(request):
+        if not answered:
+            return call("search", {"query": found["query"].strip()}, call_id="offline_search")
+        labels = _SOURCE_LABEL.findall(last_tool_text(messages))
+        if not labels:
+            return say("Nothing in the workspace matches that search.")
+        return say(f"The best match is this block [{labels[0]}].")
+    if found := _DELETE_COMMAND.match(request):
+        if not answered:
+            return call("delete_note", {"note_id": found["note_id"]}, call_id="offline_delete")
+        return say("Moved to the trash.")
+    return say(OFFLINE_ANSWER)
+
+
 def offline_provider() -> ScriptedModelProvider:
-    """A model for running the service without an API key: it answers every
-    message by saying it is offline (container smoke tests)."""
-    model = ScriptedChatModel(script=[say("The agent's model is not configured on this server.")], repeat_last=True)
+    """A model for running the service without an API key (smoke and
+    end-to-end tests); see ``offline_step``."""
+    model = ScriptedChatModel(script=[offline_step], repeat_last=True)
     return ScriptedModelProvider(model, "offline")

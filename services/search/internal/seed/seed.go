@@ -148,6 +148,7 @@ type Block struct {
 // Link is a links.jsonl record: one [[link]] interval.
 type Link struct {
 	SourceNoteID string  `json:"source_note_id"`
+	TargetTitle  string  `json:"target_title"`
 	TargetNoteID *string `json:"target_note_id"`
 	RemovedAt    *string `json:"removed_at"`
 }
@@ -192,9 +193,12 @@ func Load(ctx context.Context, dir string, projector *app.Projector, store app.S
 		byNote[b.NoteID] = append(byNote[b.NoteID], b)
 	}
 	targets := map[string][]string{}
+	// LinksChanged carries link titles, as documents publishes them; the
+	// projection resolves them (dangling ones included, which resolve to
+	// nothing).
 	for _, l := range linkRecords {
-		if l.RemovedAt == nil && l.TargetNoteID != nil {
-			targets[l.SourceNoteID] = append(targets[l.SourceNoteID], *l.TargetNoteID)
+		if l.RemovedAt == nil {
+			targets[l.SourceNoteID] = append(targets[l.SourceNoteID], l.TargetTitle)
 		}
 	}
 	stats := Stats{Notes: len(notes), Blocks: len(blockRecords)}

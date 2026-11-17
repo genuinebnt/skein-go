@@ -162,9 +162,14 @@ func run(ctx context.Context, s settings, dbCfg postgres.Config, redisCfg redisx
 	if err != nil {
 		return fail("grpc listen", err)
 	}
+	var devSessions admin.DevSessions
+	if s.App.DevSessions {
+		logger.Warn("IDENTITY_DEV_SESSIONS is on: POST " + admin.DevSessionPath + " on the admin port signs in any user without a credential")
+		devSessions = service
+	}
 	adminServer := &http.Server{
 		Addr:              s.AdminAddr,
-		Handler:           httpx.Chain(httpx.Config{Operation: "identity-admin", Logger: logger, TracerProvider: tel.TracerProvider, MeterProvider: tel.MeterProvider}, admin.Handler(ring, pool.Ping, logger)),
+		Handler:           httpx.Chain(httpx.Config{Operation: "identity-admin", Logger: logger, TracerProvider: tel.TracerProvider, MeterProvider: tel.MeterProvider}, admin.Handler(ring, pool.Ping, logger, devSessions)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

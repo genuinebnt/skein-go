@@ -345,6 +345,51 @@ func (s *Service) ApplyNoteEvent(ctx context.Context, consumer, eventID string, 
 	return OutcomeApplied, nil
 }
 
+// RegisterNote records a note documents has just created, before its
+// NoteCreated event reaches the projection, so the creator (and everyone in
+// the workspace) can use it at once: without it, every access check in the
+// first moments after creation denied the note as unknown. The caller must
+// be allowed to create notes in the workspace and is recorded as the
+// creator. It only ever inserts: a note already known in the same workspace
+// is left as it is (the later NoteCreated agrees with it), and one known in
+// another workspace is ErrAlreadyExists, so a caller cannot move a note.
+func (s *Service) RegisterNote(ctx context.Context, caller domain.Subject, note domain.NoteID, ws domain.WorkspaceID) error {
+	if err := requireUser(caller); err != nil {
+		return err
+	}
+	now := s.now()
+	inserted := false
+	err := s.store.InTx(ctx, func(ctx context.Context, tx Tx) error {
+		create := domain.Check{Action: domain.ActionNoteCreate, ResourceID: string(ws)}
+		facts, err := loadFacts(ctx, tx, caller, []domain.Check{create})
+		if err != nil {
+			return err
+		}
+		if !domain.Decide(facts, caller, create, now).Allowed {
+			return fmt.Errorf("%w: may not create notes in this workspace", domain.ErrPermissionDenied)
+		}
+		known, err := tx.Notes(ctx, []domain.NoteID{note})
+		if err != nil {
+			return err
+		}
+		if len(known) > 0 {
+			if known[0].WorkspaceID != ws {
+				return fmt.Errorf("%w: note %s belongs to another workspace", domain.ErrAlreadyExists, note)
+			}
+			return nil
+		}
+		inserted = true
+		return tx.UpsertNote(ctx, domain.NoteAccess{ID: note, WorkspaceID: ws, CreatedBy: caller.UserID, CreatedAt: now})
+	})
+	if err != nil {
+		return err
+	}
+	if inserted {
+		s.invalidate(ctx, "register_note", domain.NoteTag(note))
+	}
+	return nil
+}
+
 func ignoreNotFound(err error) error {
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil

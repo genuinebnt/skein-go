@@ -48,7 +48,7 @@ func main() {
 func run() error {
 	l := config.FromEnv()
 	svc := config.LoadService(l, "gateway")
-	cfg := loadConfig(l)
+	cfg := loadConfig(l, svc.Env)
 	redisCfg := redisx.LoadConfig(l)
 	pubsubCfg := events.LoadPubSubConfig(l)
 	if err := l.Err(); err != nil {

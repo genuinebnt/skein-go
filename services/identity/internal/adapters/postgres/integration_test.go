@@ -19,6 +19,7 @@ import (
 	"github.com/genuinebnt/skein-go/platform/logging"
 	"github.com/genuinebnt/skein-go/platform/outbox"
 	platformpg "github.com/genuinebnt/skein-go/platform/postgres"
+	"github.com/genuinebnt/skein-go/platform/postgres/pgtest"
 
 	identityevents "github.com/genuinebnt/skein-go/services/identity/internal/adapters/events"
 	"github.com/genuinebnt/skein-go/services/identity/internal/adapters/postgres"
@@ -62,6 +63,11 @@ func newDatabase(t *testing.T, baseURL string) *pgxpool.Pool {
 func startPostgres(t *testing.T) string {
 	t.Helper()
 	ctx := context.Background()
+	// SKEIN_TEST_POSTGRES_DSN runs against an existing server (make
+	// up-native) instead of a container; see platform/postgres/pgtest.
+	if url, ok := pgtest.FreshDatabase(t); ok {
+		return url
+	}
 	c, err := tcpostgres.Run(ctx, "postgres:17-alpine",
 		tcpostgres.WithDatabase("skein"), tcpostgres.WithUsername("skein"), tcpostgres.WithPassword("skein"),
 		tcpostgres.BasicWaitStrategies())

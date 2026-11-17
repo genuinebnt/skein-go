@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -184,31 +186,57 @@ func TestSyncWithoutAnEncodingDefaultsToJSONAndEchoesNothing(t *testing.T) {
 	}
 }
 
-func TestUpgradeFailuresAreStatusResponses(t *testing.T) {
-	s := newStack(t, stackOptions{})
+// Browsers cannot read the HTTP status of a refused upgrade, so refusals of
+// a real upgrade are delivered as close codes after the handshake.
+func TestUpgradeRefusalsCloseWithTheDocumentedCodes(t *testing.T) {
+	limits := generousLimits()
+	limits[domain.BudgetKey{Budget: domain.BudgetAPI, Subject: domain.SubjectUser}] = ratelimit.Limit{Rate: 1, Period: time.Hour, Burst: 1}
+	s := newStack(t, stackOptions{limits: limits})
 	s.backends.DenyNote("secret-note")
 	cases := []struct {
 		name, path string
 		protocols  []string
-		httpStatus int
-		code       codes.Code
+		code       websocket.StatusCode
+		reason     string
 	}{
-		{"no token", "/v1/notes/" + noteID + "/sync", []string{wsapi.ProtocolProto}, 401, codes.Unauthenticated},
-		{"bad token", "/v1/notifications/live", []string{wsapi.ProtocolJSON, "bearer.nope"}, 401, codes.Unauthenticated},
-		{"unreadable note", "/v1/notes/secret-note/sync", []string{wsapi.ProtocolProto, "bearer." + s.token("ada", time.Hour)}, 404, codes.NotFound},
+		{"no token", "/v1/notes/" + noteID + "/sync", []string{wsapi.ProtocolProto}, 4401, "missing bearer token"},
+		{"bad token", "/v1/notifications/live", []string{wsapi.ProtocolJSON, "bearer.nope"}, 4401, ""},
+		{"unreadable note", "/v1/notes/secret-note/sync", []string{wsapi.ProtocolProto, "bearer." + s.token("ada", time.Hour)}, 4404, "note not found"},
+		{"over budget", "/v1/notifications/live", []string{wsapi.ProtocolJSON, "bearer." + s.token("ada", time.Hour)}, 4429, ""},
 	}
 	for _, c := range cases {
-		_, resp, err := s.dial(c.path, c.protocols...)
-		if err == nil || resp == nil || resp.StatusCode != c.httpStatus {
-			t.Errorf("%s: err %v, resp %v", c.name, err, resp)
+		conn, resp, err := s.dial(c.path, c.protocols...)
+		if err != nil {
+			t.Errorf("%s: upgrade refused at the HTTP level: %v %v", c.name, err, resp)
 			continue
 		}
-		if st := decodeStatus(t, resp); st.GetCode() != int32(c.code) {
-			t.Errorf("%s: %v", c.name, st)
+		code, reason := closeOf(t, conn)
+		if code != c.code || (c.reason != "" && reason != c.reason) {
+			t.Errorf("%s: closed with %d %q, want %d %q", c.name, code, reason, c.code, c.reason)
+		}
+		if code == 4429 {
+			if _, err := strconv.Atoi(reason); err != nil {
+				t.Errorf("%s: 4429 reason %q is not a number of seconds", c.name, reason)
+			}
 		}
 	}
 	if len(s.documents.SyncCalls()) != 0 {
 		t.Error("a refused upgrade opened a sync stream")
+	}
+}
+
+// A request that is not a WebSocket upgrade still gets a google.rpc.Status.
+func TestNonUpgradeRequestsToSocketRoutesGetStatusResponses(t *testing.T) {
+	s := newStack(t, stackOptions{})
+	resp, err := http.Get(s.url + "/v1/notes/" + noteID + "/sync")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status %d, want 401", resp.StatusCode)
+	}
+	if st := decodeStatus(t, resp); st.GetCode() != int32(codes.Unauthenticated) {
+		t.Errorf("status %v", st)
 	}
 }
 
@@ -325,6 +353,52 @@ func TestSyncStreamStatusBecomesTheCloseCode(t *testing.T) {
 		if code, reason := closeOf(t, conn); code != c.code || reason != c.reason {
 			t.Errorf("%v: closed with %d %q, want %d %q", c.err, code, reason, c.code, c.reason)
 		}
+	}
+}
+
+// A client that sends an edit and closes at once (a closed tab) must not
+// lose it: the gateway half-closes the documents stream and lets it finish
+// instead of cancelling it with the socket (found by make e2e: every such
+// edit was lost).
+func TestSyncOpsSentJustBeforeTheClientClosesStillReachDocuments(t *testing.T) {
+	s := newStack(t, stackOptions{})
+	type outcome struct {
+		ops [][]byte
+		end error
+	}
+	ended := make(chan outcome, 1)
+	s.documents.OnSync(func(_ string, stream skeinv1.DocumentService_SyncServer) error {
+		var got outcome
+		for {
+			// Applying a batch takes a while; the client is long gone.
+			time.Sleep(200 * time.Millisecond)
+			req, err := stream.Recv()
+			if err != nil {
+				got.end = err
+				ended <- got
+				return nil
+			}
+			if b := req.GetOps(); b != nil {
+				got.ops = append(got.ops, b)
+			}
+		}
+	})
+	conn := s.mustDial("/v1/notes/"+noteID+"/sync", wsapi.ProtocolProto, "bearer."+s.token("ada", time.Hour))
+	send(t, conn, true, hello(noteID))
+	send(t, conn, true, ops([]byte{1, 2, 3}))
+	if err := conn.Close(websocket.StatusNormalClosure, "tab closed"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-ended:
+		if len(got.ops) != 1 || !bytes.Equal(got.ops[0], []byte{1, 2, 3}) {
+			t.Errorf("documents received ops %v, want the last batch", got.ops)
+		}
+		if !errors.Is(got.end, io.EOF) {
+			t.Errorf("the stream ended with %v, want a half-close (EOF), not a cancellation", got.end)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the documents stream never ended")
 	}
 }
 

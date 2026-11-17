@@ -57,7 +57,7 @@ func newEnvOn(t *testing.T, store *fakes.Store, auth *fakes.Authorizer, replicas
 		cfg.Tick = time.Hour // tests drive periodic work by hand unless they ask
 	}
 	e := &env{store: store, auth: auth, replicas: replicas, clock: clock, presence: fakes.NewPresence(clock)}
-	e.svc = New(Deps{Store: store, Authorizer: auth, Replicas: replicas, NoteCache: fakes.NewNoteCache(), Presence: e.presence, Clock: clock}, cfg)
+	e.svc = New(Deps{Store: store, Authorizer: auth, Replicas: replicas, Notes: auth, NoteCache: fakes.NewNoteCache(), Presence: e.presence, Clock: clock}, cfg)
 	t.Cleanup(e.svc.kill)
 	return e
 }

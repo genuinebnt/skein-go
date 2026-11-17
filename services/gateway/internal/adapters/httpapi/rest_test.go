@@ -495,8 +495,12 @@ func TestCORSAllowsTheDocumentedHeaders(t *testing.T) {
 	}
 	header.Del("Access-Control-Request-Method")
 	resp = cors.do(request{method: "GET", path: "/v1/notes/n1", token: cors.token("u", time.Hour), header: header})
-	if exposed := resp.Header.Get("Access-Control-Expose-Headers"); !strings.Contains(exposed, "Idempotent-Replayed") || !strings.Contains(exposed, "RateLimit-Remaining") {
-		t.Errorf("exposed headers %q", exposed)
+	// The web frontend reads each of these on cross-origin responses.
+	exposed := resp.Header.Get("Access-Control-Expose-Headers")
+	for _, want := range []string{"X-Request-ID", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After", "Idempotent-Replayed"} {
+		if !strings.Contains(exposed, want) {
+			t.Errorf("exposed headers %q lack %s", exposed, want)
+		}
 	}
 }
 

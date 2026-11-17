@@ -99,6 +99,10 @@ type Options struct {
 	FlushTimeout  time.Duration // 2s to flush the queue before closing
 	QueueSize     int           // 256 frames
 	MaxFrameBytes int64         // 1 MiB
+	// StreamDrain bounds how long a sync stream may go on after its socket
+	// closed, so documents applies the frames the client sent just before
+	// closing; 5s.
+	StreamDrain time.Duration
 }
 
 func (o Options) withDefaults() Options {
@@ -113,6 +117,9 @@ func (o Options) withDefaults() Options {
 	}
 	if o.FlushTimeout == 0 {
 		o.FlushTimeout = 2 * time.Second
+	}
+	if o.StreamDrain == 0 {
+		o.StreamDrain = 5 * time.Second
 	}
 	if o.QueueSize == 0 {
 		o.QueueSize = 256

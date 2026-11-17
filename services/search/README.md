@@ -82,7 +82,12 @@ gRPC ──▶ Access (identity ListReadableNotes, cached) ──▶ Searcher / 
 `GetLinkGraph`, `AnalyzeGraph`, `BlastRadius` (direction defaults to
 `CITED_BY`), `ShortestPath` (hops, or semantic weights `1 - cosine` from ml),
 `ReadingPath` and `ReadingPlan` run on the caller's readable graph.
-Self-links and repeated links are dropped when projected.
+`LinksChanged` carries the titles typed inside `[[...]]`; the graph resolves
+them against the workspace's visible note titles (exactly, the smallest note
+ID winning a shared title) each time it is built, so creating, renaming or
+trashing a target note changes the edges without any event about the
+linking note. Unresolved titles are dangling and make no edge. Self-links
+and repeated links are dropped.
 
 - **AnalyzeGraph.** The fast algorithms (components, orphans, SCCs, a cycle,
   topological order, PageRank, Louvain) are cached per readable graph and

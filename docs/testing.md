@@ -9,10 +9,10 @@ Docker or the rest of the system. Full-stack tests exist but are few.
 |---|---|---|---|
 | Library | pure algorithms in `libs/*` | Go only | `cd libs/crdt && go test ./...` or `make test-lib LIB=crdt` |
 | Use case | a service's app layer with in-memory fakes for its ports | Go or Python only | `cd services/<name> && go test ./internal/app/...` |
-| Adapter | Postgres, Pub/Sub and gRPC adapters | Docker (Testcontainers starts what it needs) | `go test -tags integration ./internal/adapters/...` |
+| Adapter | Postgres, Pub/Sub and gRPC adapters | Docker (Testcontainers starts what it needs), or a running server named by `SKEIN_TEST_POSTGRES_DSN`, `SKEIN_TEST_REDIS_URL`, `SKEIN_TEST_PUBSUB_EMULATOR_HOST` | `go test -tags integration ./internal/adapters/...`, or `make integration-native` for all of them |
 | Contract | proto lint and breaking changes; event consumer tests | `buf` | `make proto-check` |
 | Service | one service with fakes for every service it calls | Docker for its own database | `make test-service SVC=<name>` |
-| End to end | user journeys through the gateway | `make up` | `make e2e` |
+| End to end | user journeys through the gateway (`e2e/`, build tag `e2e`) | `make up-native` | `make e2e` |
 
 ## Rules
 
@@ -57,4 +57,12 @@ make fuzz         # each fuzz target for 30 seconds
 make bench        # benchmarks
 make wasm-check   # build the WASM-targeted libraries for js/wasm and wasip1
 make proto-check  # buf lint and buf breaking
+make up-native    # the stack as local processes (docs/local-native.md)
+make integration-native  # every integration test against it, counts per module
+make e2e          # the end-to-end journeys against it
 ```
+
+The end-to-end suite creates its own users and workspaces in every test, so
+it runs in parallel against a stack that already holds data; journeys over
+the seed sign in as seed users through identity's dev-only session route and
+only read.

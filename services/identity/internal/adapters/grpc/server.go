@@ -43,7 +43,11 @@ func PublicMethods(allowUnauthenticatedInternal bool) []string {
 		skeinv1.IdentityService_SignOut_FullMethodName,
 	}
 	if allowUnauthenticatedInternal {
-		m = append(m, skeinv1.IdentityService_Authorize_FullMethodName, skeinv1.IdentityService_ListReadableNotes_FullMethodName)
+		m = append(m, skeinv1.IdentityService_Authorize_FullMethodName, skeinv1.IdentityService_ListReadableNotes_FullMethodName,
+			// Event consumers resolve @handles and read names and
+			// addresses; without these, notifications dead-letters every
+			// mention event.
+			skeinv1.IdentityService_GetUser_FullMethodName, skeinv1.IdentityService_ListMembers_FullMethodName)
 	}
 	return m
 }
@@ -171,7 +175,12 @@ func (s *Server) GetUser(ctx context.Context, req *skeinv1.GetUserRequest) (*ske
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
-	u, err := s.svc.GetUser(ctx, mustCaller(ctx), id)
+	var u domain.User
+	if c := caller(ctx); c == nil {
+		u, err = s.svc.GetUserInternal(ctx, id)
+	} else {
+		u, err = s.svc.GetUser(ctx, *c, id)
+	}
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
@@ -193,7 +202,12 @@ func (s *Server) ListMembers(ctx context.Context, req *skeinv1.ListMembersReques
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
-	page, err := s.svc.ListMembers(ctx, mustCaller(ctx), ws, req.GetPage().GetPageSize(), req.GetPage().GetPageToken())
+	var page app.MemberPage
+	if c := caller(ctx); c == nil {
+		page, err = s.svc.ListMembersInternal(ctx, ws, req.GetPage().GetPageSize(), req.GetPage().GetPageToken())
+	} else {
+		page, err = s.svc.ListMembers(ctx, *c, ws, req.GetPage().GetPageSize(), req.GetPage().GetPageToken())
+	}
 	if err != nil {
 		return nil, s.fail(ctx, err)
 	}
@@ -345,6 +359,22 @@ func (s *Server) IssueDelegatedToken(ctx context.Context, req *skeinv1.IssueDele
 		return nil, s.fail(ctx, err)
 	}
 	return &skeinv1.IssueDelegatedTokenResponse{AccessToken: token}, nil
+}
+
+// RegisterNote implements the RPC.
+func (s *Server) RegisterNote(ctx context.Context, req *skeinv1.RegisterNoteRequest) (*skeinv1.RegisterNoteResponse, error) {
+	note, err := domain.ParseNoteID("note_id", req.GetNoteId())
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	ws, err := domain.ParseWorkspaceID("workspace_id", req.GetWorkspaceId())
+	if err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	if err := s.svc.RegisterNote(ctx, mustCaller(ctx), note, ws); err != nil {
+		return nil, s.fail(ctx, err)
+	}
+	return &skeinv1.RegisterNoteResponse{}, nil
 }
 
 // RegisterReplica implements the RPC.

@@ -47,6 +47,26 @@ func TestAuthCacheServesRepeatsAndForgetsAUserOnInvalidation(t *testing.T) {
 	}
 }
 
+// Identity denies access to a note its projection has not seen yet; once
+// NoteCreated reaches it the same question is allowed, with no AccessChanged
+// in between. A cached denial would hide the note for the whole TTL.
+func TestAuthCacheAsksAgainAfterADenial(t *testing.T) {
+	inner := fakes.NewAuthorizer()
+	cache, err := NewAuthCache(inner, redisx.NewMemoryStore(time.Now), time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := domain.Subject{UserID: "owner"}
+	read := []ports.Check{{Action: ports.ActionRead, Resource: "n1"}}
+	if got, err := cache.Authorize(ctx, owner, read); err != nil || got[0] {
+		t.Fatalf("before identity knows the note: %v %v", got, err)
+	}
+	inner.SetRole("w", "n1", "owner", fakes.Editor)
+	if got, err := cache.Authorize(ctx, owner, read); err != nil || !got[0] {
+		t.Fatalf("after identity learned the note the owner is still denied: %v %v", got, err)
+	}
+}
+
 func TestNoteCacheRoundTripsAndDeletes(t *testing.T) {
 	c, err := NewNoteCache(redisx.NewMemoryStore(time.Now), time.Minute)
 	if err != nil {

@@ -158,6 +158,14 @@ service IdentityService {
   // Internal. Issues a short-lived token for an agent run acting as the user
   // (ADR-0009). Only the agent service may call it.
   rpc IssueDelegatedToken(IssueDelegatedTokenRequest) returns (IssueDelegatedTokenResponse);
+  // Internal. Records a note documents has just created in identity's note
+  // projection, so its creator and workspace can use it at once instead of
+  // after the NoteCreated event arrives (read-your-writes). Called by
+  // documents with the creator's token; the caller must be allowed to create
+  // notes in the workspace. Registering a note identity already knows in the
+  // same workspace succeeds and changes nothing; in another workspace it is
+  // ALREADY_EXISTS.
+  rpc RegisterNote(RegisterNoteRequest) returns (RegisterNoteResponse);
   // Register a CRDT replica
   //
   // Records that a CRDT replica ID belongs to the calling user (ADR-0004).
@@ -393,6 +401,11 @@ message IssueDelegatedTokenRequest {
   string agent_run_id = 2;
   google.protobuf.Timestamp expires_at = 3;
 }
+message RegisterNoteRequest {
+  string note_id = 1;
+  string workspace_id = 2;
+}
+message RegisterNoteResponse {}
 message IssueDelegatedTokenResponse {
   string access_token = 1;
 }

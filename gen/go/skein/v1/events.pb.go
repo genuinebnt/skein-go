@@ -641,8 +641,11 @@ type LinksChanged struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	NoteId  string   `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
-	Targets []string `protobuf:"bytes,2,rep,name=targets,proto3" json:"targets,omitempty"` // the note's complete outbound link set
+	NoteId string `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
+	// The note's complete outbound link set: the titles inside its [[...]]
+	// links, as typed (outside code). Consumers resolve them to notes by
+	// exact title within the workspace.
+	Targets []string `protobuf:"bytes,2,rep,name=targets,proto3" json:"targets,omitempty"`
 }
 
 func (x *LinksChanged) Reset() {
