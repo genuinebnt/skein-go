@@ -61,6 +61,8 @@ docs/            architecture, decisions, specs, guides
 - [Running natively](docs/local-native.md): `make up-native`, ports, the e2e
   suite, integration tests without Docker, troubleshooting
 - [Porting guide](docs/porting-to-rust.md)
+- [Rust design doc](docs/design/skein-rust-design.html): the original plan for the
+  Rust version (workspace layout, document engine, labs, phases); open it in a browser
 - [Performance log](docs/PERF.md)
 - [Seed data](docs/seed-data.md): deterministic datasets with ground truth (`make seed PROFILE=medium`)
 - [e-means research notes](docs/research/e-means.md)
