@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collaborative Notes Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: single reading column, tables scroll inside their own wrappers */
+  --bg: #f6f8f9;
+  --surface: #ffffff;
+  --text: #16232a;
+  --muted: #5a6b74;
+  --line: #d9e1e5;
+  --accent: #0f766e;
+  --accent-soft: #dcf1ee;
+  --later: #8a5a00;
+  --later-soft: #fbefd5;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1f; --surface: #16252c; --text: #e4edf0; --muted: #9db0b8;
+    --line: #2a3d46; --accent: #4fd1c0; --accent-soft: #15342f;
+    --later: #f0c36a; --later-soft: #3a2f14; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1f; --surface: #16252c; --text: #e4edf0; --muted: #9db0b8;
+  --line: #2a3d46; --accent: #4fd1c0; --accent-soft: #15342f;
+  --later: #f0c36a; --later-soft: #3a2f14; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.65;
+}
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; }
+header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 8px; }
+.meta { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; font-weight: 600; text-wrap: balance; }
+h2 { font-size: 21px; margin: 40px 0 10px; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 16px; margin: 22px 0 6px; font-weight: 600; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 22px; }
+li { margin: 3px 0; }
+code { font-family: var(--font-mono); font-size: 0.88em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.lead { font-size: 17.5px; color: var(--text); }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; padding: 1px 8px; border-radius: 999px; vertical-align: middle; margin-left: 8px; font-weight: 500; }
+.tag.now { background: var(--accent-soft); color: var(--accent); }
+.tag.later { background: var(--later-soft); color: var(--later); }
+.callout { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+.callout.later { border-left-color: var(--later); }
+.callout p:last-child { margin-bottom: 0; }
+.scroll { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+.tree { font-family: var(--font-mono); font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre; line-height: 1.55; margin: 12px 0 18px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 14px 0 0; }
+nav.toc a { text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+footer { margin-top: 48px; color: var(--muted); font-size: 13.5px; border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="meta">Design doc · Draft v0.1 · 16 Nov 2026</p>
+  <h1>Collaborative Notes Engine</h1>
+  <p class="lead">A Rust document engine with its own CRDT, diff and history, plus the ML algorithms that make a pile of notes searchable and self-organizing.</p>
+  <nav class="toc" aria-label="Contents">
+    <a href="#scope">Scope</a><a href="#workspace">Workspace</a><a href="#document">Document engine</a><a href="#history">Diff, history, undo</a><a href="#ml">ML algorithms</a><a href="#labs">Foundations labs</a><a href="#services">Services (later)</a><a href="#milestones">Milestones</a><a href="#testing">Testing</a><a href="#risks">Risks</a>
+  </nav>
+</header>
+
+<h2 id="summary">Summary</h2>
+<p>People edit rich-text documents together in real time, and offline edits merge without conflicts. On top of that, the system finds notes by typo-tolerant text search and by meaning, groups notes into topics, and links related notes into a graph.</p>
+<p>The project has one purpose: learn Rust, algorithms and ML by building real components from scratch, then measuring them against reference implementations.</p>
+
+<h2 id="scope">Scope and phases</h2>
+<div class="callout">
+  <p><strong>Phase 1, now<span class="tag now">now</span></strong> Document engine and ML algorithms. One Cargo workspace, one small Axum binary for demos. No auth beyond a dev token, no separate services.</p>
+</div>
+<div class="callout later">
+  <p><strong>Phase 2, later<span class="tag later">later</span></strong> Split into services on GCP: gateway, auth, notification, sync, search. The Phase 1 crates become the libraries those services call, so nothing is rewritten.</p>
+</div>
+
+<h3>Goals</h3>
+<ul>
+  <li>Converging real-time editing with rich-text formatting, backed by a CRDT written in this repo.</li>
+  <li>Document diff, change history with time travel, and per-user undo and redo.</li>
+  <li>Trigram search, semantic search with an ANN index, hybrid ranking, clustering and a backlink graph.</li>
+  <li>Every algorithm verified against a reference and benchmarked.</li>
+</ul>
+<h3>Non-goals for Phase 1</h3>
+<ul>
+  <li>Production auth, billing, multi-tenant isolation or a polished UI. Use ProseMirror or Tiptap for the editor surface.</li>
+  <li>Training embedding models. Use an existing small model through Candle or ONNX.</li>
+  <li>Beating Automerge or FAISS. Aim to understand the gap, then close part of it.</li>
+</ul>
+
+<h2 id="workspace">Workspace layout</h2>
+<div class="tree">notes-engine/
+├─ crates/
+│  ├─ crdt        sequence CRDT, version vectors, causal DAG
+│  ├─ doc         document model: blocks, marks, Markdown in and out
+│  ├─ diff        Myers diff, edit distance, LCS
+│  ├─ history     op log, snapshots, time travel, blame
+│  ├─ undo        per-user undo and redo over CRDT ops
+│  ├─ trigram     inverted index, roaring bitmaps, fuzzy ranking
+│  ├─ ann         brute force, IVF, HNSW, product quantization
+│  ├─ cluster     K-means family, Louvain, evaluation metrics
+│  ├─ embed       model loading and batched inference
+│  ├─ graph       backlinks, PageRank, communities
+│  └─ bench       criterion suites and datasets
+└─ apps/
+   └─ demo-server Axum, WebSocket sync, HTTP search API</div>
+
+<h2 id="document">Document engine <span class="tag now">now</span></h2>
+<h3>Sequence CRDT</h3>
+<p>Start with RGA to learn the model, then move to a Fugue-style algorithm that avoids interleaving anomalies. Store runs of characters inserted together as one item, and use a B-tree or skip list so position lookups stay logarithmic. Replicas exchange version vectors and send only missing operations.</p>
+<h3>Rich text</h3>
+<ul>
+  <li>Formatting marks (bold, italic, link) are spans anchored to characters, with merge rules from the Peritext paper.</li>
+  <li>Blocks (paragraph, heading, list) form a tree. Moving a block must never create a cycle.</li>
+  <li>The binary update format uses varints and run-length encoding. Its decoder rejects malformed input and is fuzzed.</li>
+</ul>
+<h3>Markdown</h3>
+<p>A hand-written block and inline parser turns Markdown into the document model, and a serializer turns it back. Parse then serialize must round-trip on generated input. Typing <code># </code> or <code>**text**</code> uses the same rules as input shortcuts.</p>
+
+<h2 id="history">Diff, change history, undo and redo <span class="tag now">now</span></h2>
+<div class="scroll"><table>
+<thead><tr><th>Feature</th><th>Design</th></tr></thead>
+<tbody>
+<tr><td>Document diff</td><td>Myers O(ND) on characters, words and lines. Patience diff as an alternative for structured text. Output as a unified diff and as highlighted ranges.</td></tr>
+<tr><td>Change history</td><td>Append-only op log with a snapshot every N operations. Time travel replays from the nearest snapshot to any version. Each operation carries its author, so blame works per character.</td></tr>
+<tr><td>Compaction</td><td>Old operations fold into snapshots, tombstones are garbage collected once every known replica has seen the delete.</td></tr>
+<tr><td>Undo and redo</td><td>Each user has their own stack of inverse operations, so undo reverses only your changes even after others edited nearby. Related edits typed within a short window group into one undo step.</td></tr>
+</tbody></table></div>
+
+<h2 id="ml">ML algorithms <span class="tag now">now</span></h2>
+<div class="scroll"><table>
+<thead><tr><th>Component</th><th>Algorithm</th><th>Check against</th></tr></thead>
+<tbody>
+<tr><td>Trigram search</td><td>Inverted index from trigram to document, roaring bitmap postings, Dice score, edit-distance rerank. Updated incrementally from CRDT changes, indexing visible text only.</td><td>Brute-force substring and fuzzy match</td></tr>
+<tr><td>Embeddings</td><td>Small sentence model through Candle or ort, batched on a dedicated thread. Block-level vectors, re-embedded only when a block changes.</td><td>Reference outputs from the model's Python version</td></tr>
+<tr><td>Clustering</td><td>K-means++ with spherical distance, then mini-batch for incremental updates. Elkan pruning as an optimization. Louvain on the backlink graph as a second view.</td><td><code>linfa</code> and scikit-learn inertia and assignments</td></tr>
+<tr><td>ANN index</td><td>Brute force with SIMD, then IVF built on the K-means centroids, then HNSW, then product quantization.</td><td>Recall@k against brute force, and <code>ann-benchmarks</code> datasets</td></tr>
+<tr><td>Hybrid ranking</td><td>Reciprocal rank fusion of trigram and semantic results, then a small learned reranker.</td><td>Hand-labeled query set, MRR and NDCG</td></tr>
+<tr><td>Graph</td><td>Backlink graph from <code>[[links]]</code>, PageRank, shortest path between notes, BFS for related notes.</td><td>Known small graphs with hand-computed ranks</td></tr>
+</tbody></table></div>
+<p>Learning method for each algorithm: derive it on paper, implement it, check it against the reference, then profile and optimize.</p>
+
+<h2 id="labs">Foundations labs <span class="tag now">now</span></h2>
+<p>These are small, separate builds. Each one teaches a skill the engine needs and has its own done criterion. Do them alongside the milestones, not before.</p>
+<div class="scroll"><table>
+<thead><tr><th>Lab</th><th>Build</th><th>Done when</th></tr></thead>
+<tbody>
+<tr><td>1. Atomics</td><td>Spinlock, single-producer queue (ring buffer), Treiber stack, seqlock. Use <code>Relaxed</code>, <code>Acquire</code> and <code>Release</code> deliberately.</td><td>Passes <code>loom</code> and <code>miri</code> tests</td></tr>
+<tr><td>2. Threads and concurrency</td><td>Thread pool, work-stealing deque, channel from scratch, sharded map. Demonstrate false sharing, then fix it.</td><td>Throughput scales with cores in a benchmark</td></tr>
+<tr><td>3. SIMD</td><td>Dot product and L2 kernels in four versions: scalar, multi-accumulator, <code>std::simd</code>, intrinsics. Runtime feature dispatch. SIMD intersection of sorted posting lists.</td><td>Within a stated factor of the memory-bandwidth limit</td></tr>
+<tr><td>4. Tokio and futures</td><td>Hand-written futures (timer, join, select), a tiny executor with wakers, an async channel with backpressure, cancellation-safe tasks, then <code>tokio-console</code> on the demo server.</td><td>Executor runs a small echo server</td></tr>
+<tr><td>5. Rate limiting</td><td>Fixed window, sliding window log, token bucket and GCRA. Lock-free token bucket using one atomic and a compare-and-swap loop, then a per-key sharded version and a <code>tower</code> layer.</td><td>Correct under concurrent load, p99 latency measured</td></tr>
+<tr><td>6. Dynamic programming</td><td>Edit distance (banded), LCS, knapsack, optimal text chunking.</td><td>Matches brute force on random inputs</td></tr>
+<tr><td>7. Document diff</td><td>Myers diff and patience diff, unified diff output, applying a patch.</td><td>Apply(diff(a, b), a) equals b, tested with property tests</td></tr>
+<tr><td>8. Change history</td><td>Op log, snapshots, replay to a version, blame.</td><td>Replay from any snapshot gives identical text</td></tr>
+<tr><td>9. Undo and redo</td><td>Per-user stacks over a toy op log, then over the real CRDT.</td><td>Undo touches only your own edits under concurrent changes</td></tr>
+</tbody></table></div>
+<p>Suggested order: 1, 2, 3, 4, 6, 7, 8, 9, then 5 when the server needs it.</p>
+
+<h2 id="services">Services <span class="tag later">later</span></h2>
+<p>Added in Phase 2 once the engine works. Each service wraps existing crates.</p>
+<div class="scroll"><table>
+<thead><tr><th>Service</th><th>Job</th><th>Uses</th></tr></thead>
+<tbody>
+<tr><td>gateway</td><td>Single entry point, routing, rate limits, token verification</td><td>Lab 5</td></tr>
+<tr><td>auth</td><td>Argon2 login, OAuth, sessions, document roles, share links, WebSocket tickets</td><td>Server-side permission checks on every operation</td></tr>
+<tr><td>sync</td><td>WebSocket rooms, presence, persistence of op log and snapshots</td><td><code>crdt</code>, <code>history</code></td></tr>
+<tr><td>search</td><td>Trigram, semantic and hybrid queries, clustering jobs</td><td><code>trigram</code>, <code>ann</code>, <code>cluster</code>, <code>embed</code></td></tr>
+<tr><td>notification</td><td>Mentions, comments, share invites, by email and in-app, sent from queued events</td><td>Pub/Sub, retry with backoff, deduplication</td></tr>
+</tbody></table></div>
+<p>Deployment on GCP: Cloud Run per service, Pub/Sub between them, Cloud SQL for metadata, GCS for snapshots and model weights, Secret Manager, and Terraform for everything. Multiple sync instances need a shared fan-out per document, or consistent routing of each document to one owner instance.</p>
+
+<h2 id="milestones">Milestones</h2>
+<div class="scroll"><table>
+<thead><tr><th>#</th><th>Deliverable</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td>M1</td><td>Plain-text CRDT with convergence property tests and a benchmark</td><td>Now</td></tr>
+<tr><td>M2</td><td>Formatting marks, block tree, Markdown parse and serialize</td><td>Now</td></tr>
+<tr><td>M3</td><td>Diff, change history with time travel, undo and redo</td><td>Now</td></tr>
+<tr><td>M4</td><td>Trigram index with incremental updates</td><td>Now</td></tr>
+<tr><td>M5</td><td>Embeddings, brute-force search, K-means</td><td>Now</td></tr>
+<tr><td>M6</td><td>IVF, then HNSW, with recall and latency curves</td><td>Now</td></tr>
+<tr><td>M7</td><td>Hybrid ranking, backlink graph, PageRank</td><td>Now</td></tr>
+<tr><td>M8</td><td>Demo server with WebSocket sync and search API</td><td>Now</td></tr>
+<tr><td>M9</td><td>Gateway and auth services</td><td>Later</td></tr>
+<tr><td>M10</td><td>Notification service, Pub/Sub, GCP deploy with Terraform</td><td>Later</td></tr>
+</tbody></table></div>
+
+<h2 id="testing">Testing and benchmarks</h2>
+<ul>
+  <li><strong>Convergence:</strong> random concurrent operations on N replicas with random delivery order must end identical. Seeded and replayable.</li>
+  <li><strong>Round trips:</strong> parse then serialize, encode then decode, diff then apply.</li>
+  <li><strong>Fuzzing:</strong> the binary decoder and the Markdown parser.</li>
+  <li><strong>Concurrency:</strong> <code>loom</code> for atomics, <code>miri</code> for unsafe code.</li>
+  <li><strong>Performance:</strong> <code>criterion</code> with fixed seeds, flamegraphs, and a <code>PERF.md</code> log with a hypothesis and measured result for every optimization.</li>
+  <li><strong>Datasets:</strong> the public editing traces for CRDT speed, SIFT1M and GloVe for ANN, and your own notes for search quality.</li>
+</ul>
+
+<h2 id="risks">Risks and open questions</h2>
+<ul>
+  <li><strong>Block moves in the tree CRDT</strong> are hard to get right. Fallback: delete and reinsert, accepting duplicate-move anomalies at first.</li>
+  <li><strong>HNSW deletes and updates</strong> suit a constantly changing editor poorly. Plan: tombstones plus periodic rebuild.</li>
+  <li><strong>Incremental clustering drift:</strong> mini-batch centroids degrade over time. Schedule a full re-run and track inertia.</li>
+  <li><strong>Scope:</strong> this is a large list. Ship M1 to M3 before starting search, and treat labs as bounded time boxes.</li>
+  <li><strong>Open:</strong> Fugue or a simpler algorithm first? Which embedding model balances size and quality on a laptop CPU?</li>
+</ul>
+
+<footer>Phase 1 is the document engine and the ML algorithms. Services come after.</footer>
+</main>
+</body>
+</html>
