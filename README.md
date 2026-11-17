@@ -49,6 +49,7 @@ docs/            architecture, decisions, specs, guides
 
 ## Documentation
 
+- [Roadmap](docs/roadmap.md): what is done and what comes next
 - [Architecture](docs/architecture.md): services, contracts, events, flows,
   environments
 - [Decision records](docs/adr/README.md)

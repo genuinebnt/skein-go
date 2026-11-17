@@ -1,6 +1,6 @@
 # 0014. Compose, kind, GKE with Terraform; no Ansible
 
-Date: 2026-11-16. Status: accepted.
+Date: 2026-11-16. Status: accepted; compute placement refined by [0018](0018-compute-gke-cloud-run-functions.md), GCP services listed in [0017](0017-gcp-service-map-and-iam.md).
 
 ## Decision
 - Local: Docker Compose (`deploy/compose`) with Postgres, Redis, the Pub/Sub
