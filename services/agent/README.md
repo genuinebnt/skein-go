@@ -150,8 +150,8 @@ share-link tokens redacted) and messages go to the `RunStore`; a finished
 run also records its totals (steps, tokens, cost). `GetRun` returns the
 user-visible events, whose `RunFinished` carries steps and tokens. Cost has
 no field in `GetRunResponse`, so GetRun also sends header metadata
-`x-skein-run-usage` (HTTP `Grpc-Metadata-X-Skein-Run-Usage` through the
-gateway) with JSON: `status`, `steps`, `input_tokens`, `output_tokens`,
+`x-skein-run-usage` (gRPC callers only: the gateway forwards no backend
+header to REST clients) with JSON: `status`, `steps`, `input_tokens`, `output_tokens`,
 `cost_usd` and `model_calls` (step, tokens, cost, latency per call). For a
 run in progress the totals are summed from the model calls so far.
 

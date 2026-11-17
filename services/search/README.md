@@ -97,7 +97,9 @@ and repeated links are dropped.
   finishes, requests get the newest finished result, labelled with its
   version, never a blocked request. Since the response has no version
   fields, the versions travel as response headers: `skein-graph-version`,
-  `skein-graph-metrics-version` and `skein-graph-metrics-pending`.
+  `skein-graph-metrics-version` and `skein-graph-metrics-pending`. Only
+  gRPC callers see them; the gateway forwards no backend header to REST
+  clients, so the web client cannot tell a pending result from a fresh one.
 - **ReadingPlan.** Relevance comes from ml's `SemanticSearch` (best block
   cosine per note). When ml is not configured or fails, it falls back to
   per-term BM25 normalized to [0, 1]. The 40 most relevant notes go to
@@ -159,7 +161,7 @@ Tables (migrations/0001_projection.sql): `notes`, `blocks`, `links`,
 make up-min
 DATABASE_URL=postgres://search:search@localhost:5432/skein?sslmode=disable \
 REDIS_URL=redis://localhost:6379 PUBSUB_PROJECT=skein-local PUBSUB_EMULATOR_HOST=localhost:8085 \
-IDENTITY_ADDR=dns:///localhost:9091 go run ./services/search/cmd/search
+IDENTITY_ADDR=dns:///localhost:9101 go run ./services/search/cmd/search
 
 go run ./services/search/cmd/search-seed -dir testdata/seed/small            # into Postgres
 go run ./services/search/cmd/search-seed -dir testdata/seed/small -dry-run    # in memory

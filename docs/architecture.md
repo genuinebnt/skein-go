@@ -170,8 +170,9 @@ Phases 1 and 2 are merged into `main`:
 - Contracts and generated code: `proto/skein/v1`, `gen/go`, `gen/python`,
   the OpenAPI spec and `docs/api/`.
 - Services: `gateway`, `identity`, `documents`, `search` and
-  `notifications` in Go; `ml` and `agent` in Python. Each has a seed loader
-  checked against the seed data's ground truth.
+  `notifications` in Go; `ml` and `agent` in Python. identity, documents,
+  search and notifications have seed loaders checked against the seed data's
+  ground truth; ml projects documents' events.
 - Local stack: infrastructure, observability and every service in Docker
   Compose (`make up`); seed data from `tools/seed`.
 
@@ -179,7 +180,11 @@ The web frontend (`web/`) is merged and runs in mock mode. The whole stack
 runs natively (`make up-native`, [local-native.md](local-native.md)), every
 integration test runs against it (`make integration-native`), and the
 end-to-end suite (`e2e/`, `make e2e`) covers the user journeys through the
-gateway and the seed's ground truth. What comes next, in order, is in
+gateway and the seed's ground truth. CI (`.github/workflows/ci.yml`) runs
+the Go, Python and web suites, the seed determinism check and every
+integration test on the native stack for each pull request; `e2e.yml` runs
+the end-to-end suite nightly and on changes to it. Known gaps are tracked in
+[gaps.md](gaps.md). What comes next, in order, is in
 [docs/roadmap.md](roadmap.md): contract gaps, the event store (ADR-0016),
 service-to-service identity, Terraform starting with the free-trial profile
 (ADR-0020), functions and storage features, Kubernetes, and the frontend
