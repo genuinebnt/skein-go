@@ -108,10 +108,10 @@ func TestTwoEditorsConvergeThroughConcurrentTypingAndAnOfflineSpell(t *testing.T
 	})
 }
 
-// Lowering a member to viewer is a revocation (access went down): their
-// open socket is closed with 4403 (docs/api/websocket.md). They can still
-// read, so they reconnect; an edit they send then comes back as a rejected
-// frame, is never applied, and they keep receiving everyone else's edits.
+// Lowering a member to viewer lowers access but keeps read (ADR-0008,
+// docs/api/websocket.md): the gateway re-checks and leaves their open socket
+// open; an edit they send on it comes back as a rejected frame, is never
+// applied, and they keep receiving everyone else's edits.
 func TestAViewersEditIsRejectedAndNeverApplied(t *testing.T) {
 	t.Parallel()
 	owner, viewer := signUp(t, "owner"), signUp(t, "viewer")
@@ -124,18 +124,17 @@ func TestAViewersEditIsRejectedAndNeverApplied(t *testing.T) {
 
 	owner.call(http.MethodPut, "/v1/notes/"+note.GetId()+"/roles/"+viewer.id,
 		&skeinv1.SetNoteRoleRequest{Role: skeinv1.NoteRole_NOTE_ROLE_VIEWER}, nil)
-	if code, reason := v.waitClosed(longWait); code != 4403 {
-		t.Fatalf("demotion closed the socket with %d %q, want 4403", code, reason)
-	}
 
 	// documents drops its cached grant on the same event the gateway acted
-	// on, so retry with fresh text until the edit is refused.
+	// on, so an edit sent just after the change can still be accepted; keep
+	// sending fresh text on the same socket until one is refused.
 	attempt := 0
 	eventually(t, longWait, "the viewer's edit is rejected", func() (bool, string) {
-		attempt++
-		if err := v.connect(); err != nil {
-			return false, err.Error()
+		if !v.isOpen() {
+			code, reason := v.waitClosed(time.Second)
+			t.Fatalf("demotion to viewer closed the socket with %d %q; a viewer can still read, so it stays open", code, reason)
 		}
+		attempt++
 		v.appendText(fmt.Sprintf(" viewer-edit-%d", attempt))
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) && len(v.rejections()) == 0 {
@@ -144,7 +143,6 @@ func TestAViewersEditIsRejectedAndNeverApplied(t *testing.T) {
 		if len(v.rejections()) > 0 {
 			return true, ""
 		}
-		v.disconnect()
 		return false, "edit accepted while the old grant was still cached"
 	})
 	rejected := v.rejections()[0]
