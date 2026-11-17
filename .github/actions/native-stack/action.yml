@@ -33,11 +33,16 @@ runs:
     - name: redis-server and PostgreSQL 16
       shell: bash
       run: |
-        pkgs="redis-server"
-        # The runner image ships PostgreSQL 16; install it only if missing.
-        [ -x /usr/lib/postgresql/16/bin/initdb ] || pkgs="$pkgs postgresql-16"
         sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends $pkgs
+        sudo apt-get install -y -qq --no-install-recommends redis-server
+        # Newer runner images (ubuntu-26.04) ship a later PostgreSQL, and
+        # their archive has no 16; take it from the PostgreSQL project's
+        # own apt repository (PGDG), set up by postgresql-common's script.
+        if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+          sudo apt-get install -y -qq --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq --no-install-recommends postgresql-16
+        fi
         # The packaged servers start on the default ports; the native stack
         # runs its own on high ports, so stop them to free memory.
         sudo systemctl stop redis-server postgresql 2>/dev/null || true
