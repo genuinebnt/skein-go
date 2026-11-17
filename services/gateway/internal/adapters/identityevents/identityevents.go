@@ -1,11 +1,12 @@
 // Package identityevents consumes identity.events for the gateway
 // (subscription gateway.identity-events in deploy/compose/pubsub-init.sh).
 //
-// Only AccessChanged with revoked set matters here: it becomes an
-// app.Revocations.Apply, which closes the user's sockets on every replica.
-// Grants and role changes need nothing, because documents re-checks each
-// batch of operations with the current role. Other payloads are acked and
-// ignored.
+// Only AccessChanged with revoked set (access went down: removal,
+// demotion, a lowered override, a revoked link) matters here: it becomes
+// an app.Revocations.Apply, which re-checks the user's sync sockets and
+// closes those that can no longer read, on every replica. Grants need
+// nothing, because documents re-checks each batch of operations with the
+// current role. Other payloads are acked and ignored.
 //
 // A payload that does not decode is returned as an error, so Pub/Sub
 // redelivers it and finally moves it to the dead-letter topic, where a

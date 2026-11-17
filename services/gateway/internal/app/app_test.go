@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"log/slog"
 	"net/netip"
@@ -13,6 +14,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
+	"github.com/genuinebnt/skein-go/platform/auth"
 	"github.com/genuinebnt/skein-go/platform/ratelimit"
 
 	"github.com/genuinebnt/skein-go/services/gateway/internal/domain"
@@ -271,7 +273,7 @@ func (c *recordingCloser) closedWith() []domain.CloseCode {
 
 func mustAdd(t *testing.T, r *Registry, info SocketInfo, c SocketCloser) func() {
 	t.Helper()
-	remove, err := r.Add(info, c)
+	remove, err := r.Add(context.Background(), info, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +283,32 @@ func mustAdd(t *testing.T, r *Registry, info SocketInfo, c SocketCloser) func() 
 	return remove
 }
 
-func TestRevokeClosesOnlyTheAffectedSockets(t *testing.T) {
+// fakeAccess answers CanRead from a set of (user, note) pairs that can no
+// longer read, and records the subject and token each check was made with.
+type fakeAccess struct {
+	mu       sync.Mutex
+	lost     map[[2]string]bool
+	err      error
+	subjects []auth.Subject
+	tokens   []string
+}
+
+func (a *fakeAccess) CanRead(ctx context.Context, subject auth.Subject, noteID string) (bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	token, _ := auth.TokenFromContext(ctx)
+	a.subjects, a.tokens = append(a.subjects, subject), append(a.tokens, token)
+	if a.err != nil {
+		return false, a.err
+	}
+	return !a.lost[[2]string{subject.UserID, noteID}], nil
+}
+
+func revocations(access NoteAccess, registry *Registry) *Revocations {
+	return NewRevocations(&memoryBus{}, registry, access, discard)
+}
+
+func TestRevocationClosesOnlySyncSocketsThatCanNoLongerRead(t *testing.T) {
 	r := NewRegistry()
 	syncN1, syncN2, agent, notes, other := &recordingCloser{}, &recordingCloser{}, &recordingCloser{}, &recordingCloser{}, &recordingCloser{}
 	mustAdd(t, r, SocketInfo{Kind: domain.SocketSync, UserID: "u1", NoteID: "n1", Owner: "d1"}, syncN1)
@@ -289,15 +316,71 @@ func TestRevokeClosesOnlyTheAffectedSockets(t *testing.T) {
 	mustAdd(t, r, SocketInfo{Kind: domain.SocketAgent, UserID: "u1"}, agent)
 	mustAdd(t, r, SocketInfo{Kind: domain.SocketNotifications, UserID: "u1"}, notes)
 	mustAdd(t, r, SocketInfo{Kind: domain.SocketSync, UserID: "u2", NoteID: "n1", Owner: "d1"}, other)
+	access := &fakeAccess{lost: map[[2]string]bool{{"u1", "n1"}: true}}
+	uc := revocations(access, r)
 
-	if n := r.Revoke(domain.Revocation{UserID: "u1", NoteID: "n1"}); n != 1 || len(syncN1.closedWith()) != 1 || syncN1.closedWith()[0] != domain.CloseForbidden {
-		t.Fatalf("note revocation closed %d", n)
+	if o := uc.Enforce(context.Background(), domain.Revocation{UserID: "u1", NoteID: "n1"}); o != (RevocationOutcome{Closed: 1}) {
+		t.Fatalf("note revocation: %+v", o)
 	}
-	if n := r.Revoke(domain.Revocation{UserID: "u1", WorkspaceID: "w1"}); n != 3 {
-		t.Fatalf("workspace revocation closed %d, want sync n1, sync n2 and agent", n)
+	if got := syncN1.closedWith(); len(got) != 1 || got[0] != domain.CloseForbidden {
+		t.Fatalf("n1 closed with %v", got)
+	}
+	// Workspace-level: n2 is still readable (a demotion), the agent socket
+	// reconnects, n1 is already closed (closing again is a no-op).
+	if o := uc.Enforce(context.Background(), domain.Revocation{UserID: "u1", WorkspaceID: "w1"}); o.Kept != 1 || o.Closed != 2 {
+		t.Fatalf("workspace revocation: %+v", o)
+	}
+	if len(syncN2.closedWith()) != 0 {
+		t.Error("closed a sync socket whose user can still read the note")
+	}
+	if got := agent.closedWith(); len(got) != 1 || got[0] != domain.CloseForbidden {
+		t.Errorf("agent closed with %v", got)
 	}
 	if len(notes.closedWith()) != 0 || len(other.closedWith()) != 0 {
 		t.Error("closed a notifications socket or another user's socket")
+	}
+	if err := r.CheckInvariants(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDemotedViewerKeepsTheSyncSocketOpen(t *testing.T) {
+	r := NewRegistry()
+	c := &recordingCloser{}
+	mustAdd(t, r, SocketInfo{Kind: domain.SocketSync, UserID: "u1", NoteID: "n1", Owner: "d1"}, c)
+	if o := revocations(&fakeAccess{}, r).Enforce(context.Background(), domain.Revocation{UserID: "u1", WorkspaceID: "w1"}); o != (RevocationOutcome{Kept: 1}) {
+		t.Fatalf("outcome %+v", o)
+	}
+	if len(c.closedWith()) != 0 {
+		t.Errorf("closed with %v", c.closedWith())
+	}
+}
+
+func TestAccessIsRecheckedAsTheSocketsOwnUser(t *testing.T) {
+	r := NewRegistry()
+	token := rand.Text() // generated, never a literal (secret scanning)
+	claims := auth.Claims{Subject: auth.Subject{UserID: "u1", AgentRunID: "run-1"}}
+	if _, err := r.Add(auth.WithClaims(context.Background(), claims, token),
+		SocketInfo{Kind: domain.SocketSync, UserID: "u1", NoteID: "n1", Owner: "d1"}, &recordingCloser{}); err != nil {
+		t.Fatal(err)
+	}
+	access := &fakeAccess{}
+	revocations(access, r).Enforce(context.Background(), domain.Revocation{UserID: "u1", NoteID: "n1"})
+	if len(access.subjects) != 1 || access.subjects[0] != claims.Subject || access.tokens[0] != token {
+		t.Errorf("checked as %v with token %q", access.subjects, access.tokens)
+	}
+}
+
+func TestAFailedRecheckAsksTheSocketToReconnect(t *testing.T) {
+	r := NewRegistry()
+	c := &recordingCloser{}
+	mustAdd(t, r, SocketInfo{Kind: domain.SocketSync, UserID: "u1", NoteID: "n1", Owner: "d1"}, c)
+	access := &fakeAccess{err: errors.New("identity unavailable")}
+	if o := revocations(access, r).Enforce(context.Background(), domain.Revocation{UserID: "u1", NoteID: "n1"}); o != (RevocationOutcome{Unverified: 1}) {
+		t.Fatalf("outcome %+v", o)
+	}
+	if got := c.closedWith(); len(got) != 1 || got[0] != domain.CloseServiceRestart {
+		t.Errorf("closed with %v, want 1012", got)
 	}
 }
 
@@ -327,7 +410,7 @@ func TestDrainClosesEverySocketRefusesNewOnesAndWaits(t *testing.T) {
 	for len(closers[2].closedWith()) == 0 && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	if _, err := r.Add(SocketInfo{Kind: domain.SocketAgent, UserID: "u"}, &recordingCloser{}); !errors.Is(err, ErrDraining) {
+	if _, err := r.Add(context.Background(), SocketInfo{Kind: domain.SocketAgent, UserID: "u"}, &recordingCloser{}); !errors.Is(err, ErrDraining) {
 		t.Fatalf("new socket during drain: %v", err)
 	}
 	for i, remove := range removes {
@@ -400,7 +483,7 @@ func TestRevocationsCloseLocallyEvenWhenTheBroadcastFails(t *testing.T) {
 	local := NewRegistry()
 	c := &recordingCloser{}
 	mustAdd(t, local, SocketInfo{Kind: domain.SocketAgent, UserID: "u1"}, c)
-	err := NewRevocations(bus, local, discard).Apply(context.Background(), domain.Revocation{UserID: "u1"})
+	err := NewRevocations(bus, local, &fakeAccess{}, discard).Apply(context.Background(), domain.Revocation{UserID: "u1"})
 	if err == nil {
 		t.Error("broadcast failure must be returned so the event is redelivered")
 	}
@@ -416,7 +499,8 @@ func TestRevocationsReachOtherReplicasThroughTheBus(t *testing.T) {
 	mustAdd(t, other, SocketInfo{Kind: domain.SocketSync, UserID: "u1", NoteID: "n1", Owner: "d"}, c)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go func() { _ = NewRevocations(bus, other, discard).Listen(ctx) }()
+	access := &fakeAccess{lost: map[[2]string]bool{{"u1", "n1"}: true}}
+	go func() { _ = NewRevocations(bus, other, access, discard).Listen(ctx) }()
 	for {
 		bus.mu.Lock()
 		n := len(bus.handlers)
@@ -426,7 +510,7 @@ func TestRevocationsReachOtherReplicasThroughTheBus(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	if err := NewRevocations(bus, consumer, discard).Apply(ctx, domain.Revocation{UserID: "u1", NoteID: "n1"}); err != nil {
+	if err := NewRevocations(bus, consumer, access, discard).Apply(ctx, domain.Revocation{UserID: "u1", NoteID: "n1"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := c.closedWith(); len(got) != 1 || got[0] != domain.CloseForbidden {

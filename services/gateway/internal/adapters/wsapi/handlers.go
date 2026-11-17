@@ -156,7 +156,7 @@ func (h *Handlers) upgrade(w http.ResponseWriter, r *http.Request, kind domain.S
 	// ID, claims, span) and controls its own lifetime.
 	base := edge.OutgoingSubject(context.WithoutCancel(ctx))
 	sock := newSocket(base, o.enc, h.cfg.Options, h.cfg.Logger)
-	remove, err := h.cfg.Registry.Add(info, sock)
+	remove, err := h.cfg.Registry.Add(base, info, sock)
 	if err != nil {
 		if errors.Is(err, app.ErrDraining) {
 			err = status.Error(codes.Unavailable, "gateway is restarting")

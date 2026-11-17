@@ -2,6 +2,7 @@ import datetime
 
 from google.api import annotations_pb2 as _annotations_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from skein_proto.protoc_gen_openapiv2.options import annotations_pb2 as _annotations_pb2_1
 from skein_proto.v1 import common_pb2 as _common_pb2
