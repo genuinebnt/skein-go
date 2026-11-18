@@ -317,6 +317,35 @@ counter would only duplicate it. Run duration includes time paused for
 confirmations. `skein.agent.tool.name` takes values from the fixed tool
 registry, never from model output.
 
+### Service metrics
+
+Each service's own instruments, as the code defines them today (the
+service READMEs say why each exists). The agent's metrics, the outbox's
+pending and lag gauges, and ml's RPC metrics do not yet match the tables
+above; [gaps.md](gaps.md) tracks those.
+
+| Metric | Type | Unit | Attributes | Defined in |
+|---|---|---|---|---|
+| `skein.gateway.idempotency.outcomes` | counter | `{request}` | `skein.idempotency.outcome` | `services/gateway` |
+| `skein.gateway.websocket.connections` | up-down counter | `{connection}` | `skein.websocket.endpoint` (`sync`, `agent`, `notifications`) | `services/gateway` |
+| `skein.gateway.websocket.closes` | counter | `{connection}` | `skein.websocket.endpoint`, `skein.websocket.close_code` | `services/gateway` |
+| `skein.documents.actors` | up-down counter | `{actor}` | none | `services/documents/internal/app/metrics.go` |
+| `skein.documents.sync.sessions` | up-down counter | `{session}` | none | same |
+| `skein.documents.ops.applied` | counter | `{op}` | `skein.batch.kind` | same |
+| `skein.documents.batches.rejected` | counter | `{batch}` | `skein.reject.reason` | same |
+| `skein.documents.actor.load.duration` | histogram | `s` | none | same |
+| `skein.notifications.placed` | counter | `{notification}` | `skein.notification.kind`, `outcome` | `services/notifications/internal/app/producer.go` |
+| `skein.notifications.suppressed` | counter | `{notification}` | `skein.notification.kind`, `reason` | same |
+| `skein.notifications.post_commit.errors` | counter | `{error}` | `step` | same |
+| `skein.notifications.emails` | counter | `{email}` | `outcome`, `type` | `services/notifications/internal/app/emailsender.go` |
+| `skein.notifications.email.send.duration` | histogram | `s` | none | same |
+| `skein.notifications.live.subscribers` | up-down counter | `{subscriber}` | none | `services/notifications/internal/app/live.go` |
+| `skein.notifications.live.dropped` | counter | `{subscriber}` | none | same |
+| `skein.ml.rpc.requests` | counter | `1` | `rpc.method`, `rpc.grpc.status_code` | `services/ml/src/skein_ml/adapters/observability.py` |
+| `skein.ml.rpc.duration` | histogram | `ms` | `rpc.method`, `rpc.grpc.status_code` | same |
+| `skein.ml.events` | counter | `1` | `kind`, `outcome` | same |
+| `skein.ml.search.recall` | histogram | `1` | none | same |
+
 ### Histogram buckets
 
 OpenTelemetry SDKs' default buckets (0, 5, 10, 25 ... 10 000) assume

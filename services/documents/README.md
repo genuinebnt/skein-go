@@ -86,7 +86,9 @@ whose event another instance consumed.
 ```
 go test -race ./...                                    # unit tests, no Docker
 SKEIN_TEST_DATABASE_URL=postgres://... \
-  go test -tags integration ./internal/adapters/postgres   # on an existing Postgres
+  go test -tags integration ./internal/adapters/postgres   # in an existing database
+SKEIN_TEST_POSTGRES_DSN=postgres://... \
+  go test -tags integration ./internal/adapters/postgres   # a fresh database per test on an existing server
 go test -tags integration ./internal/adapters/postgres     # or with testcontainers (Docker)
 go run ./cmd/documents-seed -dir ../../testdata/seed/small # needs DATABASE_URL
 ```

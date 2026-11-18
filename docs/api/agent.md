@@ -97,7 +97,7 @@ GET /v1/runs/01936f51-7a8b-7c9d-8e0f-1a2b3c4d5e6f
       "runId": "01936f51-7a8b-7c9d-8e0f-1a2b3c4d5e6f",
       "toolCall": {
         "callId": "call_1",
-        "tool": "search_notes",
+        "tool": "search",
         "argumentsJson": "{\"query\": \"raft\"}"
       }
     },

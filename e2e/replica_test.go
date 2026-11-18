@@ -244,6 +244,23 @@ func (r *replica) rejections() []*skeinv1.SyncRejected {
 	return append([]*skeinv1.SyncRejected(nil), r.rejected...)
 }
 
+// isOpen reports whether the replica is connected and the server has not
+// closed its socket.
+func (r *replica) isOpen() bool {
+	r.mu.Lock()
+	conn, done := r.conn, r.done
+	r.mu.Unlock()
+	if conn == nil {
+		return false
+	}
+	select {
+	case <-done:
+		return false
+	default:
+		return true
+	}
+}
+
 // waitClosed waits for the server to close the socket and returns the close
 // code (-1 when it ended without a close frame).
 func (r *replica) waitClosed(timeout time.Duration) (websocket.StatusCode, string) {

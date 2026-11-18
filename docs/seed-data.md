@@ -400,8 +400,13 @@ confirms every target.
 
 ## Loader contract
 
-Service seed loaders come later, one per service, each reading these files
-through its own adapters and APIs. Each loader must:
+Each service loads its own share of these files through its own adapters
+and APIs: identity, documents, search and notifications have loaders
+(`go run ./services/<name>/cmd/<name>-seed -dir testdata/seed/small`, run in
+that order by `make up-native`; the Docker stack's `make seed-load` runs
+only identity and documents); ml builds its
+projection from the events documents' loader publishes, and the agent loads
+nothing. Each loader must:
 
 1. **Check the manifest first**: `format_version` it supports, and the
    sha256 of every file it reads (and `ops_sha256` per note). Refuse on

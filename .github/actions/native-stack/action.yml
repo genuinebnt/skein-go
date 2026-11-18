@@ -1,0 +1,50 @@
+# Installs what deploy/local/up.sh needs on a GitHub-hosted Ubuntu runner
+# (docs/local-native.md, Requirements): Go, Python with uv, Java and the
+# Google Cloud CLI's Pub/Sub emulator, redis-server, and PostgreSQL 16's
+# server binaries. Shared by the integration job in ci.yml and e2e.yml so
+# both start the same stack.
+name: native-stack tools
+description: Toolchain for make up-native, make integration-native and make e2e
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: libs/crdt/go.mod
+        cache-dependency-path: "**/go.sum"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    # up.sh builds the ml and agent environments with uv; its cache holds
+    # the downloaded wheels, keyed by the agent's lock and ml's pyproject.
+    - uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        cache-dependency-glob: |
+          services/agent/uv.lock
+          services/ml/pyproject.toml
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "21"
+    - uses: google-github-actions/setup-gcloud@v2
+      with:
+        install_components: beta,pubsub-emulator
+    - name: redis-server and PostgreSQL 16
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends redis-server
+        # Newer runner images (ubuntu-26.04) ship a later PostgreSQL, and
+        # their archive has no 16; take it from the PostgreSQL project's
+        # own apt repository (PGDG), set up by postgresql-common's script.
+        if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+          sudo apt-get install -y -qq --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq --no-install-recommends postgresql-16
+        fi
+        # The packaged servers start on the default ports; the native stack
+        # runs its own on high ports, so stop them to free memory.
+        sudo systemctl stop redis-server postgresql 2>/dev/null || true
+        /usr/lib/postgresql/16/bin/postgres --version
+        redis-server --version

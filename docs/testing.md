@@ -11,7 +11,7 @@ Docker or the rest of the system. Full-stack tests exist but are few.
 | Use case | a service's app layer with in-memory fakes for its ports | Go or Python only | `cd services/<name> && go test ./internal/app/...` |
 | Adapter | Postgres, Pub/Sub and gRPC adapters | Docker (Testcontainers starts what it needs), or a running server named by `SKEIN_TEST_POSTGRES_DSN`, `SKEIN_TEST_REDIS_URL`, `SKEIN_TEST_PUBSUB_EMULATOR_HOST` | `go test -tags integration ./internal/adapters/...`, or `make integration-native` for all of them |
 | Contract | proto lint and breaking changes; event consumer tests | `buf` | `make proto-check` |
-| Service | one service with fakes for every service it calls | Docker for its own database | `make test-service SVC=<name>` |
+| Service | one service with fakes for every service it calls | Docker for its own database, or a server named by `SKEIN_TEST_POSTGRES_DSN` | `cd services/<name> && go test -tags integration ./...` (`pytest -m integration` for ml and agent) |
 | End to end | user journeys through the gateway (`e2e/`, build tag `e2e`) | `make up-native` | `make e2e` |
 
 ## Rules

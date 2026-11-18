@@ -224,8 +224,8 @@ Server frames, in the order a run might produce them:
   "runId": "01936f51-7a8b-7c9d-8e0f-1a2b3c4d5e6f",
   "toolCall": {
     "callId": "call_1",
-    "tool": "search_notes",
-    "argumentsJson": "{\"query\": \"raft\", \"changedSince\": \"2026-11-09\"}"
+    "tool": "search",
+    "argumentsJson": "{\"query\": \"raft\"}"
   }
 }
 ```

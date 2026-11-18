@@ -53,6 +53,7 @@ docs/            architecture, decisions, specs, guides
 ## Documentation
 
 - [Roadmap](docs/roadmap.md): what is done and what comes next
+- [Known gaps](docs/gaps.md): every gap found, fixed or deferred, with its owner area
 - [Architecture](docs/architecture.md): services, contracts, events, flows,
   environments
 - [Decision records](docs/adr/README.md)
